@@ -1,12 +1,13 @@
 import { CCmdTarget } from "./cmdtarget";
 import type { CWnd } from "./wnd";
-import { RunMessageLoop } from "../kernel.svelte";
+import { PostQuitMessage, RunMessageLoop } from "../kernel.svelte";
 
 let globalApp: CWinApp | null = null;
 
 export class CWinApp extends CCmdTarget {
   public m_pMainWnd: CWnd | null = null;
   public m_pszAppName: string = "MFC Application";
+  private m_bRunning = false;
 
   public static getClassName(): string {
     return "CWinApp";
@@ -31,8 +32,20 @@ export class CWinApp extends CCmdTarget {
     if (!success) {
       return this.exitInstance();
     }
-    await RunMessageLoop();
+    if (this.m_pMainWnd && !this.m_pMainWnd.m_hWnd) {
+      return this.exitInstance();
+    }
+    this.m_bRunning = true;
+    try {
+      await RunMessageLoop();
+    } finally {
+      this.m_bRunning = false;
+    }
     return this.exitInstance();
+  }
+
+  public onMainWindowDestroyed(): void {
+    if (this.m_bRunning) PostQuitMessage();
   }
 }
 

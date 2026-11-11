@@ -1,24 +1,33 @@
 import { CWnd } from "./wnd";
-import { IDOK, IDCANCEL, WS_POPUP, WS_CAPTION, WS_SYSMENU, WS_VISIBLE, WM_INITDIALOG, WM_COMMAND, LOWORD } from "../constants";
+import { AfxGetMainWnd } from "./app";
+import { EnableWindow } from "../kernel.svelte";
+import { IDOK, IDCANCEL, WS_POPUP, WS_CAPTION, WS_SYSMENU, WM_INITDIALOG, WM_COMMAND, WM_CLOSE, WM_DESTROY, LOWORD } from "../constants";
 
 export class CDialog extends CWnd {
   private m_modalResolve?: (result: number) => void;
-  public m_nResult: number = 0;
+  public m_nResult: number = IDCANCEL;
 
   public static getClassName(): string {
     return "CDialog";
   }
 
   public async doModal(): Promise<number> {
-    const created = this.createDialog();
-    if (!created) return IDCANCEL;
+    const owner = AfxGetMainWnd();
+    const ownerHwnd = owner?.m_hWnd ?? 0;
+    const ownerWasEnabled = ownerHwnd ? EnableWindow(ownerHwnd, false) : false;
 
-    this.onInitDialog();
-    this.showWindow();
+    try {
+      if (!this.createDialog()) return IDCANCEL;
 
-    return new Promise<number>((resolve) => {
-      this.m_modalResolve = resolve;
-    });
+      const modalResult = new Promise<number>((resolve) => {
+        this.m_modalResolve = resolve;
+      });
+      this.onInitDialog();
+      if (this.m_hWnd) this.showWindow();
+      return await modalResult;
+    } finally {
+      if (ownerHwnd) EnableWindow(ownerHwnd, ownerWasEnabled);
+    }
   }
 
   protected createDialog(
@@ -28,7 +37,7 @@ export class CDialog extends CWnd {
     x = 240,
     y = 160
   ): boolean {
-    const dwStyle = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE;
+    const dwStyle = WS_POPUP | WS_CAPTION | WS_SYSMENU;
     return this.createEx(0, null, caption, dwStyle, x, y, width, height, null, null);
   }
 
@@ -46,14 +55,15 @@ export class CDialog extends CWnd {
 
   public endDialog(nResult: number): void {
     this.m_nResult = nResult;
-    this.destroyWindow();
-    if (this.m_modalResolve) {
-      this.m_modalResolve(nResult);
-      this.m_modalResolve = undefined;
-    }
+    if (!this.destroyWindow()) this.resolveModal(nResult);
   }
 
   public override windowProc(uMsg: number, wParam: any, lParam: any): any {
+    if (uMsg === WM_CLOSE) {
+      this.onCancel();
+      return 0;
+    }
+
     if (uMsg === WM_COMMAND) {
       const id = LOWORD(wParam);
       if (id === IDOK) {
@@ -65,6 +75,16 @@ export class CDialog extends CWnd {
         return 0;
       }
     }
-    return super.windowProc(uMsg, wParam, lParam);
+    try {
+      return super.windowProc(uMsg, wParam, lParam);
+    } finally {
+      if (uMsg === WM_DESTROY) this.resolveModal(this.m_nResult);
+    }
+  }
+
+  private resolveModal(result: number): void {
+    const resolve = this.m_modalResolve;
+    this.m_modalResolve = undefined;
+    resolve?.(result);
   }
 }

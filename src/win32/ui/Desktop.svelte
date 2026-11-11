@@ -127,7 +127,7 @@
 
   function toggleTaskbarWindow(hwnd: number) {
     const win = kernel.getWindow(hwnd);
-    if (!win) return;
+    if (!win || !win.enabled) return;
     if (win.minimized) {
       ShowWindow(hwnd, SW_RESTORE);
     } else if (kernel.activeHwnd === hwnd) {

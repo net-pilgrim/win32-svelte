@@ -1,9 +1,10 @@
 import { CCmdTarget } from "./cmdtarget";
-import type { HWND, HMENU, UINT, WPARAM, LPARAM, LRESULT, RECT, POINT } from "../types";
+import type { HWND, HMENU, UINT, WPARAM, LPARAM, LRESULT, RECT, POINT, WndProc } from "../types";
 import {
   CreateWindowEx,
   ShowWindow as Win32ShowWindow,
   DestroyWindow as Win32DestroyWindow,
+  EnableWindow as Win32EnableWindow,
   SendMessage as Win32SendMessage,
   PostMessage as Win32PostMessage,
   DefWindowProc as Win32DefWindowProc,
@@ -22,13 +23,18 @@ import {
   WS_VISIBLE,
   SW_SHOW,
   MB_OK,
+  WM_DESTROY,
+  WM_PAINT,
 } from "../constants";
+import { AfxGetApp, AfxGetMainWnd } from "./app";
+import { GetWindowCanvas } from "../gdi";
 
 // Static mapping from HWND to CWnd instance
 const handleMap = new Map<HWND, CWnd>();
 
 export class CWnd extends CCmdTarget {
   public m_hWnd: HWND = 0;
+  private m_defaultWndProc?: WndProc;
 
   public static getClassName(): string {
     return "CWnd";
@@ -87,7 +93,8 @@ export class CWnd extends CCmdTarget {
   }
 
   public defWindowProc(uMsg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {
-    return Win32DefWindowProc(this.m_hWnd, uMsg, wParam, lParam);
+    return this.m_defaultWndProc?.(this.m_hWnd, uMsg, wParam, lParam) ??
+      Win32DefWindowProc(this.m_hWnd, uMsg, wParam, lParam);
   }
 
   public create(
@@ -130,19 +137,14 @@ export class CWnd extends CCmdTarget {
     nIDorHMenu: number | null = null,
     lpParam: any = null
   ): boolean {
+    if (this.m_hWnd) return false;
     const finalClassName = className || `MFC_Wnd_${this.getRuntimeClass()}`;
 
-    // Ensure window class is registered with the kernel routing to CWnd.windowProc
-    RegisterClassEx({
-      className: finalClassName,
-      lpfnWndProc: (hwnd, uMsg, wParam, lParam) => {
-        const pWnd = handleMap.get(hwnd);
-        if (pWnd) {
-          return pWnd.windowProc(uMsg, wParam, lParam);
-        }
-        return Win32DefWindowProc(hwnd, uMsg, wParam, lParam);
-      },
-    });
+    this.m_defaultWndProc = kernel.getClassWndProc(finalClassName);
+    if (!this.m_defaultWndProc) {
+      RegisterClassEx({ className: finalClassName, lpfnWndProc: Win32DefWindowProc });
+      this.m_defaultWndProc = Win32DefWindowProc;
+    }
 
     const hwnd = CreateWindowEx(
       dwExStyle,
@@ -156,12 +158,27 @@ export class CWnd extends CCmdTarget {
       hwndParent,
       nIDorHMenu,
       null,
-      lpParam
+      lpParam,
+      (createdHwnd, uMsg, wParam, lParam) => {
+        if (this.m_hWnd === 0) this.attach(createdHwnd);
+        if (this.m_hWnd !== createdHwnd) {
+          return this.m_defaultWndProc!(createdHwnd, uMsg, wParam, lParam);
+        }
+        try {
+          return this.windowProc(uMsg, wParam, lParam);
+        } finally {
+          if (uMsg === WM_DESTROY) {
+            if (AfxGetMainWnd() === this) AfxGetApp()?.onMainWindowDestroyed();
+            this.detach();
+          }
+        }
+      }
     );
 
-    if (hwnd === 0) return false;
-
-    this.attach(hwnd);
+    if (hwnd === 0) {
+      this.detach();
+      return false;
+    }
     return true;
   }
 
@@ -172,13 +189,21 @@ export class CWnd extends CCmdTarget {
 
   public updateWindow(): void {
     if (!this.m_hWnd) return;
-    this.sendMessage(0x000f /* WM_PAINT */, 0, 0);
+    if (!GetWindowCanvas(this.m_hWnd)) return;
+    this.sendMessage(WM_PAINT, 0, 0);
   }
 
   public destroyWindow(): boolean {
     if (!this.m_hWnd) return false;
-    const hwnd = this.detach();
-    return Win32DestroyWindow(hwnd);
+    const hwnd = this.m_hWnd;
+    const destroyed = Win32DestroyWindow(hwnd);
+    if (destroyed && this.m_hWnd === hwnd) this.detach();
+    return destroyed;
+  }
+
+  public enableWindow(enable: boolean): boolean {
+    if (!this.m_hWnd) return false;
+    return Win32EnableWindow(this.m_hWnd, enable);
   }
 
   public setWindowText(text: string): boolean {

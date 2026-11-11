@@ -663,6 +663,10 @@ class Win32Kernel {
     return true;
   }
 
+  public getClassWndProc(className: string): WndProc | undefined {
+    return this.classes.get(className.toUpperCase())?.lpfnWndProc;
+  }
+
   public CreateWindowEx(
     exStyle: number,
     className: string,
@@ -675,7 +679,8 @@ class Win32Kernel {
     parentHwnd: HWND | null = null,
     menuId: number | null = null,
     _instance: any = null,
-    param: any = null
+    param: any = null,
+    wndProc?: WndProc
   ): HWND {
     const classDef = this.classes.get(className.toUpperCase());
     if (!classDef) {
@@ -690,7 +695,7 @@ class Win32Kernel {
       hwnd,
       parentHwnd,
       className,
-      wndProc: classDef.lpfnWndProc,
+      wndProc: wndProc ?? classDef.lpfnWndProc,
       title,
       x,
       y,
@@ -773,9 +778,17 @@ class Win32Kernel {
 
   public BringToFront(hwnd: HWND) {
     const win = this.getWindow(hwnd);
-    if (!win || win.parentHwnd !== null) return;
+    if (!win || win.parentHwnd !== null || !win.enabled) return;
     win.zIndex = ++this.topZIndex;
     this.activeHwnd = hwnd;
+  }
+
+  public EnableWindow(hwnd: HWND, enable: boolean): boolean {
+    const win = this.getWindow(hwnd);
+    if (!win) return false;
+    const wasEnabled = win.enabled;
+    win.enabled = enable;
+    return wasEnabled;
   }
 
   public DestroyWindow(hwnd: HWND): boolean {
@@ -883,6 +896,12 @@ class Win32Kernel {
       case WM_CLOSE:
         this.DestroyWindow(hwnd);
         return 0;
+      case WM_SETTEXT: {
+        const win = this.getWindow(hwnd);
+        if (!win) return 0;
+        win.title = String(lParam ?? "");
+        return 1;
+      }
     }
     return 0;
   }
@@ -1120,11 +1139,13 @@ export const CreateWindowEx = (
   parent: HWND | null,
   menuId: number | null,
   instance: any = null,
-  param: any = null
-) => kernel.CreateWindowEx(exStyle, className, title, style, x, y, w, h, parent, menuId, instance, param);
+  param: any = null,
+  wndProc?: WndProc
+) => kernel.CreateWindowEx(exStyle, className, title, style, x, y, w, h, parent, menuId, instance, param, wndProc);
 
 export const ShowWindow = (hwnd: HWND, cmd: number) => kernel.ShowWindow(hwnd, cmd);
 export const DestroyWindow = (hwnd: HWND) => kernel.DestroyWindow(hwnd);
+export const EnableWindow = (hwnd: HWND, enable: boolean) => kernel.EnableWindow(hwnd, enable);
 export const SendMessage = (hwnd: HWND, msg: UINT, wParam: WPARAM = 0, lParam: LPARAM = 0) =>
   kernel.SendMessage(hwnd, msg, wParam, lParam);
 export const PostMessage = (hwnd: HWND, msg: UINT, wParam: WPARAM = 0, lParam: LPARAM = 0) =>
