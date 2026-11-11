@@ -8,9 +8,9 @@
   import { StartControlGallery } from "./samples/control_gallery";
   import { StartPaintDemo } from "./samples/paint_demo";
   import { StartExplorer } from "./samples/explorer";
-  import { kernel, audio } from "./win32/kernel.svelte";
+  import { StartHwndInspector } from "./samples/hwnd_inspector";
+  import { audio } from "./win32/kernel.svelte";
 
-  let showInspector = $state(false);
   let soundEnabled = $state(true);
 
   function toggleSound() {
@@ -51,45 +51,10 @@
     <button onclick={toggleSound}>
       {soundEnabled ? "🔊 Sound: ON" : "🔇 Sound: OFF"}
     </button>
-    <button onclick={() => showInspector = !showInspector}>
-      {showInspector ? "Hide HWND Tree" : "Inspect HWNDs"}
+    <button onclick={() => StartHwndInspector()}>
+      + HWND Tree
     </button>
   </div>
-
-  {#if showInspector}
-    <div class="inspector-window window">
-      <div class="title-bar">
-        <div class="title-bar-text">Kernel HWND Table ({kernel.windows.length} handles)</div>
-        <div class="title-bar-controls">
-          <button aria-label="Close" onclick={() => showInspector = false}></button>
-        </div>
-      </div>
-      <div class="window-body inspector-body">
-        <table class="hwnd-table">
-          <thead>
-            <tr>
-              <th>HWND</th>
-              <th>Parent</th>
-              <th>Class</th>
-              <th>Title/Text</th>
-              <th>Visible</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each kernel.windows as win}
-              <tr class={kernel.activeHwnd === win.hwnd ? "active-row" : ""}>
-                <td>{win.hwnd}</td>
-                <td>{win.parentHwnd ?? "ROOT"}</td>
-                <td>{win.className}</td>
-                <td class="cell-text">{win.title || win.controlState?.value || ""}</td>
-                <td>{win.visible ? "✓" : "✗"}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  {/if}
 </main>
 
 <style>
@@ -115,52 +80,4 @@
     padding: 0 8px;
   }
 
-  .inspector-window {
-    position: absolute;
-    top: 40px;
-    right: 8px;
-    width: 380px;
-    max-height: 400px;
-    z-index: 100000;
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .inspector-body {
-    flex: 1;
-    overflow-y: auto;
-    background: #fff;
-    padding: 4px;
-  }
-
-  .hwnd-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-    font-family: monospace;
-  }
-
-  .hwnd-table th,
-  .hwnd-table td {
-    border: 1px solid #ccc;
-    padding: 2px 4px;
-    text-align: left;
-  }
-
-  .hwnd-table th {
-    background: #eee;
-  }
-
-  .active-row {
-    background: #ffffcc;
-    font-weight: bold;
-  }
-
-  .cell-text {
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 </style>
