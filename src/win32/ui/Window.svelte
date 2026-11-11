@@ -176,6 +176,13 @@
     e.preventDefault();
     isDragOver = false;
 
+    const clientRect = (e.currentTarget as HTMLElement)
+      .querySelector(".client-area")!
+      .getBoundingClientRect();
+    const dropPoint = {
+      x: Math.round(e.clientX - clientRect.left),
+      y: Math.round(e.clientY - clientRect.top),
+    };
     const files: DropFileInfo[] = [];
 
     // 1. Check if internal Win32 drag payload (e.g. from Explorer or another window)
@@ -217,7 +224,7 @@
     if (files.length > 0) {
       const hDrop: HDROP = {
         files,
-        pt: { x: Math.round(e.offsetX), y: Math.round(e.offsetY) },
+        pt: dropPoint,
         hwndTarget: win.hwnd,
       };
       SendMessage(win.hwnd, WM_DROPFILES, hDrop as any, 0);
