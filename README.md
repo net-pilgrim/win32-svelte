@@ -101,6 +101,7 @@ When the app opens:
 ```mermaid
 flowchart TD
     subgraph Apps["Applications & Samples"]
+        Explorer["Windows Explorer"]
         Minesweeper["Minesweeper"]
         Calculator["Calculator"]
         Notepad["Notepad"]
@@ -111,6 +112,7 @@ flowchart TD
     subgraph KernelSubsystem["Win32 Kernel & Subsystems"]
         KernelCore["Kernel Core<br/>(HWND Registry, Class Table, Z-Index)"]
         MsgPump["Message Dispatcher<br/>(SendMessage, PostMessage, DispatchMessage)"]
+        ComCtl32["Common Controls (comctl32)<br/>(TreeView, ListView, TabControl, StatusBar)"]
         GDI["GDI 2D Engine<br/>(HDC, BeginPaint, LineTo, Rectangle, Canvas)"]
         Audio["Synthetic Audio<br/>(Web Audio Synthesizer: Chord, Ding, Tada)"]
     end
@@ -118,14 +120,14 @@ flowchart TD
     subgraph Presentation["Presentation Layer (Svelte 5 & 98.css)"]
         Desktop["Desktop.svelte<br/>(Desktop Icons, Taskbar, Start Menu)"]
         Window["Window.svelte<br/>(Frames, Drag/Resize, Z-Order, GDI Canvas)"]
-        Control["Control.svelte<br/>(BUTTON, EDIT, STATIC, Trackbar, Progress)"]
+        Control["Control.svelte<br/>(BUTTON, EDIT, STATIC, TreeView, ListView, Tabs)"]
         Modals["MenuBar & MessageBoxModal.svelte<br/>(Menus & Dialogs)"]
     end
 
     Apps -->|"Win32 C-style API (RegisterClassEx, CreateWindowEx, WndProc)"| KernelSubsystem
     KernelSubsystem -->|"Svelte 5 Runes ($state, $derived, $effect)"| Presentation
     Presentation -->|"User Events (DOM clicks, pointer moves, inputs)"| KernelSubsystem
-    KernelSubsystem -->|"Dispatched WM_* Messages (WM_COMMAND, WM_PAINT, WM_TIMER)"| Apps
+    KernelSubsystem -->|"Dispatched WM_* Messages (WM_COMMAND, WM_NOTIFY, WM_PAINT)"| Apps
 ```
 
 ### 1. The Kernel Subsystem (`src/win32/kernel.svelte.ts`)
@@ -178,15 +180,16 @@ Uses Web Audio API oscillators and gain envelopes to synthesize legendary retro 
 
 ## 🕹️ Sample Applications
 
-The project includes five complete sample applications written in pure Win32 style:
+The project includes six complete sample applications written in pure Win32 style:
 
 | App | File | Features Demonstrated |
 |---|---|---|
+| **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | The flagship **`comctl32`** showcase! Left-pane `SysTreeView32` folder hierarchy, right-pane `SysListView32` in report/details mode with multi-column sorting & selection, two-part `msctls_statusbar32`, cascading menu commands, and `WM_NOTIFY` (`TVN_SELCHANGED`, `LVN_ITEMCHANGED`) event routing. |
 | **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | 81 child button controls, right-click `BN_RIGHTCLICK` flagging, `SetTimer` game clock, custom 7-segment LED numbers, reset smiley button, win/loss fanfare sound. |
 | **GDI Paint** | [`src/samples/paint_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/paint_demo.ts) | Interactive freehand drawing on canvas, GDI geometry primitives (`Rectangle`, `Ellipse`, `LineTo`), menu color palettes, clear canvas command. |
 | **Calculator** | [`src/samples/calculator.ts`](file:///home/dsv/work/win32-svelte/src/samples/calculator.ts) | Grid of button controls sending `WM_COMMAND`, `EDIT` display control updating via `SetWindowText`, arithmetic state machine. |
 | **Notepad** | [`src/samples/notepad.ts`](file:///home/dsv/work/win32-svelte/src/samples/notepad.ts) | Multiline `EDIT` control with automatic resize on `WM_SIZE`, cascading *File*, *Edit*, and *Help* menus, *Time/Date* insertion, *Select All*, *About* dialog. |
-| **Control Gallery** | [`src/samples/control_gallery.ts`](file:///home/dsv/work/win32-svelte/src/samples/control_gallery.ts) | Comprehensive showcase of GroupBoxes, Checkboxes, Radio button groups, Progress bar stepping, Slider / Trackbar scrubbing, Combobox dropdowns, and Message Box triggers. |
+| **Control Gallery** | [`src/samples/control_gallery.ts`](file:///home/dsv/work/win32-svelte/src/samples/control_gallery.ts) | Tabbed display properties featuring `SysTabControl32` (`TCM_INSERTITEM`, `TCN_SELCHANGE`), GroupBoxes, Checkboxes, Radio button groups, Progress bar stepping, Slider / Trackbar scrubbing, Combobox dropdowns, and Message Box triggers. |
 
 ### How Writing an App Looks
 
@@ -229,11 +232,9 @@ While the core runtime supports an impressive array of classic software patterns
 2. **Coordinate Spaces & Non-Client Area Metrics**:
    - Currently, window widths and heights approximate client rectangles.
    - Full support for `GetClientRect`, `GetWindowRect`, `AdjustWindowRectEx`, and `ScreenToClient` is partially mocked.
-3. **Advanced Common Controls (`COMCTL32`)**:
-   - `WC_LISTVIEW` (Details, Large Icons, Small Icons, List modes).
-   - `WC_TREEVIEW` (Hierarchical tree nodes with expand/collapse).
-   - `STATUSCLASSNAME` (Status bars at the bottom of windows).
-   - `WC_TABCONTROL` (Multi-tab property sheets).
+3. **Common Controls (`COMCTL32`) Enhancements**:
+   - `WC_TABCONTROL`, `WC_TREEVIEW`, `WC_LISTVIEW`, and `STATUSCLASSNAME` are now supported!
+   - Future extensions: Image lists (`HIMAGELIST`), column reordering/sorting drag-drop in `SysListView32`, and TreeView in-place label editing (`TVM_EDITLABEL`).
 4. **Keyboard Navigation & Accelerator Tables**:
    - `WS_TABSTOP` keyboard tabbing between controls.
    - Accelerators (`HACCEL`, `TranslateAccelerator`) for global hotkeys (e.g., `Ctrl+O`, `Ctrl+S`, `Alt+F4`).

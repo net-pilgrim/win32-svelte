@@ -7,6 +7,7 @@
   import { StartMinesweeper } from "./samples/minesweeper";
   import { StartControlGallery } from "./samples/control_gallery";
   import { StartPaintDemo } from "./samples/paint_demo";
+  import { StartExplorer } from "./samples/explorer";
   import { kernel, audio } from "./win32/kernel.svelte";
 
   let showInspector = $state(false);
@@ -31,6 +32,9 @@
   <div class="hud-panel">
     <button onclick={() => StartPaintDemo(Math.floor(Math.random() * 200 + 40), Math.floor(Math.random() * 200 + 40))}>
       + GDI Paint
+    </button>
+    <button onclick={() => StartExplorer(Math.floor(Math.random() * 200 + 40), Math.floor(Math.random() * 200 + 40))}>
+      + Explorer
     </button>
     <button onclick={() => StartControlGallery(Math.floor(Math.random() * 200 + 40), Math.floor(Math.random() * 200 + 40))}>
       + Controls

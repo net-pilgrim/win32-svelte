@@ -1,8 +1,8 @@
 export type HWND = number;
 export type HMENU = number;
-export type LRESULT = number;
-export type WPARAM = number;
-export type LPARAM = number;
+export type LRESULT = any;
+export type WPARAM = any;
+export type LPARAM = any;
 export type UINT = number;
 
 export interface MenuItem {
@@ -71,6 +71,34 @@ export interface CREATESTRUCT {
   dwExStyle: number;
 }
 
+export interface NMHDR {
+  hwndFrom: HWND;
+  idFrom: number;
+  code: number;
+  [key: string]: any;
+}
+
+export interface TreeNodeItem {
+  id: string;
+  text: string;
+  icon?: string;
+  expanded?: boolean;
+  children?: TreeNodeItem[];
+}
+
+export interface ListViewColumn {
+  text: string;
+  width?: number;
+}
+
+export interface ListViewRow {
+  id: string | number;
+  text: string;
+  subItems?: string[];
+  selected?: boolean;
+  icon?: string;
+}
+
 export interface WindowRecord {
   hwnd: HWND;
   parentHwnd: HWND | null;
@@ -100,6 +128,15 @@ export interface WindowRecord {
     progressPos?: number;
     rangeMin?: number;
     rangeMax?: number;
+    // Common Controls (comctl32)
+    statusParts?: Array<{ text: string; width?: number }>;
+    tabs?: Array<{ text: string; id?: string | number }>;
+    selectedTab?: number;
+    treeNodes?: TreeNodeItem[];
+    selectedNodeId?: string | null;
+    listColumns?: ListViewColumn[];
+    listRows?: ListViewRow[];
+    selectedRowIndex?: number;
   };
   customProps: Record<string, any>;
 }

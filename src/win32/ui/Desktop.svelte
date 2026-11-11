@@ -11,6 +11,7 @@
   import { StartNotepad } from "../../samples/notepad";
   import { StartControlGallery } from "../../samples/control_gallery";
   import { StartPaintDemo } from "../../samples/paint_demo";
+  import { StartExplorer } from "../../samples/explorer";
 
   let topWindows = $derived(kernel.windows.filter((w) => w.parentHwnd === null));
 
@@ -36,11 +37,19 @@
       action: () => StartControlGallery(180, 50),
     },
     {
+      id: "explorer",
+      title: "Windows Explorer",
+      icon: "🗂️",
+      x: 16,
+      y: 96,
+      action: () => StartExplorer(160, 70),
+    },
+    {
       id: "minesweeper",
       title: "Minesweeper",
       icon: "💣",
       x: 16,
-      y: 106,
+      y: 176,
       action: () => StartMinesweeper(120, 80),
     },
     {
@@ -48,7 +57,7 @@
       title: "GDI Paint",
       icon: "🎨",
       x: 16,
-      y: 196,
+      y: 256,
       action: () => StartPaintDemo(240, 100),
     },
     {
@@ -56,7 +65,7 @@
       title: "Notepad",
       icon: "📝",
       x: 16,
-      y: 286,
+      y: 336,
       action: () => StartNotepad(320, 70),
     },
     {
@@ -64,7 +73,7 @@
       title: "Calculator",
       icon: "🔢",
       x: 16,
-      y: 376,
+      y: 416,
       action: () => StartCalculator(380, 90),
     },
     {
@@ -72,7 +81,7 @@
       title: "Recycle Bin",
       icon: "🗑️",
       x: 16,
-      y: 466,
+      y: 496,
       action: () => MessageBox(null, "The Recycle Bin is currently empty.", "Recycle Bin", MB_OK),
     },
   ]);

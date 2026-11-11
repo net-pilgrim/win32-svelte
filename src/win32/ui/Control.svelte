@@ -10,6 +10,7 @@
     WM_RBUTTONDOWN,
     WM_RBUTTONUP,
     WM_COMMAND,
+    WM_NOTIFY,
     EN_CHANGE,
     CBN_SELCHANGE,
     BS_CHECKBOX,
@@ -20,8 +21,15 @@
     BST_CHECKED,
     BST_UNCHECKED,
     MAKEWPARAM,
+    TCN_SELCHANGE,
+    TVN_SELCHANGED,
+    LVN_ITEMCHANGED,
+    STATUSCLASSNAME,
+    WC_TABCONTROL,
+    WC_TREEVIEW,
+    WC_LISTVIEW,
   } from "../constants";
-  import type { WindowRecord } from "../types";
+  import type { WindowRecord, TreeNodeItem, ListViewRow, NMHDR } from "../types";
 
   interface Props {
     window: WindowRecord;
@@ -109,6 +117,60 @@
     if (win.parentHwnd !== null) {
       const cmdWParam = MAKEWPARAM(win.menuId ?? 0, val);
       SendMessage(win.parentHwnd, WM_COMMAND, cmdWParam, win.hwnd);
+    }
+  }
+
+  function onTabSelect(e: MouseEvent, index: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (win.controlState) {
+      win.controlState.selectedTab = index;
+    }
+    if (win.parentHwnd !== null) {
+      const nmhdr: NMHDR = {
+        hwndFrom: win.hwnd,
+        idFrom: win.menuId ?? 0,
+        code: TCN_SELCHANGE,
+        tabIndex: index,
+      };
+      SendMessage(win.parentHwnd, WM_NOTIFY, win.menuId ?? 0, nmhdr as any);
+    }
+  }
+
+  function onTreeNodeSelect(e: MouseEvent, node: TreeNodeItem) {
+    e.stopPropagation();
+    if (win.controlState) {
+      win.controlState.selectedNodeId = node.id;
+    }
+    if (win.parentHwnd !== null) {
+      const nmhdr: NMHDR = {
+        hwndFrom: win.hwnd,
+        idFrom: win.menuId ?? 0,
+        code: TVN_SELCHANGED,
+        item: node,
+        nodeId: node.id,
+      };
+      SendMessage(win.parentHwnd, WM_NOTIFY, win.menuId ?? 0, nmhdr as any);
+    }
+  }
+
+  function onListRowClick(e: MouseEvent, row: ListViewRow, index: number) {
+    e.stopPropagation();
+    if (win.controlState) {
+      win.controlState.selectedRowIndex = index;
+      win.controlState.listRows?.forEach((r, idx) => {
+        r.selected = idx === index;
+      });
+    }
+    if (win.parentHwnd !== null) {
+      const nmhdr: NMHDR = {
+        hwndFrom: win.hwnd,
+        idFrom: win.menuId ?? 0,
+        code: LVN_ITEMCHANGED,
+        itemIndex: index,
+        row,
+      };
+      SendMessage(win.parentHwnd, WM_NOTIFY, win.menuId ?? 0, nmhdr as any);
     }
   }
 </script>
@@ -222,8 +284,130 @@
       oninput={onTrackbarInput}
       disabled={!win.enabled}
     />
+  {:else if win.className.toUpperCase() === "STATUSBAR" || win.className.toUpperCase() === "MSCTLS_STATUSBAR32"}
+    <div
+      class="win32-control status-bar win32-statusbar {win.customProps?.className ?? ''}"
+      style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; {win.customProps?.style ?? ''}"
+    >
+      {#each win.controlState?.statusParts ?? [{ text: win.title || "Ready" }] as part}
+        <p
+          class="status-bar-field"
+          style={part.width ? `flex-grow: 0; width: ${part.width}px; min-width: ${part.width}px;` : "flex-grow: 1;"}
+        >
+          {part.text}
+        </p>
+      {/each}
+    </div>
+  {:else if win.className.toUpperCase() === "TABCONTROL" || win.className.toUpperCase() === "SYSTABCONTROL32"}
+    <div
+      class="win32-control win32-tabcontrol-container {win.customProps?.className ?? ''}"
+      style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; {win.customProps?.style ?? ''}"
+    >
+      <menu role="tablist">
+        {#each win.controlState?.tabs ?? [] as tab, i}
+          <li role="tab" aria-selected={win.controlState?.selectedTab === i}>
+            <a href="#tab" onclick={(e) => onTabSelect(e, i)}>{tab.text}</a>
+          </li>
+        {/each}
+      </menu>
+    </div>
+  {:else if win.className.toUpperCase() === "TREEVIEW" || win.className.toUpperCase() === "SYSTREEVIEW32"}
+    <ul
+      class="win32-control tree-view {win.customProps?.className ?? ''}"
+      style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; overflow: auto; {win.customProps?.style ?? ''}"
+    >
+      {#each win.controlState?.treeNodes ?? [] as node}
+        <li>
+          {#if node.children && node.children.length > 0}
+            <details open={node.expanded ?? true}>
+              <summary onclick={(e) => e.stopPropagation()}>
+                <a
+                  href="#node"
+                  class={win.controlState?.selectedNodeId === node.id ? "selected-tree-node" : ""}
+                  onclick={(e) => onTreeNodeSelect(e, node)}
+                >
+                  {node.icon ? node.icon + " " : ""}{node.text}
+                </a>
+              </summary>
+              {@render renderTreeNodes(node.children)}
+            </details>
+          {:else}
+            <a
+              href="#node"
+              class={win.controlState?.selectedNodeId === node.id ? "selected-tree-node" : ""}
+              onclick={(e) => onTreeNodeSelect(e, node)}
+            >
+              {node.icon ? node.icon + " " : ""}{node.text}
+            </a>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {:else if win.className.toUpperCase() === "LISTVIEW" || win.className.toUpperCase() === "SYSLISTVIEW32"}
+    <div
+      class="win32-control sunken-panel win32-listview-container {win.customProps?.className ?? ''}"
+      style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; overflow: auto; {win.customProps?.style ?? ''}"
+    >
+      <table class="interactive win32-listview-table">
+        <thead>
+          <tr>
+            {#each win.controlState?.listColumns ?? [] as col}
+              <th style={col.width ? `width: ${col.width}px; min-width: ${col.width}px;` : ""}>
+                {col.text}
+              </th>
+            {/each}
+          </tr>
+        </thead>
+        <tbody>
+          {#each win.controlState?.listRows ?? [] as row, rIdx}
+            <tr
+              class={row.selected || win.controlState?.selectedRowIndex === rIdx ? "highlighted" : ""}
+              onclick={(e) => onListRowClick(e, row, rIdx)}
+            >
+              <td>
+                {row.icon ? row.icon + " " : ""}{row.text}
+              </td>
+              {#each row.subItems ?? [] as sub}
+                <td>{sub}</td>
+              {/each}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
   {/if}
 {/if}
+
+{#snippet renderTreeNodes(nodes: TreeNodeItem[])}
+  <ul>
+    {#each nodes as node}
+      <li>
+        {#if node.children && node.children.length > 0}
+          <details open={node.expanded ?? true}>
+            <summary onclick={(e) => e.stopPropagation()}>
+              <a
+                href="#node"
+                class={win.controlState?.selectedNodeId === node.id ? "selected-tree-node" : ""}
+                onclick={(e) => onTreeNodeSelect(e, node)}
+              >
+                {node.icon ? node.icon + " " : ""}{node.text}
+              </a>
+            </summary>
+            {@render renderTreeNodes(node.children)}
+          </details>
+        {:else}
+          <a
+            href="#node"
+            class={win.controlState?.selectedNodeId === node.id ? "selected-tree-node" : ""}
+            onclick={(e) => onTreeNodeSelect(e, node)}
+          >
+            {node.icon ? node.icon + " " : ""}{node.text}
+          </a>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+{/snippet}
 
 <style>
   .win32-control {
@@ -311,5 +495,48 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+  }
+
+  .selected-tree-node {
+    background-color: var(--dialog-blue, #000080) !important;
+    color: #fff !important;
+    outline: 1px dotted #ff0;
+  }
+
+  .win32-tabcontrol-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .win32-tabcontrol-container menu[role="tablist"] {
+    margin-bottom: 0;
+  }
+
+  .win32-listview-container {
+    background: #fff;
+    box-sizing: border-box;
+  }
+
+  .win32-listview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .win32-listview-table th {
+    text-align: left;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .win32-listview-table td {
+    padding: 2px 4px;
+    white-space: nowrap;
+  }
+
+  .win32-statusbar {
+    margin: 0;
+    align-items: center;
+    background: var(--surface, #c0c0c0);
   }
 </style>

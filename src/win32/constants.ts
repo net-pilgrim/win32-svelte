@@ -221,3 +221,78 @@ export function MAKELPARAM(l: number, h: number): number {
 export function MAKEWPARAM(l: number, h: number): number {
   return ((h & 0xffff) << 16) | (l & 0xffff);
 }
+
+// ==========================================
+// COMCTL32 (Common Controls) Class Names
+// ==========================================
+export const STATUSCLASSNAME = "msctls_statusbar32";
+export const WC_TABCONTROL = "SysTabControl32";
+export const WC_TREEVIEW = "SysTreeView32";
+export const WC_LISTVIEW = "SysListView32";
+export const PROGRESS_CLASS = "msctls_progress32";
+export const TRACKBAR_CLASS = "msctls_trackbar32";
+
+// WM_NOTIFY & Common Notifications
+export const WM_NOTIFY = 0x004e;
+export const NM_OUTOFMEMORY = -1;
+export const NM_CLICK = -2;
+export const NM_DBLCLK = -3;
+export const NM_RETURN = -4;
+export const NM_RCLICK = -5;
+
+// Status Bar Messages (msctls_statusbar32)
+export const SB_SETTEXT = 0x0401;
+export const SB_GETTEXT = 0x0402;
+export const SB_GETTEXTLENGTH = 0x0403;
+export const SB_SETPARTS = 0x0404;
+export const SB_GETPARTS = 0x0406;
+export const SB_SIMPLE = 0x0409;
+export const SBARS_SIZEGRIP = 0x0100;
+
+// Tab Control Messages & Notifications (SysTabControl32)
+export const TCM_GETITEMCOUNT = 0x1304;
+export const TCM_GETITEM = 0x1305;
+export const TCM_SETITEM = 0x1306;
+export const TCM_INSERTITEM = 0x1307;
+export const TCM_DELETEITEM = 0x1308;
+export const TCM_DELETEALLITEMS = 0x1309;
+export const TCM_GETCURSEL = 0x130b;
+export const TCM_SETCURSEL = 0x130c;
+export const TCN_SELCHANGE = -551;
+export const TCN_SELCHANGING = -552;
+
+// Tree View Messages & Notifications (SysTreeView32)
+export const TVM_INSERTITEM = 0x1100;
+export const TVM_DELETEITEM = 0x1101;
+export const TVM_EXPAND = 0x1102;
+export const TVM_GETITEM = 0x110c;
+export const TVM_SETITEM = 0x110d;
+export const TVM_SELECTITEM = 0x110b;
+export const TVM_GETCOUNT = 0x1105;
+export const TVN_SELCHANGED = -402;
+export const TVN_ITEMEXPANDED = -406;
+export const TVE_COLLAPSE = 0x0001;
+export const TVE_EXPAND = 0x0002;
+export const TVE_TOGGLE = 0x0003;
+export const TVI_ROOT = 0xffff0000;
+
+// List View Styles, Messages & Notifications (SysListView32)
+export const LVS_ICON = 0x0000;
+export const LVS_REPORT = 0x0001;
+export const LVS_SMALLICON = 0x0002;
+export const LVS_LIST = 0x0003;
+export const LVS_SINGLESEL = 0x0004;
+export const LVS_SHOWSELALWAYS = 0x0008;
+
+export const LVM_GETITEMCOUNT = 0x1004;
+export const LVM_INSERTITEM = 0x1007;
+export const LVM_DELETEITEM = 0x1008;
+export const LVM_DELETEALLITEMS = 0x1009;
+export const LVM_GETITEMTEXT = 0x102d;
+export const LVM_SETITEMTEXT = 0x102e;
+export const LVM_INSERTCOLUMN = 0x101b;
+export const LVM_DELETECOLUMN = 0x101c;
+export const LVM_SETITEMSTATE = 0x102b;
+export const LVM_GETNEXTITEM = 0x100c;
+export const LVN_ITEMCHANGED = -101;
+

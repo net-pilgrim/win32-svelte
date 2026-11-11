@@ -61,6 +61,34 @@ import {
   MAKEWPARAM,
   LOWORD,
   HIWORD,
+  WM_NOTIFY,
+  STATUSCLASSNAME,
+  WC_TABCONTROL,
+  WC_TREEVIEW,
+  WC_LISTVIEW,
+  SB_SETTEXT,
+  SB_GETTEXT,
+  SB_SETPARTS,
+  TCM_GETITEMCOUNT,
+  TCM_INSERTITEM,
+  TCM_DELETEITEM,
+  TCM_DELETEALLITEMS,
+  TCM_GETCURSEL,
+  TCM_SETCURSEL,
+  TVM_INSERTITEM,
+  TVM_DELETEITEM,
+  TVM_EXPAND,
+  TVM_SELECTITEM,
+  TVM_GETCOUNT,
+  TVI_ROOT,
+  LVM_GETITEMCOUNT,
+  LVM_INSERTITEM,
+  LVM_DELETEITEM,
+  LVM_DELETEALLITEMS,
+  LVM_GETITEMTEXT,
+  LVM_SETITEMTEXT,
+  LVM_INSERTCOLUMN,
+  LVM_SETITEMSTATE,
 } from "./constants";
 
 import { MessageBeep } from "./audio";
@@ -314,6 +342,309 @@ class Win32Kernel {
     };
     this.RegisterClassEx({ className: "TRACKBAR", lpfnWndProc: trackbarProc });
     this.RegisterClassEx({ className: "MSCTLS_TRACKBAR32", lpfnWndProc: trackbarProc });
+
+    // STATUS BAR window class (msctls_statusbar32)
+    const statusProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      if (!win.controlState) {
+        win.controlState = { statusParts: [{ text: win.title || "Ready" }] };
+      }
+      if (!win.controlState.statusParts) {
+        win.controlState.statusParts = [{ text: win.title || "Ready" }];
+      }
+
+      switch (msg) {
+        case SB_SETTEXT: {
+          const partIndex = typeof wParam === "number" ? wParam : 0;
+          const text = String(lParam ?? "");
+          while (win.controlState.statusParts.length <= partIndex) {
+            win.controlState.statusParts.push({ text: "" });
+          }
+          win.controlState.statusParts[partIndex] = {
+            ...win.controlState.statusParts[partIndex],
+            text,
+          };
+          return 1;
+        }
+        case SB_GETTEXT: {
+          const partIndex = typeof wParam === "number" ? wParam : 0;
+          return (win.controlState.statusParts[partIndex]?.text ?? "") as any;
+        }
+        case SB_SETPARTS: {
+          const numParts = wParam || 1;
+          const widths = Array.isArray(lParam) ? lParam : [];
+          win.controlState.statusParts = Array.from({ length: numParts }, (_, idx) => ({
+            text: win.controlState?.statusParts?.[idx]?.text ?? "",
+            width: widths[idx] === -1 ? undefined : widths[idx],
+          }));
+          return 1;
+        }
+        case WM_SETTEXT: {
+          win.title = String(lParam);
+          if (win.controlState.statusParts.length === 0) {
+            win.controlState.statusParts = [{ text: win.title }];
+          } else {
+            win.controlState.statusParts[0].text = win.title;
+          }
+          return 1;
+        }
+        case WM_GETTEXT: {
+          return (win.controlState.statusParts[0]?.text ?? win.title) as any;
+        }
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: STATUSCLASSNAME, lpfnWndProc: statusProc });
+    this.RegisterClassEx({ className: "STATUSBAR", lpfnWndProc: statusProc });
+
+    // TAB CONTROL window class (SysTabControl32)
+    const tabProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      if (!win.controlState) {
+        win.controlState = { tabs: [], selectedTab: 0 };
+      }
+      if (!win.controlState.tabs) {
+        win.controlState.tabs = [];
+      }
+
+      switch (msg) {
+        case TCM_INSERTITEM: {
+          const idx = wParam;
+          const tabItem = typeof lParam === "object" && lParam !== null
+            ? { text: lParam.pszText ?? lParam.text ?? "Tab", id: lParam.id ?? idx }
+            : { text: String(lParam ?? "Tab"), id: idx };
+          if (idx >= win.controlState.tabs.length) {
+            win.controlState.tabs.push(tabItem);
+          } else {
+            win.controlState.tabs.splice(idx, 0, tabItem);
+          }
+          return win.controlState.tabs.length - 1;
+        }
+        case TCM_GETCURSEL: {
+          return win.controlState.selectedTab ?? 0;
+        }
+        case TCM_SETCURSEL: {
+          const old = win.controlState.selectedTab ?? 0;
+          win.controlState.selectedTab = wParam;
+          return old;
+        }
+        case TCM_GETITEMCOUNT: {
+          return win.controlState.tabs.length;
+        }
+        case TCM_DELETEITEM: {
+          win.controlState.tabs.splice(wParam, 1);
+          if ((win.controlState.selectedTab ?? 0) >= win.controlState.tabs.length) {
+            win.controlState.selectedTab = Math.max(0, win.controlState.tabs.length - 1);
+          }
+          return 1;
+        }
+        case TCM_DELETEALLITEMS: {
+          win.controlState.tabs = [];
+          win.controlState.selectedTab = 0;
+          return 1;
+        }
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: WC_TABCONTROL, lpfnWndProc: tabProc });
+    this.RegisterClassEx({ className: "TABCONTROL", lpfnWndProc: tabProc });
+
+    // TREE VIEW window class (SysTreeView32)
+    const treeProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      if (!win.controlState) {
+        win.controlState = { treeNodes: [], selectedNodeId: null };
+      }
+      if (!win.controlState.treeNodes) {
+        win.controlState.treeNodes = [];
+      }
+
+      switch (msg) {
+        case TVM_INSERTITEM: {
+          const item = typeof lParam === "object" && lParam !== null
+            ? {
+                id: lParam.id ?? "node_" + Math.random().toString(36).substring(2, 9),
+                text: lParam.text ?? lParam.pszText ?? "Item",
+                icon: lParam.icon,
+                expanded: lParam.expanded ?? true,
+                children: lParam.children ?? [],
+                parentId: lParam.parentId ?? null,
+              }
+            : {
+                id: "node_" + Math.random().toString(36).substring(2, 9),
+                text: String(lParam),
+                expanded: true,
+                children: [],
+                parentId: null,
+              };
+
+          if (item.parentId) {
+            const findAndInsert = (nodes: any[]): boolean => {
+              for (const n of nodes) {
+                if (n.id === item.parentId) {
+                  if (!n.children) n.children = [];
+                  n.children.push(item);
+                  return true;
+                }
+                if (n.children && findAndInsert(n.children)) return true;
+              }
+              return false;
+            };
+            if (!findAndInsert(win.controlState.treeNodes)) {
+              win.controlState.treeNodes.push(item);
+            }
+          } else {
+            win.controlState.treeNodes.push(item);
+          }
+          return item.id as any;
+        }
+        case TVM_DELETEITEM: {
+          if (lParam === TVI_ROOT) {
+            win.controlState.treeNodes = [];
+            win.controlState.selectedNodeId = null;
+            return 1;
+          }
+          const deleteNode = (nodes: any[]): boolean => {
+            const idx = nodes.findIndex((n) => n.id === lParam);
+            if (idx !== -1) {
+              nodes.splice(idx, 1);
+              return true;
+            }
+            for (const n of nodes) {
+              if (n.children && deleteNode(n.children)) return true;
+            }
+            return false;
+          };
+          deleteNode(win.controlState.treeNodes);
+          return 1;
+        }
+        case TVM_SELECTITEM: {
+          win.controlState.selectedNodeId = lParam ? String(lParam) : null;
+          return 1;
+        }
+        case TVM_EXPAND: {
+          const nodeId = lParam;
+          const findAndToggle = (nodes: any[]): boolean => {
+            for (const n of nodes) {
+              if (n.id === nodeId) {
+                n.expanded = !n.expanded;
+                return true;
+              }
+              if (n.children && findAndToggle(n.children)) return true;
+            }
+            return false;
+          };
+          findAndToggle(win.controlState.treeNodes);
+          return 1;
+        }
+        case TVM_GETCOUNT: {
+          const countNodes = (nodes: any[]): number =>
+            nodes.reduce((acc, n) => acc + 1 + (n.children ? countNodes(n.children) : 0), 0);
+          return countNodes(win.controlState.treeNodes);
+        }
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: WC_TREEVIEW, lpfnWndProc: treeProc });
+    this.RegisterClassEx({ className: "TREEVIEW", lpfnWndProc: treeProc });
+
+    // LIST VIEW window class (SysListView32)
+    const listProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      if (!win.controlState) {
+        win.controlState = { listColumns: [], listRows: [], selectedRowIndex: -1 };
+      }
+      if (!win.controlState.listColumns) win.controlState.listColumns = [];
+      if (!win.controlState.listRows) win.controlState.listRows = [];
+
+      switch (msg) {
+        case LVM_INSERTCOLUMN: {
+          const idx = wParam;
+          const col = typeof lParam === "object" && lParam !== null
+            ? { text: lParam.text ?? lParam.pszText ?? "Column", width: lParam.width ?? lParam.cx }
+            : { text: String(lParam ?? "Column"), width: undefined };
+          if (idx >= win.controlState.listColumns.length) {
+            win.controlState.listColumns.push(col);
+          } else {
+            win.controlState.listColumns.splice(idx, 0, col);
+          }
+          return idx;
+        }
+        case LVM_INSERTITEM: {
+          const idx = wParam;
+          const row = typeof lParam === "object" && lParam !== null
+            ? {
+                id: lParam.id ?? idx,
+                text: lParam.text ?? lParam.pszText ?? "",
+                subItems: lParam.subItems ?? [],
+                selected: false,
+                icon: lParam.icon,
+              }
+            : { id: idx, text: String(lParam ?? ""), subItems: [], selected: false };
+
+          if (idx >= win.controlState.listRows.length) {
+            win.controlState.listRows.push(row);
+          } else {
+            win.controlState.listRows.splice(idx, 0, row);
+          }
+          return idx;
+        }
+        case LVM_SETITEMTEXT: {
+          const rowIndex = wParam;
+          const subItem = typeof lParam === "object" && lParam !== null ? (lParam.subItem ?? 0) : 0;
+          const text = typeof lParam === "object" && lParam !== null ? String(lParam.text ?? "") : String(lParam ?? "");
+          const row = win.controlState.listRows[rowIndex];
+          if (row) {
+            if (subItem === 0) {
+              row.text = text;
+            } else {
+              if (!row.subItems) row.subItems = [];
+              while (row.subItems.length < subItem) {
+                row.subItems.push("");
+              }
+              row.subItems[subItem - 1] = text;
+            }
+            return 1;
+          }
+          return 0;
+        }
+        case LVM_GETITEMTEXT: {
+          const rowIndex = wParam;
+          const subItem = typeof lParam === "object" && lParam !== null ? (lParam.subItem ?? 0) : Number(lParam ?? 0);
+          const row = win.controlState.listRows[rowIndex];
+          if (!row) return "" as any;
+          if (subItem === 0) return row.text as any;
+          return (row.subItems?.[subItem - 1] ?? "") as any;
+        }
+        case LVM_GETITEMCOUNT: {
+          return win.controlState.listRows.length;
+        }
+        case LVM_DELETEITEM: {
+          win.controlState.listRows.splice(wParam, 1);
+          return 1;
+        }
+        case LVM_DELETEALLITEMS: {
+          win.controlState.listRows = [];
+          win.controlState.selectedRowIndex = -1;
+          return 1;
+        }
+        case LVM_SETITEMSTATE: {
+          const rowIndex = wParam;
+          win.controlState.selectedRowIndex = rowIndex;
+          win.controlState.listRows.forEach((r, idx) => {
+            r.selected = idx === rowIndex;
+          });
+          return 1;
+        }
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: WC_LISTVIEW, lpfnWndProc: listProc });
+    this.RegisterClassEx({ className: "LISTVIEW", lpfnWndProc: listProc });
   }
 
   public getWindow(hwnd: HWND): WindowRecord | undefined {
@@ -789,6 +1120,10 @@ export const CheckMenuItem = (hMenu: HMENU, id: number, check: number) =>
   kernel.CheckMenuItem(hMenu, id, check);
 export const EnableMenuItem = (hMenu: HMENU, id: number, enable: number) =>
   kernel.EnableMenuItem(hMenu, id, enable);
+
+export function InitCommonControlsEx(_initCtrls?: any): boolean {
+  return true;
+}
 
 /**
  * Standard message loop helper:

@@ -13,6 +13,7 @@ import {
 import {
   WM_CREATE,
   WM_COMMAND,
+  WM_NOTIFY,
   WM_DESTROY,
   WS_OVERLAPPEDWINDOW,
   WS_VISIBLE,
@@ -35,11 +36,15 @@ import {
   MB_OK,
   MB_ICONINFORMATION,
   SW_SHOW,
+  WC_TABCONTROL,
+  TCM_INSERTITEM,
+  TCN_SELCHANGE,
 } from "../win32/constants";
 
-import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "../win32/types";
+import type { HWND, UINT, WPARAM, LPARAM, LRESULT, NMHDR } from "../win32/types";
 
 // Control IDs
+const ID_TAB_PROPERTIES = 5999;
 const ID_GRP_EFFECTS = 6000;
 const ID_CHK_SOUNDS = 6001;
 const ID_CHK_SMOOTH = 6002;
@@ -98,44 +103,55 @@ function GalleryWndProc(
       };
       galleryMap.set(hwnd, gCtrls);
 
+      // --- Tab Control (SysTabControl32) ---
+      const hwndTab = CreateWindowEx(
+        0, WC_TABCONTROL, "",
+        WS_CHILD | WS_VISIBLE,
+        10, 6, 330, 26, hwnd, ID_TAB_PROPERTIES, null, null
+      );
+      SendMessage(hwndTab, TCM_INSERTITEM, 0, "Settings" as any);
+      SendMessage(hwndTab, TCM_INSERTITEM, 1, "Effects" as any);
+      SendMessage(hwndTab, TCM_INSERTITEM, 2, "Appearance" as any);
+      SendMessage(hwndTab, TCM_INSERTITEM, 3, "Performance" as any);
+
       // --- GroupBox 1: Effects (Checkboxes) ---
       CreateWindowEx(
         0, "BUTTON", "Visual & Audio Effects",
         WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        10, 8, 330, 92, hwnd, ID_GRP_EFFECTS, null, null
+        10, 36, 330, 92, hwnd, ID_GRP_EFFECTS, null, null
       );
 
       gCtrls.chkSounds = CreateWindowEx(
         0, "BUTTON", "Enable sound effects",
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-        22, 28, 200, 20, hwnd, ID_CHK_SOUNDS, null, null
+        22, 56, 200, 20, hwnd, ID_CHK_SOUNDS, null, null
       );
       SendMessage(gCtrls.chkSounds, BM_SETCHECK, BST_CHECKED, 0);
 
       gCtrls.chkSmooth = CreateWindowEx(
         0, "BUTTON", "Smooth edges of screen fonts",
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-        22, 48, 200, 20, hwnd, ID_CHK_SMOOTH, null, null
+        22, 76, 200, 20, hwnd, ID_CHK_SMOOTH, null, null
       );
       SendMessage(gCtrls.chkSmooth, BM_SETCHECK, BST_CHECKED, 0);
 
       gCtrls.chkDrag = CreateWindowEx(
         0, "BUTTON", "Show window contents while dragging",
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-        22, 68, 260, 20, hwnd, ID_CHK_DRAG, null, null
+        22, 96, 260, 20, hwnd, ID_CHK_DRAG, null, null
       );
 
       // --- GroupBox 2: Colors (Combobox) ---
       CreateWindowEx(
         0, "BUTTON", "Color Palette",
         WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        10, 106, 330, 64, hwnd, ID_GRP_COLORS, null, null
+        10, 134, 330, 64, hwnd, ID_GRP_COLORS, null, null
       );
 
       gCtrls.comboColors = CreateWindowEx(
         0, "COMBOBOX", "",
         WS_CHILD | WS_VISIBLE,
-        22, 130, 290, 24, hwnd, ID_COMBO_COLORS, null, null
+        22, 158, 290, 24, hwnd, ID_COMBO_COLORS, null, null
       );
       SendMessage(gCtrls.comboColors, CB_ADDSTRING, 0, "16 Colors (4-bit)" as any);
       SendMessage(gCtrls.comboColors, CB_ADDSTRING, 0, "256 Colors (8-bit)" as any);
@@ -147,51 +163,51 @@ function GalleryWndProc(
       CreateWindowEx(
         0, "BUTTON", "Screen Resolution",
         WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        10, 176, 330, 92, hwnd, ID_GRP_RESOLUTION, null, null
+        10, 204, 330, 92, hwnd, ID_GRP_RESOLUTION, null, null
       );
 
       gCtrls.rad640 = CreateWindowEx(
         0, "BUTTON", "640 by 480 pixels",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,
-        22, 196, 200, 20, hwnd, ID_RAD_640, null, null
+        22, 224, 200, 20, hwnd, ID_RAD_640, null, null
       );
 
       gCtrls.rad800 = CreateWindowEx(
         0, "BUTTON", "800 by 600 pixels",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,
-        22, 218, 200, 20, hwnd, ID_RAD_800, null, null
+        22, 246, 200, 20, hwnd, ID_RAD_800, null, null
       );
       SendMessage(gCtrls.rad800, BM_SETCHECK, BST_CHECKED, 0);
 
       gCtrls.rad1024 = CreateWindowEx(
         0, "BUTTON", "1024 by 768 pixels",
         WS_CHILD | WS_VISIBLE | BS_AUTORADIOBUTTON,
-        22, 240, 200, 20, hwnd, ID_RAD_1024, null, null
+        22, 268, 200, 20, hwnd, ID_RAD_1024, null, null
       );
 
       // --- GroupBox 4: Slider & Progress Bar ---
       CreateWindowEx(
         0, "BUTTON", "Brightness & Progress Bar",
         WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-        10, 274, 330, 96, hwnd, ID_GRP_LEVELS, null, null
+        10, 302, 330, 96, hwnd, ID_GRP_LEVELS, null, null
       );
 
       CreateWindowEx(
         0, "STATIC", "Adjust Slider to update Progress Bar:",
         WS_CHILD | WS_VISIBLE,
-        22, 294, 280, 18, hwnd, ID_LBL_SLIDER, null, null
+        22, 322, 280, 18, hwnd, ID_LBL_SLIDER, null, null
       );
 
       gCtrls.trackbar = CreateWindowEx(
         0, "TRACKBAR", "",
         WS_CHILD | WS_VISIBLE,
-        22, 314, 290, 20, hwnd, ID_TRACKBAR, null, null
+        22, 342, 290, 20, hwnd, ID_TRACKBAR, null, null
       );
 
       gCtrls.progress = CreateWindowEx(
         0, "PROGRESS", "",
         WS_CHILD | WS_VISIBLE,
-        22, 340, 290, 20, hwnd, ID_PROGRESS, null, null
+        22, 368, 290, 20, hwnd, ID_PROGRESS, null, null
       );
       SendMessage(gCtrls.progress, PBM_SETPOS, 50, 0);
 
@@ -199,15 +215,23 @@ function GalleryWndProc(
       CreateWindowEx(
         0, "BUTTON", "Apply",
         WS_CHILD | WS_VISIBLE,
-        170, 380, 80, 24, hwnd, ID_BTN_APPLY, null, null
+        170, 408, 80, 24, hwnd, ID_BTN_APPLY, null, null
       );
 
       CreateWindowEx(
         0, "BUTTON", "Close",
         WS_CHILD | WS_VISIBLE,
-        260, 380, 80, 24, hwnd, ID_BTN_CANCEL, null, null
+        260, 408, 80, 24, hwnd, ID_BTN_CANCEL, null, null
       );
 
+      return 0;
+    }
+
+    case WM_NOTIFY: {
+      const nmhdr = lParam as NMHDR;
+      if (nmhdr.code === TCN_SELCHANGE) {
+        return 0;
+      }
       return 0;
     }
 
@@ -285,7 +309,7 @@ export function StartControlGallery(x = 360, y = 50): HWND {
     x,
     y,
     360,
-    446,
+    480,
     null,
     null,
     null,
