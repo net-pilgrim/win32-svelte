@@ -12,6 +12,7 @@
   import { StartControlGallery } from "../../samples/control_gallery";
   import { StartPaintDemo } from "../../samples/paint_demo";
   import { StartExplorer } from "../../samples/explorer";
+  import { StartMfcDemo } from "../../samples/mfc_demo";
 
   let topWindows = $derived(kernel.windows.filter((w) => w.parentHwnd === null));
 
@@ -75,6 +76,14 @@
       x: 16,
       y: 416,
       action: () => StartCalculator(380, 90),
+    },
+    {
+      id: "mfc",
+      title: "MFC Scribble",
+      icon: "📐",
+      x: 106,
+      y: 16,
+      action: () => StartMfcDemo(220, 80),
     },
     {
       id: "recycle",
