@@ -158,7 +158,7 @@
   let isDragOver = $state(false);
 
   function onDragOver(e: DragEvent) {
-    if (!acceptsDrops) return;
+    if (!acceptsDrops || !e.dataTransfer?.types.some((type) => type === "Files" || type === "application/win32-file")) return;
     e.preventDefault();
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = "copy";
@@ -172,7 +172,7 @@
   }
 
   async function onDrop(e: DragEvent) {
-    if (!acceptsDrops) return;
+    if (!acceptsDrops || !e.dataTransfer?.types.some((type) => type === "Files" || type === "application/win32-file")) return;
     e.preventDefault();
     isDragOver = false;
 
