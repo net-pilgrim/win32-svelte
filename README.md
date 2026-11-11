@@ -339,6 +339,8 @@ END
 ### 4. Headless Automated UI Testing Harness
 - Because the entire Win32 handle table and message queue live in memory independently of a physical desktop, entire suites of Win32 GUI tests can run in headless CI environments (`Node.js`) without needing a virtual display server (Xvfb / Wine).
 
+See the [TODO & Roadmap](file:///home/dsv/work/win32-svelte/TODO.md) for detailed blueprints on remote container filesystem, printing, Winsock, and registry subsystems.
+
 ---
 
 ## 📜 License
