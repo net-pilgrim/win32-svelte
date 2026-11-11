@@ -589,6 +589,7 @@ class Win32Kernel {
                 subItems: lParam.subItems ?? [],
                 selected: false,
                 icon: lParam.icon,
+                content: lParam.content,
               }
             : { id: idx, text: String(lParam ?? ""), subItems: [], selected: false };
 

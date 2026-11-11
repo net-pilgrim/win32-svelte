@@ -182,7 +182,7 @@
       type: row.subItems?.[1] ?? "",
       modified: row.subItems?.[2] ?? "",
       icon: row.icon ?? "📄",
-      content: `[File: ${row.text}]\nCreated/Modified: ${row.subItems?.[2] ?? "Unknown"}\nType: ${row.subItems?.[1] ?? "Document"}\nSize: ${row.subItems?.[0] ?? "Unknown"}\n\nThis file content was transferred via Win32 Shell Drag & Drop (WM_DROPFILES)!`,
+      content: row.content ?? `[File: ${row.text}]\nCreated/Modified: ${row.subItems?.[2] ?? "Unknown"}\nType: ${row.subItems?.[1] ?? "Document"}\nSize: ${row.subItems?.[0] ?? "Unknown"}\n\nThis file content was transferred via Win32 Shell Drag & Drop (WM_DROPFILES)!`,
     };
     e.dataTransfer.setData("application/win32-file", JSON.stringify(filePayload));
     e.dataTransfer.setData("text/plain", row.text);

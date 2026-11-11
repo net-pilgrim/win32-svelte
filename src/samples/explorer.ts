@@ -71,6 +71,7 @@ interface FileItem {
   type: string;
   modified: string;
   icon: string;
+  content?: string;
 }
 
 const FOLDER_DATA: Record<string, FileItem[]> = {
@@ -135,6 +136,7 @@ function PopulateListView(hwndList: HWND, hwndStatus: HWND, folderKey: string) {
       id: index,
       text: item.name,
       icon: item.icon,
+      content: item.content,
       subItems: [item.size, item.type, item.modified],
     });
   });
@@ -298,6 +300,7 @@ function ExplorerWndProc(
             type: file.type || "Document",
             modified: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             icon: "📄",
+            content: file.content,
           });
         }
       }

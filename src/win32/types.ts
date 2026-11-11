@@ -112,6 +112,7 @@ export interface ListViewRow {
   subItems?: string[];
   selected?: boolean;
   icon?: string;
+  content?: string;
 }
 
 export interface WindowRecord {
