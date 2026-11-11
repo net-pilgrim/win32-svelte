@@ -195,9 +195,9 @@
     }
 
     // 2. Check if host OS files were dropped via HTML5 File API
-    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-      for (let i = 0; i < e.dataTransfer.files.length; i++) {
-        const file = e.dataTransfer.files[i];
+    const droppedFiles = Array.from(e.dataTransfer?.files ?? []);
+    if (droppedFiles.length > 0) {
+      for (const file of droppedFiles) {
         let content = "";
         try {
           content = await file.text();
