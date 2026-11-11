@@ -59,6 +59,24 @@ Open your browser at `http://localhost:5173` (or the URL displayed in your termi
 | `npm run preview` | `vite preview` | Previews the built production app locally |
 | `npm run check` | `svelte-check ... && tsc ...` | Typechecks Svelte components and TypeScript code |
 
+### 🌐 Deploying to Vercel
+
+You can deploy `win32-svelte` to Vercel with zero additional configuration:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnet-pilgrim%2Fwin32-svelte)
+
+Or deploy using the [Vercel CLI](https://vercel.com/docs/cli):
+
+```bash
+# Deploy to preview
+npx vercel
+
+# Deploy to production
+npx vercel --prod
+```
+
+The project includes a pre-configured [`vercel.json`](file:///home/dsv/work/win32-svelte/vercel.json) specifying the Vite framework build output (`dist/`) and SPA index routing.
+
 ### What You'll Experience
 When the app opens:
 1. **Windows 98 Desktop Environment**: Fully featured desktop with icons (*My Computer*, *Minesweeper*, *GDI Paint*, *Notepad*, *Calculator*, *Recycle Bin*), movable and resizable windows, taskbar with running tasks, Start button, and system tray clock.
