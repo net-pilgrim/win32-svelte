@@ -8,8 +8,9 @@
   import { StartControlGallery } from "./samples/control_gallery";
   import { StartPaintDemo } from "./samples/paint_demo";
   import { StartExplorer } from "./samples/explorer";
+  import { StartMfcDemo } from "./samples/mfc_demo";
+  import { kernel, audio } from "./win32/kernel.svelte";
   import { StartHwndInspector } from "./samples/hwnd_inspector";
-  import { audio } from "./win32/kernel.svelte";
 
   let soundEnabled = $state(true);
 
@@ -35,6 +36,9 @@
     </button>
     <button onclick={() => StartExplorer(Math.floor(Math.random() * 200 + 40), Math.floor(Math.random() * 200 + 40))}>
       + Explorer
+    </button>
+    <button onclick={() => StartMfcDemo(Math.floor(Math.random() * 200 + 50), Math.floor(Math.random() * 200 + 50))}>
+      + MFC App
     </button>
     <button onclick={() => StartControlGallery(Math.floor(Math.random() * 200 + 40), Math.floor(Math.random() * 200 + 40))}>
       + Controls

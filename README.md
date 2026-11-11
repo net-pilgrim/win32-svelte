@@ -102,11 +102,16 @@ When the app opens:
 flowchart TD
     subgraph Apps["Applications & Samples"]
         Explorer["Windows Explorer"]
+        MfcScribble["MFC Scribble Demo"]
         Minesweeper["Minesweeper"]
         Calculator["Calculator"]
         Notepad["Notepad"]
         PaintDemo["GDI Paint Demo"]
         ControlGallery["Control Gallery"]
+    end
+
+    subgraph MfcLayer["MFC C++ Object-Oriented Framework (CWinApp, CFrameWnd, CDialog, CDC)"]
+        MessageMaps["Message Maps (ON_COMMAND, ON_BN_CLICKED, ON_WM_MESSAGE)"]
     end
 
     subgraph KernelSubsystem["Win32 Kernel & Subsystems"]
@@ -124,6 +129,8 @@ flowchart TD
         Modals["MenuBar & MessageBoxModal.svelte<br/>(Menus & Dialogs)"]
     end
 
+    Apps -->|"CWinApp / CFrameWnd / CDC"| MfcLayer
+    MfcLayer -->|"Win32 C API"| KernelSubsystem
     Apps -->|"Win32 C-style API (RegisterClassEx, CreateWindowEx, WndProc)"| KernelSubsystem
     KernelSubsystem -->|"Svelte 5 Runes ($state, $derived, $effect)"| Presentation
     Presentation -->|"User Events (DOM clicks, pointer moves, inputs)"| KernelSubsystem
@@ -174,7 +181,18 @@ Uses Web Audio API oscillators and gain envelopes to synthesize legendary retro 
 - `playTada()`: Fanfare brass synth for victories / startup.
 - `MessageBeep(type)`: Standard Win32 sound dispatcher.
 
-### 4. Svelte 5 UI Bridge (`src/win32/ui/`)
+### 4. Microsoft Foundation Classes (MFC) Layer (`src/win32/mfc/`)
+A pure object-oriented C++ simulation layer mirroring classic MFC:
+- **`CObject`**: Root class providing runtime class information and `isKindOf()` type introspection.
+- **`CCmdTarget`**: Message map dispatcher routing `WM_COMMAND`, `WM_NOTIFY`, and window messages via `ON_COMMAND`, `ON_BN_CLICKED`, `ON_EN_CHANGE`, and `ON_NOTIFY`.
+- **`CWnd`**: Complete object-oriented window wrapper managing `m_hWnd`, `FromHandle()`, and message routing.
+- **`CFrameWnd`**: Top-level single-document interface (SDI) frame windows with menu bar management.
+- **`CDialog`**: Modal and modeless dialog architecture with `doModal()`, `onInitDialog()`, `onOK()`, and `onCancel()`.
+- **`CWinApp`**: Application singleton managing initialization (`initInstance`), main window binding (`m_pMainWnd`), and exit teardown.
+- **`CDC` & `CPaintDC`**: Device context wrappers providing clean object-oriented GDI drawing (`MoveTo`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`).
+- **Control Wrappers**: `CButton`, `CEdit`, `CStatic`, `CComboBox`, `CProgressCtrl`, `CSliderCtrl`, `CTreeCtrl`, `CListCtrl`.
+
+### 5. Svelte 5 UI Bridge (`src/win32/ui/`)
 - **[Desktop.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Desktop.svelte)**: Manages desktop background, icons, running window taskbar entries, system time, and modal overlays.
 - **[Window.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Window.svelte)**: Renders the active/inactive window frame, title bar controls, handles dragging/resizing, and mounts `<canvas>` for GDI windows.
 - **[Control.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Control.svelte)**: Maps child `HWND`s to DOM elements based on window style bitmasks (`BS_AUTOCHECKBOX`, `BS_AUTORADIOBUTTON`, `ES_MULTILINE`, `CBS_DROPDOWN`, etc.).
@@ -185,10 +203,11 @@ Uses Web Audio API oscillators and gain envelopes to synthesize legendary retro 
 
 ## 🕹️ Sample Applications
 
-The project includes six complete sample applications written in pure Win32 style:
+The project includes seven complete sample applications:
 
 | App | File | Features Demonstrated |
 |---|---|---|
+| **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | Object-oriented **MFC** architecture! `CWinApp` lifecycle, `CFrameWnd` frame, `createMessageMap()` command routing, `CPaintDC` GDI rendering, `CButton` and `CProgressCtrl` child controls, and modal `CDialog::doModal()`. |
 | **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | The flagship **`comctl32`** showcase! Left-pane `SysTreeView32` folder hierarchy, right-pane `SysListView32` in report/details mode with multi-column sorting & selection, two-part `msctls_statusbar32`, cascading menu commands, and `WM_NOTIFY` (`TVN_SELCHANGED`, `LVN_ITEMCHANGED`) event routing. |
 | **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | 81 child button controls, right-click `BN_RIGHTCLICK` flagging, `SetTimer` game clock, custom 7-segment LED numbers, reset smiley button, win/loss fanfare sound. |
 | **GDI Paint** | [`src/samples/paint_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/paint_demo.ts) | Interactive freehand drawing on canvas, GDI geometry primitives (`Rectangle`, `Ellipse`, `LineTo`), menu color palettes, clear canvas command. |
@@ -223,6 +242,46 @@ function MyWndProc(hwnd, msg, wParam, lParam) {
 RegisterClassEx({ className: "MyWindowClass", lpfnWndProc: MyWndProc });
 const hwnd = CreateWindowEx(0, "MyWindowClass", "Sample Window", WS_OVERLAPPEDWINDOW, 100, 100, 300, 200);
 ShowWindow(hwnd, SW_SHOW);
+```
+
+#### Writing an App in MFC Style (CWinApp + CFrameWnd + Message Maps)
+
+```typescript
+import { CWinApp, CFrameWnd, CPaintDC, createMessageMap, ON_COMMAND, ON_WM_MESSAGE } from "./win32/mfc";
+import { WM_PAINT } from "./win32/constants";
+
+class CMainFrame extends CFrameWnd {
+  protected override getMessageMap() {
+    return createMessageMap(
+      undefined,
+      ON_WM_MESSAGE(WM_PAINT, "OnPaint"),
+      ON_COMMAND(101, "OnButtonClicked")
+    );
+  }
+
+  public OnPaint(): void {
+    const dc = new CPaintDC(this);
+    dc.rectangle(20, 20, 200, 100);
+    dc.textOut(30, 40, "Hello from MFC CDC!");
+    dc.dispose();
+  }
+
+  public OnButtonClicked(): void {
+    this.messageBox("Button clicked via MFC message map!", "MFC Demo");
+  }
+}
+
+class CMyApp extends CWinApp {
+  public override async initInstance(): Promise<boolean> {
+    const pFrame = new CMainFrame();
+    pFrame.create(null, "MFC Application");
+    pFrame.showWindow();
+    return true;
+  }
+}
+
+const app = new CMyApp();
+app.run();
 ```
 
 ---
@@ -285,6 +344,8 @@ END
 
 ### 4. Headless Automated UI Testing Harness
 - Because the entire Win32 handle table and message queue live in memory independently of a physical desktop, entire suites of Win32 GUI tests can run in headless CI environments (`Node.js`) without needing a virtual display server (Xvfb / Wine).
+
+See the [TODO & Roadmap](file:///home/dsv/work/win32-svelte/TODO.md) for detailed blueprints on remote container filesystem, printing, Winsock, and registry subsystems.
 
 ---
 

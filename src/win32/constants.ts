@@ -30,6 +30,7 @@ export const WM_NCLBUTTONUP = 0x00a2;
 export const WM_KEYDOWN = 0x0100;
 export const WM_KEYUP = 0x0101;
 export const WM_CHAR = 0x0102;
+export const WM_INITDIALOG = 0x0110;
 export const WM_COMMAND = 0x0111;
 export const WM_TIMER = 0x0113;
 export const WM_DROPFILES = 0x0233;

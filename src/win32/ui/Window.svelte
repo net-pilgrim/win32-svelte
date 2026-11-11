@@ -238,6 +238,7 @@
     style={win.maximized
       ? "left: 0; top: 0; width: 100vw; height: calc(100vh - 30px); z-index: " + win.zIndex
       : `left: ${win.x}px; top: ${win.y}px; width: ${win.width}px; height: ${win.height}px; z-index: ${win.zIndex}`}
+    style:pointer-events={win.enabled ? "auto" : "none"}
     onpointerdown={onFocusWindow}
     ondragover={onDragOver}
     ondragleave={onDragLeave}
