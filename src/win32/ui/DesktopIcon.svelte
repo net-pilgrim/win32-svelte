@@ -96,7 +96,9 @@
     }
 
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-      onDropFiles({ name: e.dataTransfer.files[0].name });
+      for (const file of Array.from(e.dataTransfer.files)) {
+        onDropFiles({ name: file.name });
+      }
     }
   }
 </script>
