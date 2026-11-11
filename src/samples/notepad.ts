@@ -13,12 +13,17 @@ import {
   CreatePopupMenu,
   AppendMenu,
   SetMenu,
+  DragAcceptFiles,
+  DragQueryFile,
+  DragFinish,
+  audio,
 } from "../win32/kernel.svelte";
 
 import {
   WM_CREATE,
   WM_SIZE,
   WM_COMMAND,
+  WM_DROPFILES,
   WM_CLOSE,
   WM_DESTROY,
   WS_OVERLAPPEDWINDOW,
@@ -28,13 +33,14 @@ import {
   MF_STRING,
   MF_POPUP,
   MF_SEPARATOR,
+  DRAGQUERY_ALLFILES,
   LOWORD,
   MB_OK,
   MB_ICONASTERISK,
   SW_SHOW,
 } from "../win32/constants";
 
-import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "../win32/types";
+import type { HWND, UINT, WPARAM, LPARAM, LRESULT, HDROP, DropFileInfo } from "../win32/types";
 
 const ID_EDIT = 3001;
 
@@ -50,7 +56,7 @@ const ID_EDIT_TIMEDATE = 3203;
 
 const ID_HELP_ABOUT = 3301;
 
-let hwndEdit: HWND = 0;
+const hwndEditByWindow = new Map<HWND, HWND>();
 
 function NotepadWndProc(
   hwnd: HWND,
@@ -89,10 +95,10 @@ function NotepadWndProc(
       SetMenu(hwnd, hMenuBar);
 
       // 2. Create Multiline Edit Control filling client area
-      hwndEdit = CreateWindowEx(
+      const hwndEdit = CreateWindowEx(
         0,
         "EDIT",
-        "Welcome to Win32 Notepad in JavaScript!\n\nThis window has a full Win32 HMENU bar with File, Edit, and Help submenus.\n\nTry clicking File -> New, Edit -> Time/Date, or Help -> About Notepad!",
+        "Welcome to Win32 Notepad in JavaScript!\n\nDrag and Drop is enabled on this window:\n• Drop any text/code file from your computer onto this window!\n• Or drag any file from Windows Explorer into Notepad!\n\nTry clicking File -> New, Edit -> Time/Date, or Help -> About Notepad!",
         WS_CHILD | WS_VISIBLE | ES_MULTILINE,
         0,
         0,
@@ -103,10 +109,31 @@ function NotepadWndProc(
         null,
         null
       );
+      hwndEditByWindow.set(hwnd, hwndEdit);
+
+      // Register window for Win32 Shell Drag & Drop
+      DragAcceptFiles(hwnd, true);
+      return 0;
+    }
+
+    case WM_DROPFILES: {
+      const hwndEdit = hwndEditByWindow.get(hwnd);
+      const hDrop = wParam as HDROP;
+      const count = DragQueryFile(hDrop, DRAGQUERY_ALLFILES) as number;
+      if (hwndEdit && count > 0) {
+        const file = DragQueryFile(hDrop, 0) as DropFileInfo;
+        if (file) {
+          SetWindowText(hwndEdit, file.content || "");
+          SetWindowText(hwnd, `${file.name} - Notepad`);
+          audio.playChime();
+        }
+      }
+      DragFinish(hDrop);
       return 0;
     }
 
     case WM_SIZE: {
+      const hwndEdit = hwndEditByWindow.get(hwnd);
       const width = lParam & 0xffff;
       const height = (lParam >> 16) & 0xffff;
       if (hwndEdit) {
@@ -117,7 +144,10 @@ function NotepadWndProc(
     }
 
     case WM_COMMAND: {
+      const hwndEdit = hwndEditByWindow.get(hwnd);
       const menuId = LOWORD(wParam);
+
+      if (!hwndEdit) return 0;
 
       switch (menuId) {
         case ID_FILE_NEW:
@@ -159,6 +189,7 @@ function NotepadWndProc(
     }
 
     case WM_DESTROY: {
+      hwndEditByWindow.delete(hwnd);
       PostQuitMessage(0);
       return 0;
     }
