@@ -32,6 +32,7 @@ export const WM_KEYUP = 0x0101;
 export const WM_CHAR = 0x0102;
 export const WM_COMMAND = 0x0111;
 export const WM_TIMER = 0x0113;
+export const WM_DROPFILES = 0x0233;
 export const WM_MOUSEMOVE = 0x0200;
 export const WM_LBUTTONDOWN = 0x0201;
 export const WM_LBUTTONUP = 0x0202;
@@ -92,6 +93,10 @@ export const WS_OVERLAPPEDWINDOW = (
   WS_MINIMIZEBOX |
   WS_MAXIMIZEBOX
 );
+
+// Extended Window Styles (WS_EX_*)
+export const WS_EX_ACCEPTFILES = 0x00000010;
+export const DRAGQUERY_ALLFILES = 0xffffffff;
 
 // ShowWindow commands (SW_*)
 export const SW_HIDE = 0;

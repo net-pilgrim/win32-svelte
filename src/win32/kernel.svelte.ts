@@ -14,8 +14,11 @@ import {
   WM_RBUTTONDOWN,
   WM_RBUTTONUP,
   WM_TIMER,
+  WM_DROPFILES,
   WS_VISIBLE,
   WS_CHILD,
+  WS_EX_ACCEPTFILES,
+  DRAGQUERY_ALLFILES,
   SW_HIDE,
   SW_SHOW,
   SW_MINIMIZE,
@@ -107,6 +110,9 @@ import type {
   MenuRecord,
   MenuItem,
   MessageBoxOptions,
+  DropFileInfo,
+  HDROP,
+  POINT,
 } from "./types";
 
 class Win32Kernel {
@@ -583,6 +589,7 @@ class Win32Kernel {
                 subItems: lParam.subItems ?? [],
                 selected: false,
                 icon: lParam.icon,
+                content: lParam.content,
               }
             : { id: idx, text: String(lParam ?? ""), subItems: [], selected: false };
 
@@ -1062,6 +1069,39 @@ class Win32Kernel {
     }
     return false;
   }
+
+  // Shell Drag & Drop (shell32)
+  public DragAcceptFiles(hwnd: HWND, accept: boolean): void {
+    const win = this.getWindow(hwnd);
+    if (!win) return;
+    if (accept) {
+      win.exStyle |= WS_EX_ACCEPTFILES;
+      win.customProps.acceptDropFiles = true;
+    } else {
+      win.exStyle &= ~WS_EX_ACCEPTFILES;
+      win.customProps.acceptDropFiles = false;
+    }
+  }
+
+  public DragQueryFile(hDrop: HDROP, iFile: number): number | DropFileInfo | string {
+    if (!hDrop || !hDrop.files) return 0;
+    if (iFile === DRAGQUERY_ALLFILES || iFile === -1) {
+      return hDrop.files.length;
+    }
+    const file = hDrop.files[iFile];
+    return file || "";
+  }
+
+  public DragQueryPoint(hDrop: HDROP, lpPoint: POINT): boolean {
+    if (!hDrop || !hDrop.pt) return false;
+    lpPoint.x = hDrop.pt.x;
+    lpPoint.y = hDrop.pt.y;
+    return true;
+  }
+
+  public DragFinish(_hDrop: HDROP): void {
+    // Release resources associated with drop operation
+  }
 }
 
 export const kernel = new Win32Kernel();
@@ -1124,6 +1164,11 @@ export const EnableMenuItem = (hMenu: HMENU, id: number, enable: number) =>
 export function InitCommonControlsEx(_initCtrls?: any): boolean {
   return true;
 }
+
+export const DragAcceptFiles = (hwnd: HWND, accept: boolean) => kernel.DragAcceptFiles(hwnd, accept);
+export const DragQueryFile = (hDrop: HDROP, iFile: number) => kernel.DragQueryFile(hDrop, iFile);
+export const DragQueryPoint = (hDrop: HDROP, lpPoint: POINT) => kernel.DragQueryPoint(hDrop, lpPoint);
+export const DragFinish = (hDrop: HDROP) => kernel.DragFinish(hDrop);
 
 /**
  * Standard message loop helper:

@@ -11,6 +11,7 @@
     onSelect: () => void;
     onMove: (x: number, y: number) => void;
     onLaunch: () => void;
+    onDropFiles?: (data: any) => void;
   }
 
   let {
@@ -23,9 +24,11 @@
     onSelect,
     onMove,
     onLaunch,
+    onDropFiles,
   }: Props = $props();
 
   let isDragging = $state(false);
+  let isDragOver = $state(false);
   let dragOffset = { x: 0, y: 0 };
   let hasMoved = false;
 
@@ -63,16 +66,54 @@
     audio.playClick();
     onLaunch();
   }
+
+  function onDragOver(e: DragEvent) {
+    if (!onDropFiles) return;
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "copy";
+    }
+    isDragOver = true;
+  }
+
+  function onDragLeave(e: DragEvent) {
+    if (!onDropFiles) return;
+    isDragOver = false;
+  }
+
+  function onDrop(e: DragEvent) {
+    if (!onDropFiles) return;
+    e.preventDefault();
+    isDragOver = false;
+
+    const win32Data = e.dataTransfer?.getData("application/win32-file");
+    if (win32Data) {
+      try {
+        const parsed = JSON.parse(win32Data);
+        onDropFiles(parsed);
+        return;
+      } catch {}
+    }
+
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      for (const file of Array.from(e.dataTransfer.files)) {
+        onDropFiles({ name: file.name });
+      }
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="desktop-icon {isSelected ? 'selected' : ''}"
+  class="desktop-icon {isSelected ? 'selected' : ''} {isDragOver ? 'drag-over' : ''}"
   style="left: {x}px; top: {y}px;"
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
   onpointerup={onPointerUp}
   ondblclick={onDblClick}
+  ondragover={onDragOver}
+  ondragleave={onDragLeave}
+  ondrop={onDrop}
 >
   <div class="icon-graphic">{icon}</div>
   <div class="icon-label">{title}</div>
@@ -120,5 +161,10 @@
     color: #ffffff;
     outline: 1px dotted #ffff80;
     text-shadow: none;
+  }
+
+  .desktop-icon.drag-over {
+    background: rgba(0, 0, 128, 0.4);
+    outline: 2px dashed #ffff00;
   }
 </style>
