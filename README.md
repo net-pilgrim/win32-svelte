@@ -74,30 +74,34 @@ When the app opens:
 
 `win32-svelte` is structured into three clean layers: the **Win32 Kernel Runtime**, the **GDI & Audio Engines**, and the **Svelte 5 Reactive Presentation Layer**.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   Applications / Samples                    │
-│   (Minesweeper, Calculator, Notepad, Paint Demo, Controls)   │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ Win32 C-Style Calls
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Win32 Kernel & GDI                       │
-│  - HWND Table & Class Registry (RegisterClassEx)            │
-│  - Message Pump (SendMessage, PostMessage, DispatchMessage) │
-│  - GDI Primitives (HDC, BeginPaint, Rectangle, LineTo)      │
-│  - Synthetic Audio (MessageBeep, Chord, Ding, Tada)         │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ Svelte 5 Runes ($state, $derived)
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                Presentation Layer (Svelte 5)                │
-│  - Desktop.svelte (Desktop icons, Taskbar, Start Menu)      │
-│  - Window.svelte (Frame, Dragging, Resizing, Canvas Mount)   │
-│  - Control.svelte (BUTTON, EDIT, STATIC, Trackbar, etc.)    │
-│  - MenuBar.svelte & MessageBoxModal.svelte                  │
-│  - 98.css Stylesheet                                        │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Apps["Applications & Samples"]
+        Minesweeper["Minesweeper"]
+        Calculator["Calculator"]
+        Notepad["Notepad"]
+        PaintDemo["GDI Paint Demo"]
+        ControlGallery["Control Gallery"]
+    end
+
+    subgraph KernelSubsystem["Win32 Kernel & Subsystems"]
+        KernelCore["Kernel Core<br/>(HWND Registry, Class Table, Z-Index)"]
+        MsgPump["Message Dispatcher<br/>(SendMessage, PostMessage, DispatchMessage)"]
+        GDI["GDI 2D Engine<br/>(HDC, BeginPaint, LineTo, Rectangle, Canvas)"]
+        Audio["Synthetic Audio<br/>(Web Audio Synthesizer: Chord, Ding, Tada)"]
+    end
+
+    subgraph Presentation["Presentation Layer (Svelte 5 & 98.css)"]
+        Desktop["Desktop.svelte<br/>(Desktop Icons, Taskbar, Start Menu)"]
+        Window["Window.svelte<br/>(Frames, Drag/Resize, Z-Order, GDI Canvas)"]
+        Control["Control.svelte<br/>(BUTTON, EDIT, STATIC, Trackbar, Progress)"]
+        Modals["MenuBar & MessageBoxModal.svelte<br/>(Menus & Dialogs)"]
+    end
+
+    Apps -->|"Win32 C-style API (RegisterClassEx, CreateWindowEx, WndProc)"| KernelSubsystem
+    KernelSubsystem -->|"Svelte 5 Runes ($state, $derived, $effect)"| Presentation
+    Presentation -->|"User Events (DOM clicks, pointer moves, inputs)"| KernelSubsystem
+    KernelSubsystem -->|"Dispatched WM_* Messages (WM_COMMAND, WM_PAINT, WM_TIMER)"| Apps
 ```
 
 ### 1. The Kernel Subsystem (`src/win32/kernel.svelte.ts`)
@@ -255,4 +259,6 @@ END
 
 ## 📜 License
 
-This project is licensed under the MIT License. See [LICENSE](file:///home/dsv/work/win32-svelte/LICENSE) for details. Windows 98 styling is provided courtesy of [98.css](https://github.com/jdan/98.css).
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](file:///home/dsv/work/win32-svelte/LICENSE) file for the full text.
+
+Windows 98 styling is provided courtesy of [98.css](https://github.com/jdan/98.css) (MIT License).
