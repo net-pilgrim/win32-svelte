@@ -1,47 +1,258 @@
-# Svelte + TS + Vite
+# 🪟 win32-svelte
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+> **"Why write modern reactive components when you can register a `WNDCLASSEX` and write a 1995-era `WndProc` switch statement in TypeScript?"**
 
-## Recommended IDE Setup
+`win32-svelte` is a faithful, playful, and architecturally serious re-implementation of the classic **Win32 API** (Handles, Window Classes, Message Loop, GDI, Controls, Dialogs, Web Audio Sound Blaster/PC-speaker synthesizers) running on top of **Svelte 5** and styled with **98.css**.
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+---
 
-## Need an official Svelte framework?
+## 🎨 The Playful Motivation
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+The modern web development world is awash with reactive signals, virtual DOM diffing, JSX transforms, server components, and hydration boundaries. But decades before modern front-end frameworks existed, software engineers built rock-solid, highly responsive GUI software using a remarkably enduring architecture: **The Win32 User & GDI subsystem**.
 
-## Technical considerations
+This project asks a delightfully absurd question:
 
-**Why use this over SvelteKit?**
+*What if Charles Petzold’s classic 1998 bible "Programming Windows" was written for the modern browser?*
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+Instead of abstracting the web, `win32-svelte` implements:
+- Real `HWND` handles, parent-child hierarchies, and Z-indexing.
+- `RegisterClassEx` and window procedure callbacks (`lpfnWndProc(hwnd, uMsg, wParam, lParam)`).
+- Synchronous `SendMessage` and queued `PostMessage`.
+- An asynchronous message loop pump (`GetMessage`, `TranslateMessage`, `DispatchMessage`).
+- Classic standard controls (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`).
+- A canvas-based GDI subsystem (`BeginPaint`, `MoveToEx`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`, `CreateSolidBrush`, `SelectObject`).
+- Synthesized Windows 98 system sound effects (Chord, Ding, Chime, Tada) using the Web Audio API—no external `.wav` files needed!
+- The authentic look and feel of Windows 98 via [98.css](https://jdan.github.io/98.css/).
 
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+It bridges the procedural, message-oriented mental model of C programming with the fine-grained reactivity of **Svelte 5 runes** (`$state`, `$derived`, `$effect`).
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+---
 
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
+## 🚀 How to Run
 
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
+### Prerequisites
+- [Node.js](https://nodejs.org/) (version 18+ recommended)
+- `npm` (or `pnpm` / `yarn`)
 
-**Why include `.vscode/extensions.json`?**
+### Quick Start
 
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
+```bash
+# Clone the repository
+git clone https://github.com/your-username/win32-svelte.git
+cd win32-svelte
 
-**Why enable `allowJs` in the TS template?**
+# Install dependencies
+npm install
 
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+# Start the Vite development server
+npm run dev
 ```
+
+Open your browser at `http://localhost:5173` (or the URL displayed in your terminal).
+
+### Available Scripts
+
+| Script | Command | Purpose |
+|---|---|---|
+| `npm run dev` | `vite` | Starts local development server with Vite HMR |
+| `npm run build` | `vite build` | Compiles the project to production-ready static assets in `dist/` |
+| `npm run preview` | `vite preview` | Previews the built production app locally |
+| `npm run check` | `svelte-check ... && tsc ...` | Typechecks Svelte components and TypeScript code |
+
+### What You'll Experience
+When the app opens:
+1. **Windows 98 Desktop Environment**: Fully featured desktop with icons (*My Computer*, *Minesweeper*, *GDI Paint*, *Notepad*, *Calculator*, *Recycle Bin*), movable and resizable windows, taskbar with running tasks, Start button, and system tray clock.
+2. **Preloaded Applications**: Launches *Minesweeper* and *GDI Paint Demo* by default.
+3. **Debug HUD & HWND Inspector**:
+   - Quick-spawn buttons in the top-right corner.
+   - Audio mute/unmute toggle.
+   - **Inspect HWNDs**: An interactive live inspector showing the internal kernel handle table (`HWND`, parent, window class, text, and visibility).
+
+---
+
+## 🏛️ Architecture
+
+`win32-svelte` is structured into three clean layers: the **Win32 Kernel Runtime**, the **GDI & Audio Engines**, and the **Svelte 5 Reactive Presentation Layer**.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Applications / Samples                    │
+│   (Minesweeper, Calculator, Notepad, Paint Demo, Controls)   │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Win32 C-Style Calls
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Win32 Kernel & GDI                       │
+│  - HWND Table & Class Registry (RegisterClassEx)            │
+│  - Message Pump (SendMessage, PostMessage, DispatchMessage) │
+│  - GDI Primitives (HDC, BeginPaint, Rectangle, LineTo)      │
+│  - Synthetic Audio (MessageBeep, Chord, Ding, Tada)         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Svelte 5 Runes ($state, $derived)
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                Presentation Layer (Svelte 5)                │
+│  - Desktop.svelte (Desktop icons, Taskbar, Start Menu)      │
+│  - Window.svelte (Frame, Dragging, Resizing, Canvas Mount)   │
+│  - Control.svelte (BUTTON, EDIT, STATIC, Trackbar, etc.)    │
+│  - MenuBar.svelte & MessageBoxModal.svelte                  │
+│  - 98.css Stylesheet                                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1. The Kernel Subsystem (`src/win32/kernel.svelte.ts`)
+The kernel acts as the operating system GUI manager:
+- **Handle Allocation**: Assigns unique numeric handles (`HWND` starting at 100, `HMENU` starting at 500).
+- **Window Class Registry (`RegisterClassEx`)**: Stores window classes with their associated `lpfnWndProc`. Built-in system classes (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`) are pre-registered on boot.
+- **Message Dispatching**:
+  - `SendMessage(hwnd, msg, wParam, lParam)`: Synchronously invokes the target window's `WndProc` and returns an `LRESULT`.
+  - `PostMessage(hwnd, msg, wParam, lParam)`: Enqueues messages asynchronously.
+  - `GetMessage(msg)`: Yields from the queue or awaits incoming posted messages.
+  - `DispatchMessage(msg)`: Dispatches queued messages to their window procedures.
+  - `RunMessageLoop()`: Standard message loop helper:
+    ```typescript
+    while (await GetMessage(msg)) {
+      TranslateMessage(msg);
+      DispatchMessage(msg);
+    }
+    ```
+- **Hierarchical Menus**: `CreateMenu`, `CreatePopupMenu`, `AppendMenu`, `SetMenu`, `CheckMenuItem`, `EnableMenuItem`.
+- **Timers**: `SetTimer` and `KillTimer` dispatches `WM_TIMER` through the message queue.
+- **Modal Dialogs**: `MessageBox(hwnd, text, caption, type)` suspends via a Promise until the user clicks OK, Yes, No, or Cancel.
+
+### 2. GDI 2D Graphics Engine (`src/win32/gdi.ts`)
+Encapsulates HTML5 `<canvas>` rendering within standard Win32 Device Context (`HDC`) semantics:
+- `BeginPaint(hwnd, ps)` / `EndPaint(hwnd, ps)`
+- `MoveToEx(hdc, x, y)` & `LineTo(hdc, x, y)`
+- `Rectangle(hdc, left, top, right, bottom)`
+- `Ellipse(hdc, left, top, right, bottom)`
+- `TextOut(hdc, x, y, text)` & `SetTextColor(hdc, color)`
+- `CreateSolidBrush(color)` & `CreatePen(style, width, color)`
+- `SelectObject(hdc, hGdiObj)`
+- `InvalidateRect(hwnd, rect, erase)`: Triggers a fresh `WM_PAINT` message.
+
+### 3. Web Audio Sound Engine (`src/win32/audio.ts`)
+Uses Web Audio API oscillators and gain envelopes to synthesize legendary retro OS sounds in real time:
+- `playChord()`: Minor-major chord cluster for `MB_ICONERROR` / Critical Stop.
+- `playDing()`: Resonant sine sweep for `MB_ICONWARNING` / Exclamation.
+- `playChime()`: Ascending glockenspiel bell tones for `MB_ICONINFORMATION` / Asterisk.
+- `playTada()`: Fanfare brass synth for victories / startup.
+- `MessageBeep(type)`: Standard Win32 sound dispatcher.
+
+### 4. Svelte 5 UI Bridge (`src/win32/ui/`)
+- **[Desktop.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Desktop.svelte)**: Manages desktop background, icons, running window taskbar entries, system time, and modal overlays.
+- **[Window.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Window.svelte)**: Renders the active/inactive window frame, title bar controls, handles dragging/resizing, and mounts `<canvas>` for GDI windows.
+- **[Control.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Control.svelte)**: Maps child `HWND`s to DOM elements based on window style bitmasks (`BS_AUTOCHECKBOX`, `BS_AUTORADIOBUTTON`, `ES_MULTILINE`, `CBS_DROPDOWN`, etc.).
+- **[MenuBar.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/MenuBar.svelte)**: Handles top-level menu strips, dropdown popups, separators, shortcuts, and sends `WM_COMMAND` with menu IDs.
+- **[MessageBoxModal.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/MessageBoxModal.svelte)**: Faithful reproduction of the classic Windows 98 message box dialog with icons.
+
+---
+
+## 🕹️ Sample Applications
+
+The project includes five complete sample applications written in pure Win32 style:
+
+| App | File | Features Demonstrated |
+|---|---|---|
+| **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | 81 child button controls, right-click `BN_RIGHTCLICK` flagging, `SetTimer` game clock, custom 7-segment LED numbers, reset smiley button, win/loss fanfare sound. |
+| **GDI Paint** | [`src/samples/paint_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/paint_demo.ts) | Interactive freehand drawing on canvas, GDI geometry primitives (`Rectangle`, `Ellipse`, `LineTo`), menu color palettes, clear canvas command. |
+| **Calculator** | [`src/samples/calculator.ts`](file:///home/dsv/work/win32-svelte/src/samples/calculator.ts) | Grid of button controls sending `WM_COMMAND`, `EDIT` display control updating via `SetWindowText`, arithmetic state machine. |
+| **Notepad** | [`src/samples/notepad.ts`](file:///home/dsv/work/win32-svelte/src/samples/notepad.ts) | Multiline `EDIT` control with automatic resize on `WM_SIZE`, cascading *File*, *Edit*, and *Help* menus, *Time/Date* insertion, *Select All*, *About* dialog. |
+| **Control Gallery** | [`src/samples/control_gallery.ts`](file:///home/dsv/work/win32-svelte/src/samples/control_gallery.ts) | Comprehensive showcase of GroupBoxes, Checkboxes, Radio button groups, Progress bar stepping, Slider / Trackbar scrubbing, Combobox dropdowns, and Message Box triggers. |
+
+### How Writing an App Looks
+
+```typescript
+import { RegisterClassEx, CreateWindowEx, ShowWindow, DefWindowProc } from "./win32/kernel.svelte";
+import { WM_CREATE, WM_COMMAND, WS_OVERLAPPEDWINDOW, WS_VISIBLE, WS_CHILD, SW_SHOW } from "./win32/constants";
+
+function MyWndProc(hwnd, msg, wParam, lParam) {
+  switch (msg) {
+    case WM_CREATE:
+      // Create a child button!
+      CreateWindowEx(0, "BUTTON", "Click Me", WS_CHILD | WS_VISIBLE, 20, 20, 100, 26, hwnd, 101);
+      return 0;
+
+    case WM_COMMAND:
+      if (wParam === 101) {
+        MessageBox(hwnd, "Hello from Win32 Svelte!", "Notice");
+      }
+      return 0;
+
+    default:
+      return DefWindowProc(hwnd, msg, wParam, lParam);
+  }
+}
+
+RegisterClassEx({ className: "MyWindowClass", lpfnWndProc: MyWndProc });
+const hwnd = CreateWindowEx(0, "MyWindowClass", "Sample Window", WS_OVERLAPPEDWINDOW, 100, 100, 300, 200);
+ShowWindow(hwnd, SW_SHOW);
+```
+
+---
+
+## 🚧 Open Points & Known Limitations
+
+While the core runtime supports an impressive array of classic software patterns, several interesting areas remain open for expansion:
+
+1. **Message Loop & JavaScript Concurrency**:
+   - In native C Win32, `GetMessage` blocks the OS thread until a message arrives. In JavaScript's single-threaded event loop, blocking is impossible, so `GetMessage` is asynchronous (`Promise<boolean>`).
+   - Modal loops (like nested `DialogBoxParam`) require non-blocking fiber-like orchestration or `async/await` coroutines.
+2. **Coordinate Spaces & Non-Client Area Metrics**:
+   - Currently, window widths and heights approximate client rectangles.
+   - Full support for `GetClientRect`, `GetWindowRect`, `AdjustWindowRectEx`, and `ScreenToClient` is partially mocked.
+3. **Advanced Common Controls (`COMCTL32`)**:
+   - `WC_LISTVIEW` (Details, Large Icons, Small Icons, List modes).
+   - `WC_TREEVIEW` (Hierarchical tree nodes with expand/collapse).
+   - `STATUSCLASSNAME` (Status bars at the bottom of windows).
+   - `WC_TABCONTROL` (Multi-tab property sheets).
+4. **Keyboard Navigation & Accelerator Tables**:
+   - `WS_TABSTOP` keyboard tabbing between controls.
+   - Accelerators (`HACCEL`, `TranslateAccelerator`) for global hotkeys (e.g., `Ctrl+O`, `Ctrl+S`, `Alt+F4`).
+   - Mnemonic underline navigation (`Alt+F` for File menu).
+5. **Drag-and-Drop & System Clipboard**:
+   - `OpenClipboard`, `EmptyClipboard`, `SetClipboardData`, and `GetClipboardData` bridged to the browser `navigator.clipboard` API.
+6. **Custom Window Framing (`WM_NCPAINT`, `WM_NCHITTEST`)**:
+   - Ability for user windows to perform custom non-client rendering and custom window shapes.
+
+---
+
+## 🔮 Possible Outcomes & Future Horizons
+
+`win32-svelte` is more than a novelty; it is a foundation for several fascinating compilation and virtualization targets:
+
+### 1. Resource Script (.rc) Compiler
+Classic Windows applications separate UI layout from logic using `.rc` resource definition files:
+```rc
+IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About Calculator"
+FONT 8, "MS Sans Serif"
+BEGIN
+    ICON            IDI_APP,IDC_STATIC,14,14,20,20
+    LTEXT           "Calculator Version 1.0",IDC_STATIC,42,14,114,8
+    DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
+END
+```
+- **Vision**: Build an AST parser for `.rc` files that compiles directly into `win32-svelte` dialog templates (`CreateDialogParam` / `DialogBox`).
+- **Outcome**: Take unmodified 1990s Windows dialog scripts and compile them straight into web GUI components without writing any HTML/CSS!
+
+### 2. Transpilation & Compilation Target (C to WebAssembly)
+- **Compiling Real Win32 C Code to Web**:
+  - By writing a thin C header layer (`windows.h`) with Clang/Emscripten, legacy C Win32 applications could compile to WebAssembly and import their `user32.dll` and `gdi32.dll` symbols directly from this Svelte kernel.
+  - Imagine compiling historical shareware, utilities, or classic demo code directly to modern web apps!
+- **Transpiling Back to Native C**:
+  - Since the TypeScript API strictly mirrors Win32 naming and calling conventions, a source-to-source transpiler or LLM-assisted pipeline could transpile TypeScript `win32-svelte` applications into ISO C99 targeting Microsoft Visual C++ or MinGW GCC to produce native `.exe` binaries.
+
+### 3. Visual Basic 6.0 Runtime Bridge
+- VB6 forms and controls map directly onto Win32 window handles and notification messages.
+- A parser for `.frm` (VB Form) files could mount directly onto `win32-svelte` controls, reviving classic line-of-business forms in the browser.
+
+### 4. Headless Automated UI Testing Harness
+- Because the entire Win32 handle table and message queue live in memory independently of a physical desktop, entire suites of Win32 GUI tests can run in headless CI environments (`Node.js`) without needing a virtual display server (Xvfb / Wine).
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License. See [LICENSE](file:///home/dsv/work/win32-svelte/LICENSE) for details. Windows 98 styling is provided courtesy of [98.css](https://github.com/jdan/98.css).
