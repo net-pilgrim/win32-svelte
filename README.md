@@ -6,6 +6,12 @@
 
 ---
 
+Demo here: https://win32-svelte.vercel.app/
+
+<img width="1600" height="927" alt="image" src="https://github.com/user-attachments/assets/61f3e2a3-9420-41af-8a9a-4cde1606b49f" />
+
+---
+
 ## 🎨 The Playful Motivation
 
 The modern web development world is awash with reactive signals, virtual DOM diffing, JSX transforms, server components, and hydration boundaries. But decades before modern front-end frameworks existed, software engineers built rock-solid, highly responsive GUI software using a remarkably enduring architecture: **The Win32 User & GDI subsystem**.
