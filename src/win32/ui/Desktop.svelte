@@ -25,7 +25,10 @@
     x: number;
     y: number;
     action: () => void;
+    onDropFiles?: (data: any) => void;
   }
+
+  let recycledItems = $state<string[]>([]);
 
   let icons = $state<IconItem[]>([
     {
@@ -82,7 +85,24 @@
       icon: "🗑️",
       x: 16,
       y: 496,
-      action: () => MessageBox(null, "The Recycle Bin is currently empty.", "Recycle Bin", MB_OK),
+      action: () => {
+        if (recycledItems.length === 0) {
+          MessageBox(null, "The Recycle Bin is currently empty.", "Recycle Bin", MB_OK);
+        } else {
+          MessageBox(
+            null,
+            `The Recycle Bin contains ${recycledItems.length} item(s):\n\n${recycledItems.map((n) => `• ${n}`).join("\n")}`,
+            "Recycle Bin",
+            MB_OK
+          );
+        }
+      },
+      onDropFiles: (fileData: any) => {
+        const name = fileData.name || "Item";
+        recycledItems.push(name);
+        audio.playChord();
+        MessageBox(null, `'${name}' was deleted and sent to the Recycle Bin.`, "Recycle Bin", MB_OK);
+      },
     },
   ]);
 
@@ -132,6 +152,7 @@
           icon.y = newY;
         }}
         onLaunch={icon.action}
+        onDropFiles={icon.onDropFiles}
       />
     {/each}
 

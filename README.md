@@ -149,6 +149,11 @@ The kernel acts as the operating system GUI manager:
 - **Hierarchical Menus**: `CreateMenu`, `CreatePopupMenu`, `AppendMenu`, `SetMenu`, `CheckMenuItem`, `EnableMenuItem`.
 - **Timers**: `SetTimer` and `KillTimer` dispatches `WM_TIMER` through the message queue.
 - **Modal Dialogs**: `MessageBox(hwnd, text, caption, type)` suspends via a Promise until the user clicks OK, Yes, No, or Cancel.
+- **Shell Drag & Drop (`shell32`)**:
+  - `DragAcceptFiles(hwnd, fAccept)`: Registers windows for file drops (`WS_EX_ACCEPTFILES`).
+  - `WM_DROPFILES`: Dispatched with `HDROP` containing dropped file metadata and text content.
+  - `DragQueryFile(hDrop, iFile)` & `DragQueryPoint(hDrop, lpPoint)` & `DragFinish(hDrop)`.
+  - Seamlessly bridges native host OS file drag-and-drop (`.txt`, `.js`, etc.) and internal app-to-app dragging (e.g., from Windows Explorer to Notepad or Recycle Bin).
 
 ### 2. GDI 2D Graphics Engine (`src/win32/gdi.ts`)
 Encapsulates HTML5 `<canvas>` rendering within standard Win32 Device Context (`HDC`) semantics:
@@ -239,8 +244,9 @@ While the core runtime supports an impressive array of classic software patterns
    - `WS_TABSTOP` keyboard tabbing between controls.
    - Accelerators (`HACCEL`, `TranslateAccelerator`) for global hotkeys (e.g., `Ctrl+O`, `Ctrl+S`, `Alt+F4`).
    - Mnemonic underline navigation (`Alt+F` for File menu).
-5. **Drag-and-Drop & System Clipboard**:
-   - `OpenClipboard`, `EmptyClipboard`, `SetClipboardData`, and `GetClipboardData` bridged to the browser `navigator.clipboard` API.
+5. **System Clipboard & OLE Data Transfer**:
+   - Win32 Shell Drag & Drop (`DragAcceptFiles`, `WM_DROPFILES`, `DragQueryFile`) is now implemented!
+   - Next steps: `OpenClipboard`, `EmptyClipboard`, `SetClipboardData`, and `GetClipboardData` bridged to the browser `navigator.clipboard` API, and OLE COM structured data transfer (`IDropTarget`, `IDropSource`).
 6. **Custom Window Framing (`WM_NCPAINT`, `WM_NCHITTEST`)**:
    - Ability for user windows to perform custom non-client rendering and custom window shapes.
 

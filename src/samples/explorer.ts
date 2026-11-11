@@ -11,12 +11,17 @@ import {
   CreatePopupMenu,
   AppendMenu,
   SetMenu,
+  DragAcceptFiles,
+  DragQueryFile,
+  DragFinish,
+  audio,
 } from "../win32/kernel.svelte";
 
 import {
   WM_CREATE,
   WM_COMMAND,
   WM_NOTIFY,
+  WM_DROPFILES,
   WM_SIZE,
   WM_DESTROY,
   WS_OVERLAPPEDWINDOW,
@@ -42,9 +47,10 @@ import {
   LVN_ITEMCHANGED,
   SB_SETTEXT,
   SB_SETPARTS,
+  DRAGQUERY_ALLFILES,
 } from "../win32/constants";
 
-import type { HWND, UINT, WPARAM, LPARAM, LRESULT, TreeNodeItem, NMHDR } from "../win32/types";
+import type { HWND, UINT, WPARAM, LPARAM, LRESULT, TreeNodeItem, NMHDR, HDROP, DropFileInfo } from "../win32/types";
 
 // Control IDs
 const IDC_EXPLORER_TREE = 8001;
@@ -270,6 +276,34 @@ function ExplorerWndProc(
       AppendMenu(hMenuBar, MF_POPUP, hHelpMenu, "&Help");
 
       SetMenu(hwnd, hMenuBar);
+
+      // Register Explorer to accept dropped files
+      DragAcceptFiles(hwnd, true);
+      return 0;
+    }
+
+    case WM_DROPFILES: {
+      const hDrop = wParam as HDROP;
+      if (!ctx) return 0;
+      const count = DragQueryFile(hDrop, DRAGQUERY_ALLFILES) as number;
+      for (let i = 0; i < count; i++) {
+        const file = DragQueryFile(hDrop, i) as DropFileInfo;
+        if (file) {
+          if (!FOLDER_DATA[ctx.currentFolderKey]) {
+            FOLDER_DATA[ctx.currentFolderKey] = [];
+          }
+          FOLDER_DATA[ctx.currentFolderKey].push({
+            name: file.name,
+            size: typeof file.size === "number" ? `${Math.max(1, Math.round(file.size / 1024))} KB` : String(file.size || "1 KB"),
+            type: file.type || "Document",
+            modified: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            icon: "📄",
+          });
+        }
+      }
+      PopulateListView(ctx.hwndList, ctx.hwndStatus, ctx.currentFolderKey);
+      audio.playDing();
+      DragFinish(hDrop);
       return 0;
     }
 

@@ -33,6 +33,21 @@ export interface RECT {
   bottom: number;
 }
 
+export interface DropFileInfo {
+  name: string;
+  size?: number | string;
+  type?: string;
+  content?: string;
+  isInternal?: boolean;
+  data?: any;
+}
+
+export interface HDROP {
+  files: DropFileInfo[];
+  pt: POINT;
+  hwndTarget?: HWND;
+}
+
 export interface MSG {
   hwnd: HWND;
   message: UINT;

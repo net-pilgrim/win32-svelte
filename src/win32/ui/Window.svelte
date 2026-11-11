@@ -10,12 +10,14 @@
     WM_LBUTTONDOWN,
     WM_LBUTTONUP,
     WM_MOUSEMOVE,
+    WM_DROPFILES,
     WS_THICKFRAME,
     WS_MINIMIZEBOX,
     WS_MAXIMIZEBOX,
+    WS_EX_ACCEPTFILES,
     MAKELPARAM,
   } from "../constants";
-  import type { WindowRecord } from "../types";
+  import type { WindowRecord, HDROP, DropFileInfo } from "../types";
   import Control from "./Control.svelte";
   import MenuBar from "./MenuBar.svelte";
   import { RegisterWindowCanvas, UnregisterWindowCanvas } from "../gdi";
@@ -149,15 +151,90 @@
       } catch {}
     }
   }
+
+  let acceptsDrops = $derived(
+    (win.exStyle & WS_EX_ACCEPTFILES) !== 0 || !!win.customProps?.acceptDropFiles
+  );
+  let isDragOver = $state(false);
+
+  function onDragOver(e: DragEvent) {
+    if (!acceptsDrops) return;
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "copy";
+    }
+    isDragOver = true;
+  }
+
+  function onDragLeave(e: DragEvent) {
+    if (!acceptsDrops) return;
+    isDragOver = false;
+  }
+
+  async function onDrop(e: DragEvent) {
+    if (!acceptsDrops) return;
+    e.preventDefault();
+    isDragOver = false;
+
+    const files: DropFileInfo[] = [];
+
+    // 1. Check if internal Win32 drag payload (e.g. from Explorer or another window)
+    const win32Data = e.dataTransfer?.getData("application/win32-file");
+    if (win32Data) {
+      try {
+        const parsed = JSON.parse(win32Data);
+        files.push({
+          name: parsed.name,
+          size: parsed.size,
+          type: parsed.type,
+          content: parsed.content ?? `[Content of ${parsed.name}]`,
+          isInternal: true,
+          data: parsed,
+        });
+      } catch {}
+    }
+
+    // 2. Check if host OS files were dropped via HTML5 File API
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i];
+        let content = "";
+        try {
+          content = await file.text();
+        } catch {
+          content = `[Binary file: ${file.name}, size: ${file.size} bytes]`;
+        }
+        files.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          content,
+          isInternal: false,
+        });
+      }
+    }
+
+    if (files.length > 0) {
+      const hDrop: HDROP = {
+        files,
+        pt: { x: Math.round(e.offsetX), y: Math.round(e.offsetY) },
+        hwndTarget: win.hwnd,
+      };
+      SendMessage(win.hwnd, WM_DROPFILES, hDrop as any, 0);
+    }
+  }
 </script>
 
 {#if win.visible && !win.minimized}
   <div
-    class="window win32-window {isActive ? 'active' : 'inactive'}"
+    class="window win32-window {isActive ? 'active' : 'inactive'} {isDragOver ? 'drop-target-active' : ''}"
     style={win.maximized
       ? "left: 0; top: 0; width: 100vw; height: calc(100vh - 30px); z-index: " + win.zIndex
       : `left: ${win.x}px; top: ${win.y}px; width: ${win.width}px; height: ${win.height}px; z-index: ${win.zIndex}`}
     onpointerdown={onFocusWindow}
+    ondragover={onDragOver}
+    ondragleave={onDragLeave}
+    ondrop={onDrop}
     role="dialog"
     tabindex="-1"
   >
@@ -263,5 +340,9 @@
     height: 14px;
     cursor: se-resize;
     z-index: 99;
+  }
+
+  .drop-target-active {
+    box-shadow: 0 0 0 2px #000080, 2px 2px 8px rgba(0, 0, 128, 0.5) !important;
   }
 </style>
