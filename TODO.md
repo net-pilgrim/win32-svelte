@@ -4,7 +4,66 @@ This document outlines planned features, architectural milestones, and subsystem
 
 ---
 
-## ☁️ Remote Subsystems & Containerized Backend Architecture
+## 💾 Client-Side Storage & Offline-First Subsystems (Zero-Backend)
+
+A tremendous amount of authentic OS functionality can be achieved entirely in-browser using standard **`localStorage`**, **`IndexedDB`**, and the modern **Origin Private File System (OPFS)**. This gives `win32-svelte` persistent, offline-capable storage with zero server requirements.
+
+```mermaid
+flowchart TD
+    subgraph BrowserClient["win32-svelte Runtime (Browser)"]
+        Kernel["Win32 Kernel & APIs<br/>(kernel32, advapi32, winspool)"]
+        
+        subgraph StorageDrivers["Client-Side Storage Drivers"]
+            LS["localStorage<br/>- Windows Registry (HKCU / HKLM)<br/>- Window Coordinates & State<br/>- Sound & Theme Preferences"]
+            IDB["IndexedDB<br/>- Virtual Drive C:\ File Storage<br/>- Binary Files & Large Documents<br/>- Floppy / CD-ROM Disk Images (.img, .iso)"]
+            OPFS["Origin Private File System (OPFS)<br/>- High-Performance Native VFS<br/>- Synchronous File Handles<br/>- Streamed Read/Write Chunks"]
+            PrintEngine["In-Browser Print Engine<br/>- High-DPI Offscreen Canvas<br/>- Client-side PDF Generation<br/>- Native window.print() Preview"]
+        end
+        
+        Kernel --> LS
+        Kernel --> IDB
+        Kernel --> OPFS
+        Kernel --> PrintEngine
+    end
+```
+
+### 1. Client-Side Persistent Filesystem (`IndexedDB` & `OPFS`)
+- [ ] **IndexedDB Virtual File System (`VFS`)**:
+  - `IndexedDB` is supported in all modern browsers and provides gigabytes of quota for structured data and binary blobs.
+  - Implement an object store for files (`path`, `name`, `size`, `type`, `modified`, `content`, `attributes`).
+  - Implement an object store for directories (`path`, `parentPath`, `children`).
+  - Wire into `CreateFile`, `ReadFile`, `WriteFile`, `DeleteFile`, `MoveFile`.
+  - Wire into `FindFirstFile` / `FindNextFile` so Windows Explorer dynamically lists persistent files.
+- [ ] **Origin Private File System (OPFS)**:
+  - Utilize modern `navigator.storage.getDirectory()` for lightning-fast, sandboxed file access with direct synchronous reader/writer handles.
+- [ ] **Virtual Removable Media (`A:` & `D:`)**:
+  - Store mountable floppy disk images (`.img`, `.flp`) and CD-ROM ISOs in `IndexedDB`.
+  - Mount/unmount virtual drives dynamically.
+- [ ] **File Import & Export**:
+  - Right-click in Explorer $\rightarrow$ "Export to Host" (triggers browser download).
+  - Drag from host desktop into Explorer/Notepad $\rightarrow$ automatically saves into `IndexedDB`.
+
+### 2. Client-Side Windows Registry (`localStorage` & `advapi32.dll`)
+- [ ] **Synchronous Registry Store via `localStorage`**:
+  - Because `localStorage` is synchronous, key-value lookups match the blocking semantics of `RegQueryValueEx` and `RegSetValueEx` without needing `async/await`!
+  - Namespace keys by registry hive:
+    - `HKCU\Control Panel\Desktop` $\rightarrow$ wallpaper, color schemes, sound effects.
+    - `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer` $\rightarrow$ desktop icon positions, recent files.
+    - `HKLM\Software` $\rightarrow$ installed application registrations.
+- [ ] **Registry API Implementation**:
+  - `RegOpenKeyEx`, `RegCloseKey`, `RegQueryValueEx`, `RegSetValueEx`, `RegDeleteValue`.
+  - `RegSaveKey` / `RegRestoreKey`: Import/Export `.reg` files in classic ASCII Windows registry format.
+
+### 3. Client-Side Printing & PDF Export (Zero-Backend)
+- [ ] **GDI Client-Side Spooler**:
+  - When calling `StartDoc` / `EndDoc`, the printer `HDC` renders the print pages into an offscreen high-DPI canvas or SVG.
+- [ ] **PDF Generation & Browser Print**:
+  - Convert rendered pages into a downloadable PDF directly in the browser (e.g. using `pdf-lib`).
+  - Trigger native `window.print()` with a specialized Windows 98 print preview stylesheet (`@media print`).
+
+---
+
+## ☁️ Remote Subsystems & Containerized Backend Architecture (Hybrid Mode)
 
 Integrate a lightweight remote container (Docker / Linux daemon) communicating with the browser frontend via **REST** and **WebSockets** to elevate `win32-svelte` from an in-memory GUI sandbox to a persistent, networked cloud workstation.
 
