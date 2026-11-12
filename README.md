@@ -64,6 +64,7 @@ Open your browser at `http://localhost:5173` (or the URL displayed in your termi
 | `npm run build` | `vite build` | Compiles the project to production-ready static assets in `dist/` |
 | `npm run preview` | `vite preview` | Previews the built production app locally |
 | `npm run check` | `svelte-check ... && tsc ...` | Typechecks Svelte components and TypeScript code |
+| `npm run rc` | `tsx src/rc/cli.ts` | Compiles Win32 `.rc` resource scripts to TypeScript/JSON |
 
 ### 🌐 Deploying to Vercel
 
@@ -315,7 +316,7 @@ While the core runtime supports an impressive array of classic software patterns
 
 `win32-svelte` is more than a novelty; it is a foundation for several fascinating compilation and virtualization targets:
 
-### 1. Resource Script (.rc) Compiler
+### 1. Resource Script (.rc) Compiler & Build Integration
 Classic Windows applications separate UI layout from logic using `.rc` resource definition files:
 ```rc
 IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
@@ -323,13 +324,25 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About Calculator"
 FONT 8, "MS Sans Serif"
 BEGIN
-    ICON            IDI_APP,IDC_STATIC,14,14,20,20
+    ICON            "IDI_APP",IDC_STATIC,14,14,20,20
     LTEXT           "Calculator Version 1.0",IDC_STATIC,42,14,114,8
     DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
 END
 ```
-- **Vision**: Build an AST parser for `.rc` files that compiles directly into `win32-svelte` dialog templates (`CreateDialogParam` / `DialogBox`).
-- **Outcome**: Take unmodified 1990s Windows dialog scripts and compile them straight into web GUI components without writing any HTML/CSS!
+- **Direct Vite Import & HMR**: Import `.rc` files directly in TypeScript:
+  ```ts
+  import resources, { IDD_ABOUTBOX, IDR_CALC_MENU } from './sample.rc';
+  ```
+  The integrated `win32RcPlugin` compiles resource scripts during dev and build, automatically tracking `#include "resource.h"` header dependencies for hot module reload!
+- **CLI Compilation**: Compile `.rc` scripts standalone:
+  ```bash
+  npm run rc -- src/samples/sample.rc -o src/samples/sample_rc.ts
+  ```
+- **Dialog Box & Menu Engine**:
+  - `CreateDialogParam` / `DialogBoxParam` natively instantiate dialogs and controls using standard Win32 Dialog Template Units (DLUs).
+  - `LoadMenu` builds Win32 `HMENU` trees directly from `.rc` `MENU` definitions.
+  - MFC `CDialog` integration: `new CDialog(IDD_ABOUTBOX, pParent, resources)`.
+- **Outcome**: Take unmodified 1990s Windows dialog and menu scripts and compile them straight into web GUI components without writing any HTML/CSS!
 
 ### 2. Transpilation & Compilation Target (C to WebAssembly)
 - **Compiling Real Win32 C Code to Web**:

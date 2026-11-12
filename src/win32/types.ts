@@ -118,6 +118,7 @@ export interface ListViewRow {
 export interface WindowRecord {
   hwnd: HWND;
   parentHwnd: HWND | null;
+  ownerHwnd?: HWND | null;
   className: string;
   wndProc: WndProc;
   title: string;

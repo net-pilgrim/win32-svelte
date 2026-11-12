@@ -235,16 +235,22 @@ flowchart TD
 ---
 
 ### 9. Resource Script (`.rc`) Compiler & Tooling
-- [ ] **`.rc` Parser & Compiler**:
+- [x] **`.rc` Parser & Compiler**:
   - Parse classic `.rc` scripts:
-    - `DIALOGEX` / `DIALOG` definitions (controls, coordinates, styles).
-    - `MENU` / `MENUEX` structures.
+    - `DIALOGEX` / `DIALOG` definitions (controls, coordinates, styles, font metrics).
+    - `MENU` / `MENUEX` structures with nested popups and shortcuts.
     - `STRINGTABLE` localization tables.
     - `ACCELERATORS` hotkey maps.
+    - Preprocessor directives (`#include`, `#define`, `#undef`, `#ifdef`, `#ifndef`).
   - Emit typed TypeScript / JSON schema objects directly executable by the kernel.
-- [ ] **Dialog Box Engine**:
-  - `CreateDialogParam(hInstance, lpTemplateName, hWndParent, lpDialogFunc, dwInitParam)`.
-  - `DialogBoxParam(...)`: Native execution of compiled `.rc` dialog templates.
+  - CLI compiler (`npm run rc -- <file.rc> -o <output.ts>`).
+  - Vite build plugin (`win32RcPlugin` / `vite-plugin-win32-rc`) with direct `.rc` imports and HMR watch tracking.
+- [x] **Dialog Box Engine**:
+  - `CreateDialogParam(hInstance, lpTemplateName, hWndParent, lpDialogFunc, dwInitParam)`
+  - `DialogBoxParam(...)`: Native execution of modal `.rc` dialog templates with owner disable/re-enable.
+  - Dialog control helpers: `GetDlgItem`, `SetDlgItemText`, `GetDlgItemText`, `CheckDlgButton`, `IsDlgButtonChecked`, `SendDlgItemMessage`.
+  - Resource loaders: `LoadMenu`, `LoadString`.
+  - Integration with MFC `CDialog(lpszTemplateName, pParentWnd)`.
 
 ---
 

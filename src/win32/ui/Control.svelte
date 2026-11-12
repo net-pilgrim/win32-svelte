@@ -241,12 +241,33 @@
       </button>
     {/if}
   {:else if win.className.toUpperCase() === "STATIC"}
-    <div
-      class="win32-control win32-static {win.customProps?.className ?? ''}"
-      style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; {win.customProps?.style ?? ''}"
-    >
-      {win.title}
-    </div>
+    {#if (win.style & 0x0010) === 0x0010}
+      <!-- SS_ETCHEDHORZ separator line -->
+      <div
+        class="win32-control win32-etched-line {win.customProps?.className ?? ''}"
+        style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height || 2}px; border-top: 1px solid #808080; border-bottom: 1px solid #ffffff; {win.customProps?.style ?? ''}"
+      ></div>
+    {:else if (win.style & 0x0003) === 0x0003}
+      <!-- SS_ICON -->
+      <div
+        class="win32-control win32-static-icon {win.customProps?.className ?? ''}"
+        style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; display: flex; align-items: center; justify-content: center; font-size: 24px; {win.customProps?.style ?? ''}"
+      >
+        {win.title === "IDI_APP" || win.title === "IDI_CALCULATOR" ? "🧮" :
+         win.title === "IDI_INFORMATION" || win.title === "IDI_ASTERISK" ? "ℹ️" :
+         win.title === "IDI_QUESTION" ? "❓" :
+         win.title === "IDI_WARNING" || win.title === "IDI_EXCLAMATION" ? "⚠️" :
+         win.title === "IDI_ERROR" || win.title === "IDI_HAND" ? "🛑" :
+         win.title || "📁"}
+      </div>
+    {:else}
+      <div
+        class="win32-control win32-static {win.customProps?.className ?? ''}"
+        style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; {(win.style & 0x0001) ? 'text-align: center;' : (win.style & 0x0002) ? 'text-align: right;' : ''} {win.customProps?.style ?? ''}"
+      >
+        {win.title}
+      </div>
+    {/if}
   {:else if win.className.toUpperCase() === "EDIT"}
     {#if win.style & 0x0004}
       <!-- ES_MULTILINE -->

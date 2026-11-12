@@ -652,6 +652,14 @@ class Win32Kernel {
     };
     this.RegisterClassEx({ className: WC_LISTVIEW, lpfnWndProc: listProc });
     this.RegisterClassEx({ className: "LISTVIEW", lpfnWndProc: listProc });
+
+    // DIALOG window class (CDialog, DIALOG, #32770)
+    const dialogProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: "CDIALOG", lpfnWndProc: dialogProc });
+    this.RegisterClassEx({ className: "DIALOG", lpfnWndProc: dialogProc });
+    this.RegisterClassEx({ className: "#32770", lpfnWndProc: dialogProc });
   }
 
   public getWindow(hwnd: HWND): WindowRecord | undefined {
@@ -690,10 +698,14 @@ class Win32Kernel {
 
     const hwnd = ++this.nextHwnd;
     const isVisible = (style & WS_VISIBLE) !== 0;
+    const isChild = (style & WS_CHILD) !== 0;
+    const actualParent = isChild ? parentHwnd : null;
+    const ownerHwnd = isChild ? null : parentHwnd;
 
     const record: WindowRecord = {
       hwnd,
-      parentHwnd,
+      parentHwnd: actualParent,
+      ownerHwnd,
       className,
       wndProc: wndProc ?? classDef.lpfnWndProc,
       title,
@@ -718,7 +730,7 @@ class Win32Kernel {
 
     this.windows.push(record);
 
-    if (parentHwnd === null) {
+    if (actualParent === null) {
       this.activeHwnd = hwnd;
     }
 
@@ -1213,3 +1225,5 @@ export async function RunMessageLoop(): Promise<void> {
     DispatchMessage(msg);
   }
 }
+
+export * from "./dialog.ts";

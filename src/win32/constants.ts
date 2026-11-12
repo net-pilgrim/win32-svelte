@@ -85,6 +85,8 @@ export const WS_SYSMENU = 0x00080000;
 export const WS_THICKFRAME = 0x00040000;
 export const WS_MINIMIZEBOX = 0x00020000;
 export const WS_MAXIMIZEBOX = 0x00010000;
+export const WS_GROUP = 0x00020000;
+export const WS_TABSTOP = 0x00010000;
 
 export const WS_OVERLAPPEDWINDOW = (
   WS_OVERLAPPED |
@@ -176,6 +178,23 @@ export const EN_UPDATE = 0x0400;
 export const SS_LEFT = 0x00000000;
 export const SS_CENTER = 0x00000001;
 export const SS_RIGHT = 0x00000002;
+export const SS_ICON = 0x00000003;
+export const SS_NOPREFIX = 0x00000080;
+export const SS_ETCHEDHORZ = 0x00000010;
+export const SS_ETCHEDFRAME = 0x00000012;
+
+// Dialog Styles (DS_*)
+export const DS_3DLOOK = 0x0004;
+export const DS_FIXEDSYS = 0x0008;
+export const DS_SETFONT = 0x0040;
+export const DS_MODALFRAME = 0x0080;
+export const DS_NOIDLEMSG = 0x0100;
+export const DS_SETFOREGROUND = 0x0200;
+export const DS_CONTROL = 0x0400;
+export const DS_CENTER = 0x0800;
+export const DS_CENTERMOUSE = 0x1000;
+export const DS_CONTEXTHELP = 0x2000;
+export const DS_SHELLFONT = DS_SETFONT | DS_FIXEDSYS;
 
 // MessageBox flags
 export const MB_OK = 0x00000000;
@@ -193,7 +212,7 @@ export const MB_ICONWARNING = MB_ICONEXCLAMATION;
 export const MB_ICONERROR = MB_ICONHAND;
 export const MB_ICONINFORMATION = MB_ICONASTERISK;
 
-// Dialog Box Return Values
+// Dialog Box Return Values & Control IDs
 export const IDOK = 1;
 export const IDCANCEL = 2;
 export const IDABORT = 3;
@@ -201,6 +220,9 @@ export const IDRETRY = 4;
 export const IDIGNORE = 5;
 export const IDYES = 6;
 export const IDNO = 7;
+export const IDCLOSE = 8;
+export const IDHELP = 9;
+export const IDC_STATIC = -1;
 
 // Menu Flags (MF_*)
 export const MF_STRING = 0x00000000;
