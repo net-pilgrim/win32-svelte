@@ -372,5 +372,53 @@ export const SP_USERABORT = -3;
 export const SP_OUTOFDISK = -4;
 export const SP_OUTOFMEMORY = -5;
 
+// Win32 ODBC Constants (odbc32.dll)
+export const SQL_SUCCESS = 0;
+export const SQL_SUCCESS_WITH_INFO = 1;
+export const SQL_NO_DATA = 100;
+export const SQL_ERROR = -1;
+export const SQL_INVALID_HANDLE = -2;
+export const SQL_STILL_EXECUTING = 2;
+export const SQL_NEED_DATA = 99;
+
+// Handle Types
+export const SQL_HANDLE_ENV = 1;
+export const SQL_HANDLE_DBC = 2;
+export const SQL_HANDLE_STMT = 3;
+export const SQL_HANDLE_DESC = 4;
+
+// Environment Attributes
+export const SQL_ATTR_ODBC_VERSION = 200;
+export const SQL_OV_ODBC3 = 3;
+export const SQL_OV_ODBC2 = 2;
+
+// Driver Connection Options
+export const SQL_DRIVER_NOPROMPT = 0;
+export const SQL_DRIVER_COMPLETE = 1;
+export const SQL_DRIVER_PROMPT = 2;
+export const SQL_DRIVER_COMPLETE_REQUIRED = 3;
+
+// Data Types
+export const SQL_UNKNOWN_TYPE = 0;
+export const SQL_CHAR = 1;
+export const SQL_NUMERIC = 2;
+export const SQL_DECIMAL = 3;
+export const SQL_INTEGER = 4;
+export const SQL_SMALLINT = 5;
+export const SQL_FLOAT = 6;
+export const SQL_REAL = 7;
+export const SQL_DOUBLE = 8;
+export const SQL_DATETIME = 9;
+export const SQL_VARCHAR = 12;
+export const SQL_TYPE_DATE = 91;
+export const SQL_TYPE_TIME = 92;
+export const SQL_TYPE_TIMESTAMP = 93;
+
+// Nullability
+export const SQL_NO_NULLS = 0;
+export const SQL_NULLABLE = 1;
+export const SQL_NULLABLE_UNKNOWN = 2;
+
+
 
 

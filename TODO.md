@@ -191,24 +191,25 @@ flowchart TD
 ---
 
 ### 6. ODBC & Database Connectivity (`odbc32.dll` & Supabase)
-- [ ] **ODBC Core API Engine (`odbc32.dll`)**:
-  - Implement classic Win32 ODBC handles and function signatures:
+- [x] **ODBC Core API Engine (`odbc32.dll`)**:
+  - Classic Win32 ODBC handles and function signatures:
     - Environment & Connection: `SQLAllocHandle`, `SQLSetEnvAttr`, `SQLFreeHandle`.
     - Connection Management: `SQLConnect`, `SQLDriverConnect`, `SQLDisconnect`.
     - Statement & Query Execution: `SQLExecDirect`, `SQLPrepare`, `SQLExecute`.
-    - Cursor & Result Set Navigation: `SQLFetch`, `SQLGetData`, `SQLNumResultCols`, `SQLDescribeCol`, `SQLRowCount`.
-- [ ] **Supabase ODBC Driver & Cloud Bridge**:
+    - Cursor & Result Set Navigation: `SQLFetch`, `SQLGetData`, `SQLNumResultCols`, `SQLDescribeCol`, `SQLRowCount`, `SQLGetDiagRec`.
+- [x] **Supabase ODBC Driver & Cloud Bridge**:
   - Expose Supabase projects as a first-class virtual ODBC Data Source Name (DSN).
   - Map PostgreSQL queries and PostgREST endpoints to tabular ODBC cursor rowsets.
-  - Optional Supabase Realtime subscriptions driving Win32 change events / notifications.
-  - Connection string parsing (e.g., `DSN=Supabase;ProjectRef=xyz;ApiKey=...;`).
-- [ ] **ODBC Data Source Administrator (`ODBCAD32.EXE` / `ODBCCP32.CPL`)**:
-  - Classic Windows 98 Control Panel applet with User DSN, System DSN, File DSN, and Drivers tabs (`SysTabControl32`).
+  - Connection string parsing (e.g. `DSN=Supabase;URL=https://xyz.supabase.co;Key=...;`).
+  - Built-in sandbox mode with pre-seeded demo database tables (`employees`, `customers`, `orders`, `products`) for immediate offline querying.
+- [x] **ODBC Data Source Administrator (`ODBCAD32.EXE` / `ODBCCP32.CPL`)**:
+  - Classic Windows 98 Control Panel applet with User DSN, System DSN, Drivers, and About tabs (`SysTabControl32`).
   - "Configure Data Source" modal dialog for entering Supabase Project URL and API Key.
-  - "Test Connection" button with authentic Win32 dialog feedback.
-- [ ] **Sample Database Applications**:
-  - Win32 SQL Query Analyzer / ISQL tool (`ISQL.EXE`): Query box with results rendered in a virtualized `SysListView32` table.
-  - Database Table Inspector inside Windows Explorer under a virtual `ODBC Data Sources` folder.
+  - "Test Connection" button testing live connectivity with authentic Win32 dialog feedback.
+- [x] **Sample Database Applications**:
+  - Win32 SQL Query Analyzer / ISQL tool (`ISQL.EXE`): Multi-line SQL query editor with quick template dropdown and results rendered in dynamic `SysListView32` table.
+  - Executable integration: Direct launching of `ODBCAD32.EXE` and `ISQL.EXE` from Desktop HUD panel and Windows Explorer.
+
 
 ---
 

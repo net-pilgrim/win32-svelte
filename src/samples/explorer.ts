@@ -60,6 +60,9 @@ import type { HWND, UINT, WPARAM, LPARAM, LRESULT, NMHDR, HDROP, DropFileInfo, V
 import { StartNotepad } from "./notepad";
 import { StartCalculator } from "./calculator";
 import { StartMinesweeper } from "./minesweeper";
+import { StartOdbcAdmin } from "./odbc_admin";
+import { StartISQL } from "./isql";
+
 
 // Control IDs
 const IDC_EXPLORER_TREE = 8001;
@@ -366,7 +369,12 @@ function ExplorerWndProc(
               StartCalculator(260, 110);
             } else if (baseName === "WINMINE.EXE") {
               StartMinesweeper(240, 100);
+            } else if (baseName === "ODBCAD32.EXE") {
+              StartOdbcAdmin(200, 80);
+            } else if (baseName === "ISQL.EXE") {
+              StartISQL(160, 90);
             } else {
+
               MessageBox(hwnd, `Executed virtual application: ${name}`, "Windows Explorer", MB_OK);
             }
           } else {

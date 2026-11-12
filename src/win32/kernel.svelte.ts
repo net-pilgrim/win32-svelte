@@ -1305,5 +1305,9 @@ setPrintKernelBridge({
   kernel,
 });
 
+// Win32 ODBC Subsystem (odbc32.dll) & Supabase Driver
+export * from "./odbc";
+
+
 
 
