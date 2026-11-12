@@ -25,9 +25,16 @@ export class RcPreprocessor {
     const lexer = new RcLexer(source);
     const rawTokens = lexer.tokenize();
     const finalTokens = await this.processTokens(rawTokens, sourcePath);
+    const nonEof = finalTokens.filter((t) => t.type !== "EOF");
+    nonEof.push({
+      type: "EOF",
+      value: "",
+      line: 0,
+      column: 0,
+    });
 
     return {
-      tokens: finalTokens,
+      tokens: nonEof,
       symbols: this.symbols,
       includedFiles: this.includedFiles,
     };
@@ -40,9 +47,16 @@ export class RcPreprocessor {
     const lexer = new RcLexer(source);
     const rawTokens = lexer.tokenize();
     const finalTokens = this.processTokensSync(rawTokens, sourcePath);
+    const nonEof = finalTokens.filter((t) => t.type !== "EOF");
+    nonEof.push({
+      type: "EOF",
+      value: "",
+      line: 0,
+      column: 0,
+    });
 
     return {
-      tokens: finalTokens,
+      tokens: nonEof,
       symbols: this.symbols,
       includedFiles: this.includedFiles,
     };
@@ -156,7 +170,7 @@ export class RcPreprocessor {
             const subLexer = new RcLexer(fileContent);
             const subTokens = subLexer.tokenize();
             const processedSub = await this.processTokens(subTokens, filename);
-            out.push(...processedSub);
+            out.push(...processedSub.filter((t) => t.type !== "EOF"));
           }
           continue;
         }
@@ -280,7 +294,7 @@ export class RcPreprocessor {
             const subLexer = new RcLexer(fileContent);
             const subTokens = subLexer.tokenize();
             const processedSub = this.processTokensSync(subTokens, filename);
-            out.push(...processedSub);
+            out.push(...processedSub.filter((t) => t.type !== "EOF"));
           }
           continue;
         }

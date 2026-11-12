@@ -61,13 +61,23 @@
     }
   }
 
+  let lastClickTime = 0;
   function onButtonPointerUp(e: PointerEvent) {
     e.stopPropagation();
     if (e.button === 0) {
+      lastClickTime = Date.now();
       SendMessage(win.hwnd, WM_LBUTTONUP, 0, 0);
     } else if (e.button === 2) {
       SendMessage(win.hwnd, WM_RBUTTONUP, 0, 0);
     }
+  }
+
+  function onButtonClick(e: MouseEvent) {
+    e.stopPropagation();
+    if (Date.now() - lastClickTime < 150) return;
+    lastClickTime = Date.now();
+    SendMessage(win.hwnd, WM_LBUTTONDOWN, 0, 0);
+    SendMessage(win.hwnd, WM_LBUTTONUP, 0, 0);
   }
 
   function onContextMenu(e: MouseEvent) {
@@ -234,6 +244,7 @@
         style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; {win.customProps?.style ?? ''}"
         onpointerdown={onButtonPointerDown}
         onpointerup={onButtonPointerUp}
+        onclick={onButtonClick}
         oncontextmenu={onContextMenu}
         disabled={!win.enabled}
       >

@@ -151,7 +151,7 @@ class Win32Kernel {
             return 0;
 
           case WM_LBUTTONUP:
-            if (win.controlState && win.controlState.isPressed) {
+            if (win.controlState) {
               win.controlState.isPressed = false;
 
               // Checkbox auto-toggle
