@@ -1,0 +1,60 @@
+#include "resource.h"
+
+//
+// Menu
+//
+IDR_CALC_MENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "E&xit",                       IDM_FILE_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Preferences...",             IDM_OPTIONS_PREFERENCES
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About Calculator...",        IDM_HELP_ABOUT
+    END
+END
+
+//
+// String Table
+//
+STRINGTABLE
+BEGIN
+    IDS_APP_TITLE       "Calculator with .rc Resources"
+    IDS_COPYRIGHT       "win32-svelte (C) 2026"
+END
+
+//
+// Dialogs
+//
+IDD_ABOUTBOX DIALOGEX 0, 0, 180, 75
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About Calculator"
+FONT 8, "MS Sans Serif"
+BEGIN
+    ICON            "IDI_CALCULATOR",IDC_STATIC,14,14,20,20
+    LTEXT           "win32-svelte Calculator",IDC_STATIC,45,14,120,8
+    LTEXT           "Resource Compiler (.rc) v1.0",IDC_VERSION_TEXT,45,26,120,8
+    CONTROL         "",IDC_STATIC,"STATIC",SS_ETCHEDHORZ,14,40,152,1
+    DEFPUSHBUTTON   "OK",IDOK,116,48,50,14,WS_GROUP
+END
+
+IDD_OPTIONS DIALOGEX 0, 0, 200, 125
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Calculator Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    GROUPBOX        "Display Mode",IDC_STATIC,10,8,180,45
+    AUTORADIOBUTTON "Decimal",IDC_RAD_DECIMAL,20,22,60,10,WS_GROUP
+    AUTORADIOBUTTON "Hexadecimal",IDC_RAD_HEX,90,22,70,10
+    AUTOCHECKBOX    "Sound Effects",IDC_SOUND_CHECK,10,60,90,10
+    LTEXT           "Precision:",IDC_STATIC,10,78,45,10
+    EDITTEXT        IDC_PRECISION_EDIT,60,76,40,14,ES_NUMBER
+    CONTROL         "",IDC_STATIC,"STATIC",SS_ETCHEDHORZ,10,96,180,1
+    DEFPUSHBUTTON   "OK",IDOK,85,102,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,140,102,50,14
+END

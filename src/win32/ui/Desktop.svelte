@@ -13,6 +13,7 @@
   import { StartPaintDemo } from "../../samples/paint_demo";
   import { StartExplorer } from "../../samples/explorer";
   import { StartMfcDemo } from "../../samples/mfc_demo";
+  import { StartRcDemo } from "../../samples/rc_demo.ts";
 
   let topWindows = $derived(kernel.windows.filter((w) => w.parentHwnd === null));
 
@@ -87,6 +88,14 @@
       x: 106,
       y: 16,
       action: () => StartMfcDemo(220, 80),
+    },
+    {
+      id: "rcdemo",
+      title: "RC Compiler",
+      icon: "📦",
+      x: 106,
+      y: 96,
+      action: () => StartRcDemo(240, 90),
     },
     {
       id: "recycle",

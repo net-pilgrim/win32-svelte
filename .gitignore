@@ -1,3 +1,7 @@
+# Screen recordings / media artifacts
+output.gif
+output.webm
+
 # Logs
 logs
 *.log
