@@ -317,6 +317,8 @@ export class Win32VFS {
       "C:\\WINDOWS\\CALC.EXE": "[Win32 Application - Calculator]",
       "C:\\WINDOWS\\WINMINE.EXE": "[Win32 Application - Minesweeper]",
       "C:\\WINDOWS\\EXPLORER.EXE": "[Win32 Application - Windows Explorer]",
+      "C:\\WINDOWS\\ODBCAD32.EXE": "[Win32 ODBC Data Source Administrator]",
+      "C:\\Program Files\\ISQL.EXE": "[Win32 SQL Query Analyzer - Supabase ODBC]",
       "C:\\My Documents\\Welcome.txt": "Welcome to win32-svelte with Origin Private File System (OPFS)!\r\n\r\n" +
         "This virtual filesystem is backed by the modern W3C Origin Private File System standard.\r\n" +
         "Features supported:\r\n" +

@@ -1,10 +1,34 @@
 export type HWND = number;
 export type HMENU = number;
 export type HANDLE = number;
+export type HENV = number;
+export type HDBC = number;
+export type HSTMT = number;
+export type SQLHANDLE = number;
+export type SQLRETURN = number;
 export type LRESULT = any;
 export type WPARAM = any;
 export type LPARAM = any;
 export type UINT = number;
+
+export interface ODBCColumnInfo {
+  name: string;
+  dataType: number;
+  columnSize: number;
+  decimalDigits: number;
+  nullable: number;
+}
+
+export interface ODBCDataSource {
+  dsn: string;
+  driver: string;
+  description?: string;
+  url?: string;
+  apiKey?: string;
+  schema?: string;
+  isDefault?: boolean;
+}
+
 
 export interface WIN32_FIND_DATA {
   dwFileAttributes: number;

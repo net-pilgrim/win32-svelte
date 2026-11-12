@@ -10,7 +10,10 @@
   import { StartExplorer } from "./samples/explorer";
   import { StartMfcDemo } from "./samples/mfc_demo";
   import { StartRcDemo } from "./samples/rc_demo.ts";
+  import { StartOdbcAdmin } from "./samples/odbc_admin";
+  import { StartISQL } from "./samples/isql";
   import { kernel, audio } from "./win32/kernel.svelte";
+
   import { StartHwndInspector } from "./samples/hwnd_inspector";
 
   let soundEnabled = $state(true);
@@ -56,6 +59,13 @@
     <button onclick={() => StartNotepad(Math.floor(Math.random() * 200 + 60), Math.floor(Math.random() * 200 + 60))}>
       + Notepad
     </button>
+    <button onclick={() => StartOdbcAdmin(Math.floor(Math.random() * 150 + 100), Math.floor(Math.random() * 150 + 60))}>
+      + ODBC Admin
+    </button>
+    <button onclick={() => StartISQL(Math.floor(Math.random() * 150 + 120), Math.floor(Math.random() * 150 + 80))}>
+      + ISQL Query
+    </button>
+
     <button onclick={toggleSound}>
       {soundEnabled ? "🔊 Sound: ON" : "🔇 Sound: OFF"}
     </button>
