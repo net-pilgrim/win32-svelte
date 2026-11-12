@@ -35,6 +35,7 @@ import {
   MB_OK,
   MB_ICONINFORMATION,
   SW_SHOW,
+  LOWORD,
   STATUSCLASSNAME,
   WC_TREEVIEW,
   WC_LISTVIEW,
@@ -335,7 +336,7 @@ function ExplorerWndProc(
     }
 
     case WM_COMMAND: {
-      const cmdId = wParam;
+      const cmdId = LOWORD(wParam);
       switch (cmdId) {
         case IDM_HELP_ABOUT:
           MessageBox(
