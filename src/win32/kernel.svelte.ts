@@ -69,6 +69,7 @@ import {
   WC_TABCONTROL,
   WC_TREEVIEW,
   WC_LISTVIEW,
+  WC_LINK,
   SB_SETTEXT,
   SB_GETTEXT,
   SB_SETPARTS,
@@ -654,6 +655,25 @@ class Win32Kernel {
     this.RegisterClassEx({ className: WC_LISTVIEW, lpfnWndProc: listProc });
     this.RegisterClassEx({ className: "LISTVIEW", lpfnWndProc: listProc });
 
+    // SYSLINK window class (SysLink, WC_LINK)
+    const linkProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      switch (msg) {
+        case WM_SETTEXT: {
+          win.title = String(lParam);
+          return 1;
+        }
+        case WM_GETTEXT: {
+          return win.title as any;
+        }
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: WC_LINK, lpfnWndProc: linkProc });
+    this.RegisterClassEx({ className: "SYSLINK", lpfnWndProc: linkProc });
+    this.RegisterClassEx({ className: "LINK", lpfnWndProc: linkProc });
+
     // DIALOG window class (CDialog, DIALOG, #32770)
     const dialogProc: WndProc = (hwnd, msg, wParam, lParam) => {
       return this.DefWindowProc(hwnd, msg, wParam, lParam);
@@ -726,7 +746,7 @@ class Win32Kernel {
         isPressed: false,
         value: className.toUpperCase() === "EDIT" ? title : "",
       },
-      customProps: {},
+      customProps: (param && typeof param === "object" && !Array.isArray(param)) ? { ...param } : {},
     };
 
     this.windows.push(record);
@@ -1134,11 +1154,34 @@ class Win32Kernel {
   public DragFinish(_hDrop: HDROP): void {
     // Release resources associated with drop operation
   }
+
+  public ShellExecute(
+    _hwnd: HWND | null,
+    _operation: string | null,
+    file: string,
+    _parameters?: string,
+    _directory?: string,
+    _showCmd?: number
+  ): number {
+    if (typeof window !== "undefined" && file) {
+      window.open(file, "_blank", "noopener,noreferrer");
+      return 32; // SE_ERR_SUCCESS
+    }
+    return 0;
+  }
 }
 
 export const kernel = new Win32Kernel();
 
 // Export convenient global-like functions to mirror Win32 C API
+export const ShellExecute = (
+  hwnd: HWND | null,
+  operation: string | null,
+  file: string,
+  parameters?: string,
+  directory?: string,
+  showCmd?: number
+) => kernel.ShellExecute(hwnd, operation, file, parameters, directory, showCmd);
 export const RegisterClassEx = (wc: WNDCLASSEX) => kernel.RegisterClassEx(wc);
 export const CreateWindowEx = (
   exStyle: number,

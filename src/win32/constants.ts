@@ -259,6 +259,7 @@ export const WC_TREEVIEW = "SysTreeView32";
 export const WC_LISTVIEW = "SysListView32";
 export const PROGRESS_CLASS = "msctls_progress32";
 export const TRACKBAR_CLASS = "msctls_trackbar32";
+export const WC_LINK = "SysLink";
 
 // WM_NOTIFY & Common Notifications
 export const WM_NOTIFY = 0x004e;

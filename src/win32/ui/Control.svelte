@@ -309,9 +309,37 @@
         class="win32-control win32-static {win.customProps?.className ?? ''}"
         style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; {(win.style & 0x0001) ? 'text-align: center;' : (win.style & 0x0002) ? 'text-align: right;' : ''} {win.customProps?.style ?? ''}"
       >
-        {win.title}
+        {#if win.customProps?.href}
+          <a
+            href={win.customProps.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="win32-link"
+            onclick={(e) => e.stopPropagation()}
+          >
+            {win.title}
+          </a>
+        {:else}
+          {win.title}
+        {/if}
       </div>
     {/if}
+
+  {:else if win.className.toUpperCase() === "SYSLINK" || win.className.toUpperCase() === "LINK"}
+    <div
+      class="win32-control win32-syslink {win.customProps?.className ?? ''}"
+      style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; {win.customProps?.style ?? ''}"
+    >
+      <a
+        href={win.customProps?.href || win.title}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="win32-link"
+        onclick={(e) => e.stopPropagation()}
+      >
+        {win.customProps?.linkText || win.title}
+      </a>
+    </div>
 
   {:else if win.className.toUpperCase() === "EDIT"}
     {#if win.style & 0x0004}
@@ -508,6 +536,27 @@
     overflow: hidden;
     white-space: pre-wrap;
     color: #000;
+  }
+
+  .win32-syslink {
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    user-select: text;
+  }
+
+  :global(.win32-link) {
+    color: #0000ee !important;
+    text-decoration: underline !important;
+    cursor: pointer !important;
+  }
+
+  :global(.win32-link:hover) {
+    color: #000080 !important;
+  }
+
+  :global(.win32-link:active) {
+    color: #ff0000 !important;
   }
 
   .win32-checkbox-row,
