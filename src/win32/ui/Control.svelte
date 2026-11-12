@@ -24,6 +24,7 @@
     TCN_SELCHANGE,
     TVN_SELCHANGED,
     LVN_ITEMCHANGED,
+    NM_DBLCLK,
     STATUSCLASSNAME,
     WC_TABCONTROL,
     WC_TREEVIEW,
@@ -183,6 +184,21 @@
       SendMessage(win.parentHwnd, WM_NOTIFY, win.menuId ?? 0, nmhdr as any);
     }
   }
+
+  function onListRowDblClick(e: MouseEvent, row: ListViewRow, index: number) {
+    e.stopPropagation();
+    if (win.parentHwnd !== null) {
+      const nmhdr: NMHDR = {
+        hwndFrom: win.hwnd,
+        idFrom: win.menuId ?? 0,
+        code: NM_DBLCLK,
+        itemIndex: index,
+        row,
+      };
+      SendMessage(win.parentHwnd, WM_NOTIFY, win.menuId ?? 0, nmhdr as any);
+    }
+  }
+
 
   function onRowDragStart(e: DragEvent, row: ListViewRow) {
     if (!e.dataTransfer) return;
@@ -412,6 +428,7 @@
               draggable="true"
               ondragstart={(e) => onRowDragStart(e, row)}
               onclick={(e) => onListRowClick(e, row, rIdx)}
+              ondblclick={(e) => onListRowDblClick(e, row, rIdx)}
             >
               <td>
                 {row.icon ? row.icon + " " : ""}{row.text}

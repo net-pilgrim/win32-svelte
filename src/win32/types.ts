@@ -1,9 +1,33 @@
 export type HWND = number;
 export type HMENU = number;
+export type HANDLE = number;
 export type LRESULT = any;
 export type WPARAM = any;
 export type LPARAM = any;
 export type UINT = number;
+
+export interface WIN32_FIND_DATA {
+  dwFileAttributes: number;
+  cFileName: string;
+  nFileSizeHigh: number;
+  nFileSizeLow: number;
+  ftCreationTime: number;
+  ftLastWriteTime: number;
+  cAlternateFileName?: string;
+}
+
+export interface VFSFileInfo {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  modified: number;
+  attributes: number;
+  icon?: string;
+  typeDesc?: string;
+  content?: string;
+}
+
 
 export interface MenuItem {
   id: number;

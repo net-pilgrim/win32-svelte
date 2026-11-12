@@ -324,3 +324,34 @@ export const LVM_SETITEMSTATE = 0x102b;
 export const LVM_GETNEXTITEM = 0x100c;
 export const LVN_ITEMCHANGED = -101;
 
+// Win32 File Constants (kernel32.dll)
+export const GENERIC_READ = 0x80000000;
+export const GENERIC_WRITE = 0x40000000;
+export const GENERIC_EXECUTE = 0x20000000;
+export const GENERIC_ALL = 0x10000000;
+
+export const FILE_SHARE_READ = 0x00000001;
+export const FILE_SHARE_WRITE = 0x00000002;
+export const FILE_SHARE_DELETE = 0x00000004;
+
+export const CREATE_NEW = 1;
+export const CREATE_ALWAYS = 2;
+export const OPEN_EXISTING = 3;
+export const OPEN_ALWAYS = 4;
+export const TRUNCATE_EXISTING = 5;
+
+export const FILE_ATTRIBUTE_READONLY = 0x00000001;
+export const FILE_ATTRIBUTE_HIDDEN = 0x00000002;
+export const FILE_ATTRIBUTE_SYSTEM = 0x00000004;
+export const FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
+export const FILE_ATTRIBUTE_ARCHIVE = 0x00000020;
+export const FILE_ATTRIBUTE_NORMAL = 0x00000080;
+
+export const FILE_BEGIN = 0;
+export const FILE_CURRENT = 1;
+export const FILE_END = 2;
+
+export const INVALID_HANDLE_VALUE = -1;
+export const INVALID_FILE_SIZE = 0xffffffff;
+
+
