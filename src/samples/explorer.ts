@@ -6,15 +6,16 @@ import {
   PostQuitMessage,
   SendMessage,
   MessageBox,
-  RunMessageLoop,
   CreateMenu,
   CreatePopupMenu,
   AppendMenu,
   SetMenu,
+  SetWindowText,
   DragAcceptFiles,
   DragQueryFile,
   DragFinish,
   audio,
+  vfs,
 } from "../win32/kernel.svelte";
 
 import {
@@ -33,7 +34,10 @@ import {
   MF_POPUP,
   MF_SEPARATOR,
   MB_OK,
+  MB_YESNO,
+  IDYES,
   MB_ICONINFORMATION,
+  MB_ICONQUESTION,
   SW_SHOW,
   LOWORD,
   STATUSCLASSNAME,
@@ -46,12 +50,16 @@ import {
   LVM_INSERTITEM,
   LVM_DELETEALLITEMS,
   LVN_ITEMCHANGED,
+  NM_DBLCLK,
   SB_SETTEXT,
   SB_SETPARTS,
   DRAGQUERY_ALLFILES,
 } from "../win32/constants";
 
-import type { HWND, UINT, WPARAM, LPARAM, LRESULT, TreeNodeItem, NMHDR, HDROP, DropFileInfo } from "../win32/types";
+import type { HWND, UINT, WPARAM, LPARAM, LRESULT, NMHDR, HDROP, DropFileInfo, VFSFileInfo } from "../win32/types";
+import { StartNotepad } from "./notepad";
+import { StartCalculator } from "./calculator";
+import { StartMinesweeper } from "./minesweeper";
 
 // Control IDs
 const IDC_EXPLORER_TREE = 8001;
@@ -60,91 +68,77 @@ const IDC_EXPLORER_STATUS = 8003;
 
 // Menu IDs
 const IDM_FILE_NEW_FOLDER = 8101;
+const IDM_FILE_EXPORT = 8104;
+const IDM_FILE_DELETE = 8105;
 const IDM_FILE_PROPERTIES = 8102;
 const IDM_FILE_CLOSE = 8103;
 const IDM_EDIT_SELECT_ALL = 8201;
 const IDM_VIEW_REFRESH = 8301;
 const IDM_HELP_ABOUT = 8401;
 
-interface FileItem {
-  name: string;
-  size: string;
-  type: string;
-  modified: string;
-  icon: string;
-  content?: string;
-}
-
-const FOLDER_DATA: Record<string, FileItem[]> = {
-  root: [
-    { name: "3½ Floppy (A:)", size: "", type: "3½-Inch Floppy Disk", modified: "", icon: "💾" },
-    { name: "Hard Disk (C:)", size: "", type: "Local Disk", modified: "", icon: "💽" },
-    { name: "Audio CD (D:)", size: "", type: "CD-ROM Drive", modified: "", icon: "💿" },
-    { name: "Printers", size: "", type: "System Folder", modified: "", icon: "🖨️" },
-  ],
-  drive_c: [
-    { name: "WINDOWS", size: "", type: "File Folder", modified: "11/07/1998 12:00 PM", icon: "📁" },
-    { name: "Program Files", size: "", type: "File Folder", modified: "11/07/1998 12:05 PM", icon: "📁" },
-    { name: "My Documents", size: "", type: "File Folder", modified: "11/08/1998 04:30 PM", icon: "📁" },
-    { name: "AUTOEXEC.BAT", size: "1 KB", type: "MS-DOS Batch File", modified: "11/05/1998 09:12 AM", icon: "📄" },
-    { name: "CONFIG.SYS", size: "1 KB", type: "System file", modified: "11/05/1998 09:12 AM", icon: "⚙️" },
-    { name: "COMMAND.COM", size: "93 KB", type: "MS-DOS Application", modified: "05/11/1998 08:01 PM", icon: "📟" },
-  ],
-  windows: [
-    { name: "SYSTEM", size: "", type: "File Folder", modified: "11/07/1998 12:01 PM", icon: "📁" },
-    { name: "SYSTEM32", size: "", type: "File Folder", modified: "11/07/1998 12:01 PM", icon: "📁" },
-    { name: "COMMAND", size: "", type: "File Folder", modified: "11/07/1998 12:02 PM", icon: "📁" },
-    { name: "NOTEPAD.EXE", size: "52 KB", type: "Application", modified: "05/11/1998 08:01 PM", icon: "📝" },
-    { name: "CALC.EXE", size: "112 KB", type: "Application", modified: "05/11/1998 08:01 PM", icon: "🔢" },
-    { name: "WINMINE.EXE", size: "28 KB", type: "Application", modified: "05/11/1998 08:01 PM", icon: "💣" },
-    { name: "EXPLORER.EXE", size: "178 KB", type: "Application", modified: "05/11/1998 08:01 PM", icon: "🗂️" },
-    { name: "WIN.INI", size: "4 KB", type: "Configuration Settings", modified: "11/09/1998 03:15 PM", icon: "⚙️" },
-  ],
-  prog_files: [
-    { name: "Accessories", size: "", type: "File Folder", modified: "11/07/1998 12:10 PM", icon: "📁" },
-    { name: "Internet Explorer", size: "", type: "File Folder", modified: "11/07/1998 12:12 PM", icon: "🌐" },
-    { name: "Netscape", size: "", type: "File Folder", modified: "11/07/1998 01:25 PM", icon: "📁" },
-    { name: "WinZip", size: "", type: "File Folder", modified: "11/08/1998 10:44 AM", icon: "📁" },
-  ],
-  my_docs: [
-    { name: "Letter to Bill.doc", size: "18 KB", type: "WordPad Document", modified: "11/10/1998 02:40 PM", icon: "📄" },
-    { name: "Budget98.xls", size: "34 KB", type: "Microsoft Excel Worksheet", modified: "11/09/1998 06:12 PM", icon: "📊" },
-    { name: "SoundBlaster.txt", size: "2 KB", type: "Text Document", modified: "11/06/1998 11:20 AM", icon: "📄" },
-    { name: "Setup.log", size: "8 KB", type: "Text Document", modified: "11/05/1998 09:15 AM", icon: "📄" },
-  ],
-  recycle: [
-    { name: "OldShortcut.lnk", size: "1 KB", type: "Shortcut", modified: "11/09/1998 10:11 AM", icon: "🗑️" },
-    { name: "Draft.bmp", size: "154 KB", type: "Bitmap Image", modified: "11/08/1998 05:22 PM", icon: "🎨" },
-  ],
-};
-
 interface ExplorerControls {
+  hwnd: HWND;
   hwndTree: HWND;
   hwndList: HWND;
   hwndStatus: HWND;
-  currentFolderKey: string;
+  currentPath: string;
+  selectedItem: VFSFileInfo | null;
+  unsubscribeVfs?: () => void;
 }
 
 const explorerInstances = new Map<HWND, ExplorerControls>();
 
-function PopulateListView(hwndList: HWND, hwndStatus: HWND, folderKey: string) {
+const FOLDER_PATH_MAP: Record<string, string> = {
+  desktop: "C:\\",
+  root: "C:\\",
+  drive_a: "A:\\",
+  drive_c: "C:\\",
+  windows: "C:\\WINDOWS",
+  prog_files: "C:\\Program Files",
+  my_docs: "C:\\My Documents",
+  drive_d: "D:\\",
+  recycle: "C:\\Recycle Bin",
+};
+
+async function PopulateListView(ctx: ExplorerControls, folderPath: string) {
   // Clear list
-  SendMessage(hwndList, LVM_DELETEALLITEMS, 0, 0);
+  SendMessage(ctx.hwndList, LVM_DELETEALLITEMS, 0, 0);
 
-  const items = FOLDER_DATA[folderKey] || [];
-  items.forEach((item, index) => {
-    SendMessage(hwndList, LVM_INSERTITEM, index, {
-      id: index,
-      text: item.name,
-      icon: item.icon,
-      content: item.content,
-      subItems: [item.size, item.type, item.modified],
+  ctx.currentPath = folderPath;
+  ctx.selectedItem = null;
+
+  try {
+    const entries = await vfs.getDirectoryEntries(folderPath);
+
+    entries.forEach((item, index) => {
+      const sizeStr = item.isDirectory
+        ? ""
+        : item.size > 0
+          ? `${Math.max(1, Math.round(item.size / 1024))} KB`
+          : "0 KB";
+
+      const dateStr = new Date(item.modified).toLocaleDateString() + " " +
+        new Date(item.modified).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      SendMessage(ctx.hwndList, LVM_INSERTITEM, index, {
+        id: item.path,
+        text: item.name,
+        icon: item.icon,
+        content: item.typeDesc,
+        subItems: [sizeStr, item.typeDesc || (item.isDirectory ? "File Folder" : "File"), dateStr],
+        customProps: item,
+      });
     });
-  });
 
-  // Update Status Bar
-  SendMessage(hwndStatus, SB_SETTEXT, 0, `${items.length} object(s)`);
-  SendMessage(hwndStatus, SB_SETTEXT, 1, "Disk free space: 248 MB");
+    const backendLabel = vfs.getBackendType() === "opfs" ? "OPFS Persistent Sandbox" : "In-Memory VFS";
+    SendMessage(ctx.hwndStatus, SB_SETTEXT, 0, `${entries.length} object(s)`);
+    SendMessage(ctx.hwndStatus, SB_SETTEXT, 1, `Storage: ${backendLabel}`);
+
+    SetWindowText(ctx.hwnd, `Exploring - ${folderPath}`);
+  } catch (err) {
+    SendMessage(ctx.hwndStatus, SB_SETTEXT, 0, "0 object(s)");
+    SendMessage(ctx.hwndStatus, SB_SETTEXT, 1, "Directory not accessible");
+  }
 }
 
 function ExplorerWndProc(
@@ -157,8 +151,8 @@ function ExplorerWndProc(
 
   switch (uMsg) {
     case WM_CREATE: {
-      const width = 560;
-      const height = 360;
+      const width = 580;
+      const height = 370;
       const treeWidth = 190;
       const listWidth = width - treeWidth - 28;
       const contentHeight = height - 76;
@@ -200,13 +194,12 @@ function ExplorerWndProc(
                   { id: "windows", text: "WINDOWS", icon: "📁" },
                   { id: "prog_files", text: "Program Files", icon: "📁" },
                   { id: "my_docs", text: "My Documents", icon: "📁" },
+                  { id: "recycle", text: "Recycle Bin", icon: "🗑️" },
                 ],
               },
               { id: "drive_d", text: "Audio CD (D:)", icon: "💿" },
             ],
           },
-          { id: "recycle", text: "Recycle Bin", icon: "🗑️" },
-          { id: "network", text: "Network Neighborhood", icon: "🌐" },
         ],
       });
 
@@ -225,7 +218,7 @@ function ExplorerWndProc(
       );
 
       // Add ListView columns
-      SendMessage(hwndList, LVM_INSERTCOLUMN, 0, { text: "Name", width: 130 });
+      SendMessage(hwndList, LVM_INSERTCOLUMN, 0, { text: "Name", width: 140 });
       SendMessage(hwndList, LVM_INSERTCOLUMN, 1, { text: "Size", width: 65 });
       SendMessage(hwndList, LVM_INSERTCOLUMN, 2, { text: "Type", width: 120 });
       SendMessage(hwndList, LVM_INSERTCOLUMN, 3, { text: "Modified", width: 130 });
@@ -245,22 +238,34 @@ function ExplorerWndProc(
       );
       SendMessage(hwndStatus, SB_SETPARTS, 2, [180, -1]);
 
-      explorerInstances.set(hwnd, {
+      const ctrlRecord: ExplorerControls = {
+        hwnd,
         hwndTree,
         hwndList,
         hwndStatus,
-        currentFolderKey: "drive_c",
+        currentPath: "C:\\",
+        selectedItem: null,
+      };
+
+      // Subscribe to VFS live changes
+      ctrlRecord.unsubscribeVfs = vfs.addChangeListener((_evt) => {
+        PopulateListView(ctrlRecord, ctrlRecord.currentPath);
       });
+
+      explorerInstances.set(hwnd, ctrlRecord);
 
       // Select default folder
       SendMessage(hwndTree, TVM_SELECTITEM, 0, "drive_c");
-      PopulateListView(hwndList, hwndStatus, "drive_c");
+      PopulateListView(ctrlRecord, "C:\\");
 
       // 4. Create Menus
       const hMenuBar = CreateMenu();
 
       const hFileMenu = CreatePopupMenu();
       AppendMenu(hFileMenu, MF_STRING, IDM_FILE_NEW_FOLDER, "&New Folder");
+      AppendMenu(hFileMenu, MF_STRING, IDM_FILE_EXPORT, "&Export to Host (Download)");
+      AppendMenu(hFileMenu, MF_STRING, IDM_FILE_DELETE, "&Delete\tDel");
+      AppendMenu(hFileMenu, MF_SEPARATOR, 0, "");
       AppendMenu(hFileMenu, MF_STRING, IDM_FILE_PROPERTIES, "&Properties");
       AppendMenu(hFileMenu, MF_SEPARATOR, 0, "");
       AppendMenu(hFileMenu, MF_STRING, IDM_FILE_CLOSE, "&Close");
@@ -289,24 +294,22 @@ function ExplorerWndProc(
       const hDrop = wParam as HDROP;
       if (!ctx) return 0;
       const count = DragQueryFile(hDrop, DRAGQUERY_ALLFILES) as number;
-      for (let i = 0; i < count; i++) {
-        const file = DragQueryFile(hDrop, i) as DropFileInfo;
-        if (file) {
-          if (!FOLDER_DATA[ctx.currentFolderKey]) {
-            FOLDER_DATA[ctx.currentFolderKey] = [];
+
+      (async () => {
+        for (let i = 0; i < count; i++) {
+          const file = DragQueryFile(hDrop, i) as DropFileInfo;
+          if (file) {
+            await vfs.importFileFromHost(
+              ctx.currentPath,
+              file.name,
+              file.content !== undefined ? file.content : new Uint8Array()
+            );
           }
-          FOLDER_DATA[ctx.currentFolderKey].push({
-            name: file.name,
-            size: typeof file.size === "number" ? `${Math.max(1, Math.round(file.size / 1024))} KB` : String(file.size || "1 KB"),
-            type: file.type || "Document",
-            modified: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            icon: "📄",
-            content: file.content,
-          });
         }
-      }
-      PopulateListView(ctx.hwndList, ctx.hwndStatus, ctx.currentFolderKey);
-      audio.playDing();
+        await PopulateListView(ctx, ctx.currentPath);
+        audio.playDing();
+      })();
+
       DragFinish(hDrop);
       return 0;
     }
@@ -318,49 +321,166 @@ function ExplorerWndProc(
       // Tree View Selection Changed
       if (nmhdr.code === TVN_SELCHANGED) {
         const folderKey = nmhdr.nodeId ?? "drive_c";
-        ctx.currentFolderKey = folderKey;
-        PopulateListView(ctx.hwndList, ctx.hwndStatus, folderKey);
+        const path = FOLDER_PATH_MAP[folderKey] || folderKey;
+        PopulateListView(ctx, path);
         return 0;
       }
 
       // List View Item Selected
       if (nmhdr.code === LVN_ITEMCHANGED) {
-        const row = nmhdr.row as FileItem;
+        const row = nmhdr.row;
         if (row) {
-          const detail = row.size ? `${row.name} (${row.size})` : row.name;
+          ctx.selectedItem = (row.customProps as VFSFileInfo) || {
+            name: row.text,
+            path: `${ctx.currentPath}\\${row.text}`,
+            isDirectory: !row.subItems?.[0],
+            size: 0,
+            modified: Date.now(),
+            attributes: 0,
+          };
+          const detail = row.subItems?.[0] ? `${row.text} (${row.subItems[0]})` : row.text;
           SendMessage(ctx.hwndStatus, SB_SETTEXT, 0, detail);
         }
         return 0;
       }
+
+      // List View Item Double-Clicked
+      if (nmhdr.code === NM_DBLCLK) {
+        const row = nmhdr.row;
+        if (!row) return 0;
+        const itemInfo = (row.customProps as VFSFileInfo);
+        const name = row.text;
+        const targetPath = itemInfo?.path || `${ctx.currentPath}\\${name}`;
+
+        if (itemInfo?.isDirectory || !row.subItems?.[0]) {
+          // Navigate into subdirectory
+          PopulateListView(ctx, targetPath);
+        } else {
+          // Open file depending on extension
+          const ext = name.includes(".") ? name.split(".").pop()?.toUpperCase() : "";
+          if (ext === "EXE") {
+            const baseName = name.toUpperCase();
+            if (baseName === "NOTEPAD.EXE") {
+              StartNotepad(220, 90);
+            } else if (baseName === "CALC.EXE") {
+              StartCalculator(260, 110);
+            } else if (baseName === "WINMINE.EXE") {
+              StartMinesweeper(240, 100);
+            } else {
+              MessageBox(hwnd, `Executed virtual application: ${name}`, "Windows Explorer", MB_OK);
+            }
+          } else {
+            // Open in Notepad
+            StartNotepad(220, 80, targetPath);
+          }
+        }
+        return 0;
+      }
+
       return 0;
     }
 
     case WM_COMMAND: {
       const cmdId = LOWORD(wParam);
+      if (!ctx) return 0;
+
       switch (cmdId) {
-        case IDM_HELP_ABOUT:
+        case IDM_FILE_NEW_FOLDER: {
+          const folderName = typeof window !== "undefined"
+            ? window.prompt("Enter new folder name:", "New Folder")
+            : "New Folder";
+          if (folderName) {
+            vfs.CreateDirectory(`${ctx.currentPath}\\${folderName}`).then(() => {
+              PopulateListView(ctx, ctx.currentPath);
+            });
+          }
+          return 0;
+        }
+
+        case IDM_FILE_EXPORT: {
+          if (!ctx.selectedItem || ctx.selectedItem.isDirectory) {
+            MessageBox(hwnd, "Please select a file to export to host.", "Export to Host", MB_OK);
+            return 0;
+          }
+          vfs.exportFileToHost(ctx.selectedItem.path)
+            .then(() => {
+              audio.playDing();
+            })
+            .catch((err) => {
+              MessageBox(hwnd, `Export failed: ${err.message}`, "Export Error", MB_OK);
+            });
+          return 0;
+        }
+
+        case IDM_FILE_DELETE: {
+          if (!ctx.selectedItem) {
+            MessageBox(hwnd, "Please select an item to delete.", "Delete", MB_OK);
+            return 0;
+          }
+          const item = ctx.selectedItem;
           MessageBox(
             hwnd,
-            "Windows Explorer\n\nBuilt on comctl32.dll with SysTreeView32, SysListView32, and msctls_statusbar32.\nPowered by Svelte 5 and 98.css.",
-            "About Windows Explorer",
-            MB_OK | MB_ICONINFORMATION
-          );
+            `Are you sure you want to delete '${item.name}' from OPFS storage?`,
+            "Confirm Delete",
+            MB_YESNO | MB_ICONQUESTION
+          ).then((res) => {
+            if (res === IDYES) {
+              const op = item.isDirectory
+                ? vfs.RemoveDirectory(item.path, true)
+                : vfs.DeleteFile(item.path);
+              op.then(() => {
+                PopulateListView(ctx, ctx.currentPath);
+                audio.playChime();
+              });
+            }
+          });
           return 0;
+        }
+
+        case IDM_FILE_PROPERTIES: {
+          if (!ctx.selectedItem) {
+            MessageBox(
+              hwnd,
+              `Location: ${ctx.currentPath}\nStorage: Origin Private File System (OPFS)\nStatus: Online & Persistent`,
+              "Folder Properties",
+              MB_OK | MB_ICONINFORMATION
+            );
+          } else {
+            const item = ctx.selectedItem;
+            MessageBox(
+              hwnd,
+              `Name: ${item.name}\nPath: ${item.path}\nSize: ${item.size} bytes\nType: ${item.typeDesc || (item.isDirectory ? "Folder" : "File")}\nModified: ${new Date(item.modified).toLocaleString()}`,
+              "File Properties",
+              MB_OK | MB_ICONINFORMATION
+            );
+          }
+          return 0;
+        }
 
         case IDM_VIEW_REFRESH:
-          if (ctx) {
-            PopulateListView(ctx.hwndList, ctx.hwndStatus, ctx.currentFolderKey);
-          }
+          PopulateListView(ctx, ctx.currentPath);
           return 0;
 
         case IDM_FILE_CLOSE:
           DefWindowProc(hwnd, 0x0010, 0, 0); // WM_CLOSE
+          return 0;
+
+        case IDM_HELP_ABOUT:
+          MessageBox(
+            hwnd,
+            "Windows Explorer for Win32-Svelte\n\nBacked by the Origin Private File System (OPFS).\nSupports live directory browsing, host drag & drop, file exports, and Win32 application launching.",
+            "About Windows Explorer",
+            MB_OK | MB_ICONINFORMATION
+          );
           return 0;
       }
       return 0;
     }
 
     case WM_DESTROY: {
+      if (ctx?.unsubscribeVfs) {
+        ctx.unsubscribeVfs();
+      }
       explorerInstances.delete(hwnd);
       return 0;
     }
@@ -384,7 +504,7 @@ export function StartExplorer(x = 160, y = 80): HWND {
     WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_THICKFRAME | WS_CLIPCHILDREN,
     x,
     y,
-    570,
+    580,
     370,
     null,
     null

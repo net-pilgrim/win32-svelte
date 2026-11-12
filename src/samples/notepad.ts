@@ -17,6 +17,7 @@ import {
   DragQueryFile,
   DragFinish,
   audio,
+  vfs,
 } from "../win32/kernel.svelte";
 
 import {
@@ -48,6 +49,7 @@ const ID_EDIT = 3001;
 const ID_FILE_NEW = 3101;
 const ID_FILE_OPEN = 3102;
 const ID_FILE_SAVE = 3103;
+const ID_FILE_SAVEAS = 3105;
 const ID_FILE_EXIT = 3104;
 
 const ID_EDIT_UNDO = 3201;
@@ -56,7 +58,12 @@ const ID_EDIT_TIMEDATE = 3203;
 
 const ID_HELP_ABOUT = 3301;
 
-const hwndEditByWindow = new Map<HWND, HWND>();
+interface NotepadState {
+  hwndEdit: HWND;
+  filePath: string | null;
+}
+
+const notepadStateByWindow = new Map<HWND, NotepadState>();
 
 function NotepadWndProc(
   hwnd: HWND,
@@ -64,6 +71,8 @@ function NotepadWndProc(
   wParam: WPARAM,
   lParam: LPARAM
 ): LRESULT {
+  const state = notepadStateByWindow.get(hwnd);
+
   switch (uMsg) {
     case WM_CREATE: {
       // 1. Create Menu Bar
@@ -74,6 +83,7 @@ function NotepadWndProc(
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_NEW, "&New", "Ctrl+N");
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_OPEN, "&Open...", "Ctrl+O");
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_SAVE, "&Save", "Ctrl+S");
+      AppendMenu(hMenuFile, MF_STRING, ID_FILE_SAVEAS, "Save &As...");
       AppendMenu(hMenuFile, MF_SEPARATOR, 0, "");
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_EXIT, "E&xit");
       AppendMenu(hMenuBar, MF_POPUP, hMenuFile, "&File");
@@ -98,7 +108,7 @@ function NotepadWndProc(
       const hwndEdit = CreateWindowEx(
         0,
         "EDIT",
-        "Welcome to Win32 Notepad in JavaScript!\n\nDrag and Drop is enabled on this window:\n• Drop any text/code file from your computer onto this window!\n• Or drag any file from Windows Explorer into Notepad!\n\nTry clicking File -> New, Edit -> Time/Date, or Help -> About Notepad!",
+        "Welcome to Win32 Notepad in JavaScript!\r\n\r\nBacked by Origin Private File System (OPFS) storage:\r\n• Open & Save files directly to virtual drives (C:\\, A:\\, etc.)\r\n• Changes are permanently stored in your browser's private sandbox.\r\n• Drag and drop files from Windows Explorer or your real computer!\r\n\r\nTry clicking File -> Save, File -> Open, or Edit -> Time/Date!",
         WS_CHILD | WS_VISIBLE | ES_MULTILINE,
         0,
         0,
@@ -109,7 +119,11 @@ function NotepadWndProc(
         null,
         null
       );
-      hwndEditByWindow.set(hwnd, hwndEdit);
+
+      notepadStateByWindow.set(hwnd, {
+        hwndEdit,
+        filePath: null,
+      });
 
       // Register window for Win32 Shell Drag & Drop
       DragAcceptFiles(hwnd, true);
@@ -117,13 +131,20 @@ function NotepadWndProc(
     }
 
     case WM_DROPFILES: {
-      const hwndEdit = hwndEditByWindow.get(hwnd);
       const hDrop = wParam as HDROP;
       const count = DragQueryFile(hDrop, DRAGQUERY_ALLFILES) as number;
-      if (hwndEdit && count > 0) {
+      if (state && count > 0) {
         const file = DragQueryFile(hDrop, 0) as DropFileInfo;
         if (file) {
-          SetWindowText(hwndEdit, file.content || "");
+          const filePath = (file as any).path || `C:\\My Documents\\${file.name}`;
+          state.filePath = filePath;
+          if (file.content !== undefined) {
+            SetWindowText(state.hwndEdit, file.content);
+          } else {
+            vfs.readTextFile(filePath)
+              .then((content) => SetWindowText(state.hwndEdit, content))
+              .catch(() => {});
+          }
           SetWindowText(hwnd, `${file.name} - Notepad`);
           audio.playChime();
         }
@@ -133,37 +154,97 @@ function NotepadWndProc(
     }
 
     case WM_SIZE: {
-      const hwndEdit = hwndEditByWindow.get(hwnd);
       const width = lParam & 0xffff;
       const height = (lParam >> 16) & 0xffff;
-      if (hwndEdit) {
+      if (state) {
         // Full client area filling
-        MoveWindow(hwndEdit, 0, 0, Math.max(100, width - 8), Math.max(50, height - 60));
+        MoveWindow(state.hwndEdit, 0, 0, Math.max(100, width - 8), Math.max(50, height - 60));
       }
       return 0;
     }
 
     case WM_COMMAND: {
-      const hwndEdit = hwndEditByWindow.get(hwnd);
       const menuId = LOWORD(wParam);
-
-      if (!hwndEdit) return 0;
+      if (!state) return 0;
+      const hwndEdit = state.hwndEdit;
 
       switch (menuId) {
         case ID_FILE_NEW:
+          state.filePath = null;
           SetWindowText(hwndEdit, "");
+          SetWindowText(hwnd, "Untitled - Notepad");
           return 0;
 
-        case ID_FILE_OPEN:
-          SetWindowText(
-            hwndEdit,
-            "C:\\WINDOWS\\SYSTEM.INI\n\n[boot]\nshell=Explorer.exe\nmouse.drv=mouse.drv\nnetwork.drv=null\n"
-          );
-          return 0;
+        case ID_FILE_OPEN: {
+          const defaultPath = state.filePath || "C:\\My Documents\\Welcome.txt";
+          const promptPath = typeof window !== "undefined"
+            ? window.prompt("Open file from OPFS virtual storage:", defaultPath)
+            : defaultPath;
 
-        case ID_FILE_SAVE:
-          MessageBox(hwnd, "File saved to virtual disk memory!", "Notepad", MB_OK);
+          if (!promptPath) return 0;
+
+          vfs.readTextFile(promptPath)
+            .then((text) => {
+              state.filePath = promptPath;
+              SetWindowText(hwndEdit, text);
+              const fileName = promptPath.replace(/\\/g, "/").split("/").pop() || "Untitled";
+              SetWindowText(hwnd, `${fileName} - Notepad`);
+              audio.playChime();
+            })
+            .catch(() => {
+              MessageBox(hwnd, `Cannot open file "${promptPath}". File not found in virtual filesystem.`, "Notepad", MB_OK);
+            });
           return 0;
+        }
+
+        case ID_FILE_SAVE: {
+          const text = GetWindowText(hwndEdit);
+          let targetPath = state.filePath;
+
+          if (!targetPath) {
+            const promptName = typeof window !== "undefined"
+              ? window.prompt("Save file to OPFS virtual storage path:", "C:\\My Documents\\Untitled.txt")
+              : "C:\\My Documents\\Untitled.txt";
+            if (!promptName) return 0;
+            targetPath = promptName;
+            state.filePath = targetPath;
+          }
+
+          vfs.writeTextFile(targetPath, text).then((ok) => {
+            if (ok) {
+              const fileName = targetPath!.replace(/\\/g, "/").split("/").pop() || "Untitled";
+              SetWindowText(hwnd, `${fileName} - Notepad`);
+              audio.playChime();
+              MessageBox(hwnd, `File saved successfully to OPFS storage:\n${targetPath}`, "Notepad", MB_OK);
+            } else {
+              MessageBox(hwnd, `Error saving file to ${targetPath}`, "Notepad Error", MB_OK);
+            }
+          });
+          return 0;
+        }
+
+        case ID_FILE_SAVEAS: {
+          const text = GetWindowText(hwndEdit);
+          const defaultPath = state.filePath || "C:\\My Documents\\Document.txt";
+          const promptName = typeof window !== "undefined"
+            ? window.prompt("Save As path in OPFS virtual drive:", defaultPath)
+            : defaultPath;
+
+          if (!promptName) return 0;
+          state.filePath = promptName;
+
+          vfs.writeTextFile(promptName, text).then((ok) => {
+            if (ok) {
+              const fileName = promptName.replace(/\\/g, "/").split("/").pop() || "Untitled";
+              SetWindowText(hwnd, `${fileName} - Notepad`);
+              audio.playChime();
+              MessageBox(hwnd, `File saved successfully to OPFS storage:\n${promptName}`, "Notepad", MB_OK);
+            } else {
+              MessageBox(hwnd, `Error saving file to ${promptName}`, "Notepad Error", MB_OK);
+            }
+          });
+          return 0;
+        }
 
         case ID_FILE_EXIT:
           DefWindowProc(hwnd, WM_CLOSE, 0, 0);
@@ -172,14 +253,14 @@ function NotepadWndProc(
         case ID_EDIT_TIMEDATE: {
           const cur = GetWindowText(hwndEdit);
           const nowStr = new Date().toLocaleString();
-          SetWindowText(hwndEdit, cur + (cur ? "\n" : "") + nowStr);
+          SetWindowText(hwndEdit, cur + (cur ? "\r\n" : "") + nowStr);
           return 0;
         }
 
         case ID_HELP_ABOUT:
           MessageBox(
             hwnd,
-            "Microsoft Notepad for Win32-JS\nVersion 4.0 (Build 1381)\n\nSimulating Win32 menus (HMENU), popup menus, and WM_COMMAND message routing.",
+            "Microsoft Notepad for Win32-Svelte\nVersion 5.0 (Build 2222)\n\nEquipped with Origin Private File System (OPFS) persistent storage and shell drag & drop.",
             "About Notepad",
             MB_OK | MB_ICONASTERISK
           );
@@ -189,7 +270,7 @@ function NotepadWndProc(
     }
 
     case WM_DESTROY: {
-      hwndEditByWindow.delete(hwnd);
+      notepadStateByWindow.delete(hwnd);
       PostQuitMessage(0);
       return 0;
     }
@@ -198,7 +279,7 @@ function NotepadWndProc(
   return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-export function StartNotepad(x = 520, y = 40): HWND {
+export function StartNotepad(x = 520, y = 40, initialFilePath?: string): HWND {
   const CLASS_NAME = "Win32Notepad";
 
   RegisterClassEx({
@@ -206,15 +287,19 @@ export function StartNotepad(x = 520, y = 40): HWND {
     lpfnWndProc: NotepadWndProc,
   });
 
+  const title = initialFilePath
+    ? `${initialFilePath.replace(/\\/g, "/").split("/").pop()} - Notepad`
+    : "Untitled - Notepad";
+
   const hwnd = CreateWindowEx(
     0,
     CLASS_NAME,
-    "Untitled - Notepad",
+    title,
     WS_OVERLAPPEDWINDOW | WS_VISIBLE,
     x,
     y,
-    400,
-    290,
+    420,
+    300,
     null,
     null,
     null,
@@ -222,6 +307,20 @@ export function StartNotepad(x = 520, y = 40): HWND {
   );
 
   ShowWindow(hwnd, SW_SHOW);
+
+  // If initial file specified, load it
+  if (initialFilePath) {
+    const state = notepadStateByWindow.get(hwnd);
+    if (state) {
+      state.filePath = initialFilePath;
+      vfs.readTextFile(initialFilePath)
+        .then((content) => {
+          SetWindowText(state.hwndEdit, content);
+        })
+        .catch(() => {});
+    }
+  }
+
   RunMessageLoop();
   return hwnd;
 }

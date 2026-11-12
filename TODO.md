@@ -27,21 +27,22 @@ flowchart TD
     end
 ```
 
-### 1. Client-Side Persistent Filesystem (`IndexedDB` & `OPFS`)
-- [ ] **IndexedDB Virtual File System (`VFS`)**:
-  - `IndexedDB` is supported in all modern browsers and provides gigabytes of quota for structured data and binary blobs.
-  - Implement an object store for files (`path`, `name`, `size`, `type`, `modified`, `content`, `attributes`).
-  - Implement an object store for directories (`path`, `parentPath`, `children`).
-  - Wire into `CreateFile`, `ReadFile`, `WriteFile`, `DeleteFile`, `MoveFile`.
-  - Wire into `FindFirstFile` / `FindNextFile` so Windows Explorer dynamically lists persistent files.
-- [ ] **Origin Private File System (OPFS)**:
-  - Utilize modern `navigator.storage.getDirectory()` for lightning-fast, sandboxed file access with direct synchronous reader/writer handles.
-- [ ] **Virtual Removable Media (`A:` & `D:`)**:
-  - Store mountable floppy disk images (`.img`, `.flp`) and CD-ROM ISOs in `IndexedDB`.
-  - Mount/unmount virtual drives dynamically.
-- [ ] **File Import & Export**:
-  - Right-click in Explorer $\rightarrow$ "Export to Host" (triggers browser download).
-  - Drag from host desktop into Explorer/Notepad $\rightarrow$ automatically saves into `IndexedDB`.
+### 1. Client-Side Persistent Filesystem (OPFS)
+- [x] **Origin Private File System (OPFS & VFS Core)**:
+  - Backed by W3C `navigator.storage.getDirectory()` with seamless in-memory fallback for headless/Node environments.
+  - Implements full Win32 `kernel32.dll` file I/O APIs: `CreateFile`, `ReadFile`, `WriteFile`, `CloseHandle`, `SetFilePointer`, `GetFileSize`, `DeleteFile`, `MoveFile`, `CopyFile`, `CreateDirectory`, `RemoveDirectory`, `GetFileAttributes`.
+  - Wildcard search: `FindFirstFile` / `FindNextFile` / `FindClose` (`*.txt`, `*.*`).
+  - Pre-seeded with authentic Windows 98 directory tree and system files (`AUTOEXEC.BAT`, `CONFIG.SYS`, `SYSTEM.INI`, `WIN.INI`, `SYSTEM32`, `Welcome.txt`, etc.).
+  - Reactive change listeners (`vfs.addChangeListener`) automatically synchronizing open explorer windows.
+- [x] **Virtual Removable Media (`A:` & `D:`)**:
+  - Top-level virtual drive mapping (`A:`, `C:`, `D:`) integrated into Win32 path normalization.
+- [x] **File Import & Export**:
+  - Right-click / Menu in Explorer $\rightarrow$ "Export to Host" (triggers browser download).
+  - Drag from host desktop into Explorer or Notepad $\rightarrow$ automatically saves into OPFS persistent sandbox.
+- [x] **Application Integration**:
+  - Windows Explorer (`src/samples/explorer.ts`) dynamically browses live OPFS folders, double-click navigates directories or opens files, and supports creating new folders / deleting items.
+  - Notepad (`src/samples/notepad.ts`) natively opens, saves, and creates files directly to/from OPFS paths (`C:\My Documents`, etc.).
+
 
 ### 2. Client-Side Windows Registry (`localStorage` & `advapi32.dll`)
 - [ ] **Synchronous Registry Store via `localStorage`**:
@@ -184,9 +185,31 @@ flowchart TD
 
 ---
 
+### 6. ODBC & Database Connectivity (`odbc32.dll` & Supabase)
+- [ ] **ODBC Core API Engine (`odbc32.dll`)**:
+  - Implement classic Win32 ODBC handles and function signatures:
+    - Environment & Connection: `SQLAllocHandle`, `SQLSetEnvAttr`, `SQLFreeHandle`.
+    - Connection Management: `SQLConnect`, `SQLDriverConnect`, `SQLDisconnect`.
+    - Statement & Query Execution: `SQLExecDirect`, `SQLPrepare`, `SQLExecute`.
+    - Cursor & Result Set Navigation: `SQLFetch`, `SQLGetData`, `SQLNumResultCols`, `SQLDescribeCol`, `SQLRowCount`.
+- [ ] **Supabase ODBC Driver & Cloud Bridge**:
+  - Expose Supabase projects as a first-class virtual ODBC Data Source Name (DSN).
+  - Map PostgreSQL queries and PostgREST endpoints to tabular ODBC cursor rowsets.
+  - Optional Supabase Realtime subscriptions driving Win32 change events / notifications.
+  - Connection string parsing (e.g., `DSN=Supabase;ProjectRef=xyz;ApiKey=...;`).
+- [ ] **ODBC Data Source Administrator (`ODBCAD32.EXE` / `ODBCCP32.CPL`)**:
+  - Classic Windows 98 Control Panel applet with User DSN, System DSN, File DSN, and Drivers tabs (`SysTabControl32`).
+  - "Configure Data Source" modal dialog for entering Supabase Project URL and API Key.
+  - "Test Connection" button with authentic Win32 dialog feedback.
+- [ ] **Sample Database Applications**:
+  - Win32 SQL Query Analyzer / ISQL tool (`ISQL.EXE`): Query box with results rendered in a virtualized `SysListView32` table.
+  - Database Table Inspector inside Windows Explorer under a virtual `ODBC Data Sources` folder.
+
+---
+
 ## 🪟 GUI, Common Controls & Architecture Enhancements
 
-### 6. Common Controls 32 (`COMCTL32`) Roadmap
+### 7. Common Controls 32 (`COMCTL32`) Roadmap
 - [x] `SysTreeView32` (`WC_TREEVIEW`): Hierarchical tree nodes, expand/collapse, dotted lines, selection.
 - [x] `SysListView32` (`WC_LISTVIEW`): Report/details mode, sticky column headers, row selection.
 - [x] `SysTabControl32` (`WC_TABCONTROL`): Tabbed property sheet strips with selection switching.
@@ -200,7 +223,7 @@ flowchart TD
 
 ---
 
-### 7. Drag & Drop and Clipboard Subsystems
+### 8. Drag & Drop and Clipboard Subsystems
 - [x] **Shell Drag & Drop (`shell32.dll`)**:
   - `DragAcceptFiles`, `WM_DROPFILES`, `DragQueryFile`, `DragQueryPoint`, `DragFinish`.
   - Host OS file dropping into Notepad and Explorer.
@@ -214,7 +237,7 @@ flowchart TD
 
 ---
 
-### 8. Microsoft Foundation Classes (MFC) Extensions
+### 9. Microsoft Foundation Classes (MFC) Extensions
 - [x] **Core MFC Architecture**:
   - `CObject`: RTTI, `isKindOf()`.
   - `CCmdTarget`: Command routing & Message Maps (`ON_COMMAND`, `ON_BN_CLICKED`, `ON_WM_MESSAGE`).
@@ -234,7 +257,7 @@ flowchart TD
 
 ---
 
-### 9. Resource Script (`.rc`) Compiler & Tooling
+### 10. Resource Script (`.rc`) Compiler & Tooling
 - [x] **`.rc` Parser & Compiler**:
   - Parse classic `.rc` scripts:
     - `DIALOGEX` / `DIALOG` definitions (controls, coordinates, styles, font metrics).
@@ -254,8 +277,9 @@ flowchart TD
 
 ---
 
-### 10. WebAssembly & C Compilation Target
+### 11. WebAssembly & C Compilation Target
 - [ ] **C Header Bridge (`windows.h`)**:
   - Create a lightweight `windows.h` header for Emscripten / Clang that compiles native C Win32 code directly to WebAssembly and links against this JavaScript/Svelte kernel!
 - [ ] **Native C Transpilation**:
   - Pipeline to take TypeScript `win32-svelte` applications and emit clean C99 code targetable by GCC or MSVC.
+

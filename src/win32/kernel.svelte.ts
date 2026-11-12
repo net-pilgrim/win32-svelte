@@ -99,6 +99,7 @@ import { MessageBeep } from "./audio";
 import type {
   HWND,
   HMENU,
+  HANDLE,
   UINT,
   WPARAM,
   LPARAM,
@@ -1227,3 +1228,63 @@ export async function RunMessageLoop(): Promise<void> {
 }
 
 export * from "./dialog.ts";
+import { vfs, Win32VFS } from "./vfs";
+export { vfs, Win32VFS } from "./vfs";
+
+
+// Win32 File APIs (kernel32.dll) backed by OPFS
+export const CreateFile = (
+  lpFileName: string,
+  dwDesiredAccess?: number,
+  dwShareMode?: number,
+  lpSecurityAttributes?: any,
+  dwCreationDisposition?: number,
+  dwFlagsAndAttributes?: number,
+  hTemplateFile?: any
+) =>
+  vfs.CreateFile(
+    lpFileName,
+    dwDesiredAccess,
+    dwShareMode,
+    lpSecurityAttributes,
+    dwCreationDisposition,
+    dwFlagsAndAttributes,
+    hTemplateFile
+  );
+
+export const ReadFile = (hFile: HANDLE, nNumberOfBytesToRead?: number) =>
+  vfs.ReadFile(hFile, nNumberOfBytesToRead);
+
+export const WriteFile = (hFile: HANDLE, lpBuffer: Uint8Array | string) =>
+  vfs.WriteFile(hFile, lpBuffer);
+
+export const SetFilePointer = (hFile: HANDLE, lDistanceToMove: number, dwMoveMethod?: number) =>
+  vfs.SetFilePointer(hFile, lDistanceToMove, dwMoveMethod);
+
+export const GetFileSize = (hFile: HANDLE) => vfs.GetFileSize(hFile);
+
+export const CloseHandle = (hObject: HANDLE) => vfs.CloseHandle(hObject);
+
+export const DeleteFile = (lpFileName: string) => vfs.DeleteFile(lpFileName);
+
+export const MoveFile = (lpExistingFileName: string, lpNewFileName: string) =>
+  vfs.MoveFile(lpExistingFileName, lpNewFileName);
+
+export const CopyFile = (lpExistingFileName: string, lpNewFileName: string, bFailIfExists?: boolean) =>
+  vfs.CopyFile(lpExistingFileName, lpNewFileName, bFailIfExists);
+
+export const CreateDirectory = (lpPathName: string) => vfs.CreateDirectory(lpPathName);
+
+export const RemoveDirectory = (lpPathName: string, recursive?: boolean) =>
+  vfs.RemoveDirectory(lpPathName, recursive);
+
+export const GetFileAttributes = (lpFileName: string) => vfs.GetFileAttributes(lpFileName);
+
+export const FindFirstFile = (lpFileName: string) => vfs.FindFirstFile(lpFileName);
+
+export const FindNextFile = (hFindFile: HANDLE) => vfs.FindNextFile(hFindFile);
+
+export const FindClose = (hFindFile: HANDLE) => vfs.FindClose(hFindFile);
+
+export const GetLogicalDrives = () => vfs.GetLogicalDrives();
+
