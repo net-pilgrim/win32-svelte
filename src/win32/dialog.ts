@@ -137,6 +137,9 @@ export function CreateDialogParam(
   dwInitParam: any = 0,
   bundle?: ResourceBundle
 ): HWND {
+  if (bundle) {
+    RegisterResourceBundle(bundle);
+  }
   const template = FindDialogTemplate(lpTemplateName, bundle);
   if (!template) {
     console.error(`CreateDialogParam: Dialog template '${String(lpTemplateName)}' not found.`);
@@ -174,8 +177,7 @@ export function CreateDialogParam(
   }
 
   const dwStyle =
-    template.style ||
-    (WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE);
+    (template.style || (WS_POPUP | WS_CAPTION | WS_SYSMENU)) | WS_VISIBLE;
 
   // Wrapped dialog procedure handling default dialog behavior
   const dialogProc: WndProc = (hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT => {

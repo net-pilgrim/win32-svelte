@@ -15,6 +15,7 @@ import {
   GetDlgItemText,
   CheckDlgButton,
   IsDlgButtonChecked,
+  RegisterResourceBundle,
 } from "../win32/kernel.svelte.ts";
 
 import {
@@ -228,6 +229,7 @@ function RcDemoWndProc(
 }
 
 export function StartRcDemo(startX = 180, startY = 80): HWND {
+  RegisterResourceBundle(resources);
   const className = "RcDemoWindowClass";
 
   RegisterClassEx({
