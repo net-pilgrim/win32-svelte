@@ -9,6 +9,8 @@ import {
   CreatePopupMenu,
   AppendMenu,
   SetMenu,
+  GetMenu,
+  CheckMenuItem,
   MessageBox,
   kernel,
 } from "../win32/kernel.svelte";
@@ -44,6 +46,8 @@ import {
   MF_STRING,
   MF_POPUP,
   MF_SEPARATOR,
+  MF_CHECKED,
+  MF_UNCHECKED,
   MB_OK,
   SW_SHOW,
 } from "../win32/constants";
@@ -161,6 +165,7 @@ function PaintWndProc(
       AppendMenu(hMenuBar, MF_POPUP, hMenuHelp, "&Help");
 
       SetMenu(hwnd, hMenuBar);
+      CheckMenuItem(hMenuBar, ID_COLOR_BLACK, MF_CHECKED);
       return 0;
     }
 
@@ -221,17 +226,25 @@ function PaintWndProc(
         }
 
         case ID_COLOR_BLACK:
-          session.penColor = "#000000";
-          return 0;
         case ID_COLOR_RED:
-          session.penColor = "#ff0000";
-          return 0;
         case ID_COLOR_BLUE:
-          session.penColor = "#0000ff";
+        case ID_COLOR_GREEN: {
+          const colors: Record<number, string> = {
+            [ID_COLOR_BLACK]: "#000000",
+            [ID_COLOR_RED]: "#ff0000",
+            [ID_COLOR_BLUE]: "#0000ff",
+            [ID_COLOR_GREEN]: "#008000",
+          };
+          session.penColor = colors[menuId];
+          const hMenu = GetMenu(hwnd);
+          if (hMenu) {
+            CheckMenuItem(hMenu, ID_COLOR_BLACK, menuId === ID_COLOR_BLACK ? MF_CHECKED : MF_UNCHECKED);
+            CheckMenuItem(hMenu, ID_COLOR_RED, menuId === ID_COLOR_RED ? MF_CHECKED : MF_UNCHECKED);
+            CheckMenuItem(hMenu, ID_COLOR_BLUE, menuId === ID_COLOR_BLUE ? MF_CHECKED : MF_UNCHECKED);
+            CheckMenuItem(hMenu, ID_COLOR_GREEN, menuId === ID_COLOR_GREEN ? MF_CHECKED : MF_UNCHECKED);
+          }
           return 0;
-        case ID_COLOR_GREEN:
-          session.penColor = "#008000";
-          return 0;
+        }
 
         case ID_FILE_EXIT:
           DefWindowProc(hwnd, WM_CLOSE, 0, 0);
