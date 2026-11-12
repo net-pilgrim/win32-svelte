@@ -354,4 +354,23 @@ export const FILE_END = 2;
 export const INVALID_HANDLE_VALUE = -1;
 export const INVALID_FILE_SIZE = 0xffffffff;
 
+// Win32 Print Constants (winspool.drv / gdi32.dll)
+export const PD_ALLPAGES = 0x00000000;
+export const PD_SELECTION = 0x00000001;
+export const PD_PAGENUMS = 0x00000002;
+export const PD_NOSELECTION = 0x00000004;
+export const PD_NOPAGENUMS = 0x00000008;
+export const PD_COLLATE = 0x00000010;
+export const PD_PRINTTOFILE = 0x00000020;
+export const PD_PRINTSETUP = 0x00000040;
+export const PD_RETURNDC = 0x00000100;
+export const PD_RETURNDEFAULT = 0x00000400;
+
+export const SP_ERROR = -1;
+export const SP_APPABORT = -2;
+export const SP_USERABORT = -3;
+export const SP_OUTOFDISK = -4;
+export const SP_OUTOFMEMORY = -5;
+
+
 
