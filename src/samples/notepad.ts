@@ -18,7 +18,9 @@ import {
   DragFinish,
   audio,
   vfs,
+  PrintTextDocument,
 } from "../win32/kernel.svelte";
+
 
 import {
   WM_CREATE,
@@ -50,7 +52,10 @@ const ID_FILE_NEW = 3101;
 const ID_FILE_OPEN = 3102;
 const ID_FILE_SAVE = 3103;
 const ID_FILE_SAVEAS = 3105;
+const ID_FILE_PRINT = 3106;
+const ID_FILE_PRINTPREVIEW = 3107;
 const ID_FILE_EXIT = 3104;
+
 
 const ID_EDIT_UNDO = 3201;
 const ID_EDIT_SELECTALL = 3202;
@@ -85,7 +90,11 @@ function NotepadWndProc(
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_SAVE, "&Save", "Ctrl+S");
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_SAVEAS, "Save &As...");
       AppendMenu(hMenuFile, MF_SEPARATOR, 0, "");
+      AppendMenu(hMenuFile, MF_STRING, ID_FILE_PRINT, "&Print...", "Ctrl+P");
+      AppendMenu(hMenuFile, MF_STRING, ID_FILE_PRINTPREVIEW, "Print Pre&view");
+      AppendMenu(hMenuFile, MF_SEPARATOR, 0, "");
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_EXIT, "E&xit");
+
       AppendMenu(hMenuBar, MF_POPUP, hMenuFile, "&File");
 
       // Edit Popup
@@ -246,7 +255,22 @@ function NotepadWndProc(
           return 0;
         }
 
+        case ID_FILE_PRINT: {
+          const text = GetWindowText(hwndEdit);
+          const docTitle = state.filePath ? state.filePath.split("\\").pop() : "Untitled";
+          PrintTextDocument(text, docTitle, "dialog");
+          return 0;
+        }
+
+        case ID_FILE_PRINTPREVIEW: {
+          const text = GetWindowText(hwndEdit);
+          const docTitle = state.filePath ? state.filePath.split("\\").pop() : "Untitled";
+          PrintTextDocument(text, docTitle, "preview");
+          return 0;
+        }
+
         case ID_FILE_EXIT:
+
           DefWindowProc(hwnd, WM_CLOSE, 0, 0);
           return 0;
 

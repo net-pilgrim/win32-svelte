@@ -28,6 +28,29 @@ export interface VFSFileInfo {
   content?: string;
 }
 
+export interface DOCINFO {
+  cbSize?: number;
+  lpszDocName?: string;
+  lpszOutput?: string;
+  lpszDatatype?: string;
+  fwType?: number;
+}
+
+export interface PRINTDLG {
+  hwndOwner?: HWND | null;
+  hDevMode?: any;
+  hDevNames?: any;
+  hDC?: any;
+  flags?: number;
+  nFromPage?: number;
+  nToPage?: number;
+  nMinPage?: number;
+  nMaxPage?: number;
+  nCopies?: number;
+  printerName?: string;
+}
+
+
 
 export interface MenuItem {
   id: number;

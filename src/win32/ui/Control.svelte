@@ -287,6 +287,23 @@
          win.title === "IDI_ERROR" || win.title === "IDI_HAND" ? "🛑" :
          win.title || "📁"}
       </div>
+    {:else if win.customProps?.pageDataUrl}
+      <!-- Print Preview Viewport -->
+      <div
+        class="win32-control win32-print-preview-viewport"
+        style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; background: #505050; overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 20px; {win.customProps?.style ?? ''}"
+      >
+        <div
+          class="preview-paper-sheet"
+          style="width: {win.customProps.scaledW}px; height: {win.customProps.scaledH}px; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;"
+        >
+          <img
+            src={win.customProps.pageDataUrl}
+            alt="Print Page Preview"
+            style="width: 100%; height: 100%; display: block;"
+          />
+        </div>
+      </div>
     {:else}
       <div
         class="win32-control win32-static {win.customProps?.className ?? ''}"
@@ -295,6 +312,7 @@
         {win.title}
       </div>
     {/if}
+
   {:else if win.className.toUpperCase() === "EDIT"}
     {#if win.style & 0x0004}
       <!-- ES_MULTILINE -->

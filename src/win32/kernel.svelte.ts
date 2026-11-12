@@ -1288,3 +1288,22 @@ export const FindClose = (hFindFile: HANDLE) => vfs.FindClose(hFindFile);
 
 export const GetLogicalDrives = () => vfs.GetLogicalDrives();
 
+// Win32 Print Spooler APIs (winspool.drv / gdi32.dll)
+import { setPrintKernelBridge } from "./print";
+export * from "./print";
+
+setPrintKernelBridge({
+  CreateWindowEx,
+  ShowWindow,
+  DestroyWindow,
+  SendMessage,
+  SetWindowText,
+  GetWindowText,
+  MessageBox,
+  RegisterClassEx,
+  DefWindowProc,
+  kernel,
+});
+
+
+

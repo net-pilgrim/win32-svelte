@@ -31,6 +31,8 @@ import {
   type PAINTSTRUCT,
   type HDC,
 } from "../win32/gdi";
+import { PrintCanvasGraphics } from "../win32/print";
+
 
 import {
   WM_CREATE,
@@ -57,7 +59,10 @@ import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "../win32/types";
 // Menu IDs
 const ID_FILE_CLEAR = 7001;
 const ID_FILE_REDRAW = 7002;
+const ID_FILE_PRINT = 7004;
+const ID_FILE_PRINTPREVIEW = 7005;
 const ID_FILE_EXIT = 7003;
+
 
 const ID_COLOR_BLACK = 7101;
 const ID_COLOR_RED = 7102;
@@ -150,7 +155,11 @@ function PaintWndProc(
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_CLEAR, "&Clear Canvas");
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_REDRAW, "&Redraw GDI Demo");
       AppendMenu(hMenuFile, MF_SEPARATOR, 0, "");
+      AppendMenu(hMenuFile, MF_STRING, ID_FILE_PRINT, "&Print...", "Ctrl+P");
+      AppendMenu(hMenuFile, MF_STRING, ID_FILE_PRINTPREVIEW, "Print Pre&view");
+      AppendMenu(hMenuFile, MF_SEPARATOR, 0, "");
       AppendMenu(hMenuFile, MF_STRING, ID_FILE_EXIT, "E&xit");
+
       AppendMenu(hMenuBar, MF_POPUP, hMenuFile, "&File");
 
       const hMenuColor = CreatePopupMenu();
@@ -225,7 +234,24 @@ function PaintWndProc(
           return 0;
         }
 
+        case ID_FILE_PRINT: {
+          const ps: Partial<PAINTSTRUCT> = {};
+          const hdc = BeginPaint(hwnd, ps);
+          PrintCanvasGraphics(hdc.canvas, "GDI Paint Demo", "dialog");
+          EndPaint(hwnd, ps);
+          return 0;
+        }
+
+        case ID_FILE_PRINTPREVIEW: {
+          const ps: Partial<PAINTSTRUCT> = {};
+          const hdc = BeginPaint(hwnd, ps);
+          PrintCanvasGraphics(hdc.canvas, "GDI Paint Demo", "preview");
+          EndPaint(hwnd, ps);
+          return 0;
+        }
+
         case ID_COLOR_BLACK:
+
         case ID_COLOR_RED:
         case ID_COLOR_BLUE:
         case ID_COLOR_GREEN: {

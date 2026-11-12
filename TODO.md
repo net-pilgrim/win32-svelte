@@ -56,11 +56,16 @@ flowchart TD
   - `RegSaveKey` / `RegRestoreKey`: Import/Export `.reg` files in classic ASCII Windows registry format.
 
 ### 3. Client-Side Printing & PDF Export (Zero-Backend)
-- [ ] **GDI Client-Side Spooler**:
-  - When calling `StartDoc` / `EndDoc`, the printer `HDC` renders the print pages into an offscreen high-DPI canvas or SVG.
-- [ ] **PDF Generation & Browser Print**:
-  - Convert rendered pages into a downloadable PDF directly in the browser (e.g. using `pdf-lib`).
-  - Trigger native `window.print()` with a specialized Windows 98 print preview stylesheet (`@media print`).
+- [x] **GDI Client-Side Spooler (`winspool.drv` & `gdi32.dll`)**:
+  - `CreateDC("WINSPOOL", ...)` creates a dedicated `PrinterHDC`.
+  - Spooler flow: `StartDoc`, `StartPage`, `EndPage`, `EndDoc`, `AbortDoc`.
+  - High-DPI offscreen page canvases with pagination, headers, footers, margins, and divider rules.
+- [x] **Print Dialog & Browser Print Integration**:
+  - `PrintDlg`: Standard Windows 98 Print configuration dialog (printer selection, copies, page range).
+  - Browser Print: Automatic injection into `#win32-print-container` with `@media print` CSS stylesheet formatting pages for pixel-perfect browser printing and PDF generation via `window.print()`.
+  - Print Preview: Interactive `StartPrintPreview` SDI window with page navigation, zoom in/out, and direct print trigger.
+  - Full application wiring into Notepad (`File -> Print...`, `Print Preview`) and GDI Paint (`File -> Print...`, `Print Preview`).
+
 
 ---
 

@@ -13,3 +13,34 @@ html, body, #app {
 * {
   box-sizing: border-box;
 }
+
+/* Windows 98 Print Subsystem Stylesheet */
+#win32-print-container {
+  display: none;
+}
+
+@media print {
+  body > *:not(#win32-print-container) {
+    display: none !important;
+  }
+  #win32-print-container {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+  .win32-print-page {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    page-break-after: always;
+    break-after: page;
+    margin: 0 auto;
+  }
+}
+
