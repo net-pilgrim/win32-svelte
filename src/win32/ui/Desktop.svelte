@@ -5,6 +5,7 @@
   import Window from "./Window.svelte";
   import MessageBoxModal from "./MessageBoxModal.svelte";
   import DesktopIcon from "./DesktopIcon.svelte";
+  import StartMenu from "./StartMenu.svelte";
   import { audio } from "../audio";
   import { StartMinesweeper } from "../../samples/minesweeper";
   import { StartCalculator } from "../../samples/calculator";
@@ -20,6 +21,8 @@
 
   let timeString = $state("");
   let selectedIconId = $state<string | null>(null);
+  let isStartMenuOpen = $state(false);
+  let soundEnabled = $state(true);
 
   interface IconItem {
     id: string;
@@ -173,6 +176,24 @@
 
   function onDesktopSurfaceClick() {
     selectedIconId = null;
+    isStartMenuOpen = false;
+  }
+
+  function toggleStartMenu() {
+    audio.playClick();
+    isStartMenuOpen = !isStartMenuOpen;
+  }
+
+  function toggleSound() {
+    soundEnabled = !soundEnabled;
+    audio.enabled = soundEnabled;
+  }
+
+  function minimizeAll() {
+    const allMin = topWindows.every((w) => w.minimized);
+    for (const win of topWindows) {
+      ShowWindow(win.hwnd, allMin ? SW_RESTORE : SW_MINIMIZE);
+    }
   }
 </script>
 
@@ -205,11 +226,43 @@
     {/each}
   </div>
 
+  <!-- Start Menu -->
+  <StartMenu
+    isOpen={isStartMenuOpen}
+    onClose={() => (isStartMenuOpen = false)}
+    {soundEnabled}
+    onToggleSound={toggleSound}
+  />
+
   <div class="taskbar">
-    <button class="start-button" onclick={() => audio.playClick()}>
+    <button
+      class="start-button {isStartMenuOpen ? 'active' : ''}"
+      onclick={toggleStartMenu}
+    >
       <span class="start-flag">🪟</span>
       <strong>Start</strong>
     </button>
+
+    <div class="taskbar-divider"></div>
+
+    <!-- Quick Launch Toolbar -->
+    <div class="quick-launch">
+      <button class="quick-btn" title="Windows Explorer" onclick={() => StartExplorer(160, 70)}>
+        🗂️
+      </button>
+      <button class="quick-btn" title="WASM C Application" onclick={() => StartWasmApp(260, 110)}>
+        ⚡
+      </button>
+      <button class="quick-btn" title="Notepad" onclick={() => StartNotepad(320, 70)}>
+        📝
+      </button>
+      <button class="quick-btn" title="GDI Paint" onclick={() => StartPaintDemo(240, 100)}>
+        🎨
+      </button>
+      <button class="quick-btn" title="Show Desktop" onclick={minimizeAll}>
+        🖥️
+      </button>
+    </div>
 
     <div class="taskbar-divider"></div>
 
@@ -226,6 +279,13 @@
     </div>
 
     <div class="system-tray">
+      <button
+        class="tray-btn"
+        title={soundEnabled ? "Mute Audio" : "Unmute Audio"}
+        onclick={toggleSound}
+      >
+        {soundEnabled ? "🔊" : "🔇"}
+      </button>
       <span class="clock">{timeString}</span>
     </div>
   </div>
@@ -270,6 +330,56 @@
     gap: 4px;
     font-weight: bold;
     font-size: 11px;
+    cursor: default;
+  }
+
+  .start-button.active {
+    background: #e0e0e0;
+    box-shadow:
+      inset -1px -1px #fff,
+      inset 1px 1px #0a0a0a,
+      inset -2px -2px #dfdfdf,
+      inset 2px 2px grey;
+  }
+
+  .quick-launch {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 1px;
+  }
+
+  .quick-btn {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: default;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .quick-btn:hover {
+    box-shadow:
+      inset -1px -1px #0a0a0a,
+      inset 1px 1px #fff,
+      inset -2px -2px grey,
+      inset 2px 2px #dfdfdf;
+  }
+
+  .quick-btn:active {
+    box-shadow:
+      inset -1px -1px #fff,
+      inset 1px 1px #0a0a0a,
+      inset -2px -2px #dfdfdf,
+      inset 2px 2px grey;
+    background: #e0e0e0;
   }
 
   .start-flag {
@@ -324,16 +434,42 @@
 
   .system-tray {
     height: 22px;
-    padding: 2px 8px;
+    padding: 2px 4px;
     border: 2px inset #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #c0c0c0;
+    gap: 4px;
+  }
+
+  .tray-btn {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    font-size: 12px;
+    cursor: default;
+    padding: 0 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: unset;
+    min-height: unset;
+    height: 18px;
+    border-radius: 0;
+  }
+
+  .tray-btn:hover {
+    box-shadow:
+      inset -1px -1px #0a0a0a,
+      inset 1px 1px #fff,
+      inset -2px -2px grey,
+      inset 2px 2px #dfdfdf;
   }
 
   .clock {
     font-size: 11px;
     color: #000;
+    padding-right: 2px;
   }
 </style>
