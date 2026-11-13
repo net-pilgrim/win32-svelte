@@ -379,7 +379,7 @@ function ExplorerWndProc(
               MessageBox(hwnd, `Executed virtual application: ${name}`, "Windows Explorer", MB_OK);
             }
           } else if (ext === "WASM") {
-            StartWasmApp(260, 90);
+            StartWasmApp(260, 90, targetPath);
           } else {
             // Open in Notepad
             StartNotepad(220, 80, targetPath);

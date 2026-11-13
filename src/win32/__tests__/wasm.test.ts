@@ -1,6 +1,7 @@
 import { kernel, SendMessage } from "../kernel.svelte";
 import { Win32WasmRuntime } from "../wasm_bridge";
 import { getSampleAppWasmBytes } from "../../wasm/sample_app_wasm";
+import { StartWasmApp } from "../../samples/wasm_app";
 import { WM_COMMAND } from "../constants";
 
 async function runWasmTests() {
@@ -80,6 +81,22 @@ async function runWasmTests() {
     throw new Error("Notepad window with sample_app.c was not opened by ShellExecute");
   }
   console.log(`✓ Notepad opened via C ShellExecute: HWND ${notepadWin.hwnd}, title: "${notepadWin.title}"`);
+
+  // Test 7: Verify launching .wasm file directly via VFS path
+  console.log("Test 7: Testing StartWasmApp with direct VFS path...");
+  const initialWinCount = kernel.windows.length;
+  await StartWasmApp(320, 150, "C:\\wasm_application\\sample_app.wasm");
+  const newWasmWins = kernel.windows.filter(
+    (w) => w.className === "WasmCWindowClass" && w.parentHwnd === null
+  );
+  if (newWasmWins.length < 2) {
+    throw new Error("Failed to launch second WASM application from VFS path");
+  }
+  const launchedWin = newWasmWins[newWasmWins.length - 1];
+  if (launchedWin.x !== 320 || launchedWin.y !== 150) {
+    throw new Error(`Expected window coordinates (320, 150), got (${launchedWin.x}, ${launchedWin.y})`);
+  }
+  console.log(`✓ Launched WASM application from VFS path: HWND ${launchedWin.hwnd} at (${launchedWin.x}, ${launchedWin.y})`);
 
   console.log("\nALL WIN32 WASM BRIDGE TESTS PASSED! ⚡🎉");
 }

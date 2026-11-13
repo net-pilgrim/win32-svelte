@@ -1,12 +1,26 @@
 import { Win32WasmRuntime } from "../win32/wasm_bridge";
 import { getSampleAppWasmBytes } from "../wasm/sample_app_wasm";
-import { kernel } from "../win32/kernel.svelte";
+import { kernel, vfs } from "../win32/kernel.svelte";
 
 let wasmInstanceCount = 0;
 
-export async function StartWasmApp(x?: number, y?: number): Promise<void> {
+export async function StartWasmApp(
+  x?: number,
+  y?: number,
+  vfsPath?: string
+): Promise<void> {
   const runtime = new Win32WasmRuntime();
-  const wasmBytes = getSampleAppWasmBytes();
+  let wasmBytes: Uint8Array;
+
+  if (vfsPath) {
+    try {
+      wasmBytes = await vfs.readBinaryFile(vfsPath);
+    } catch {
+      wasmBytes = getSampleAppWasmBytes();
+    }
+  } else {
+    wasmBytes = getSampleAppWasmBytes();
+  }
 
   const prevWindows = new Set(kernel.windows.map((w) => w.hwnd));
 

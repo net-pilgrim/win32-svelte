@@ -215,9 +215,8 @@ export class Win32VFS {
         this.isMemoryFallback = true;
       }
 
-      this.initialized = true;
-      // Seed initial Windows 98 directory structure and files if drive C doesn't exist
       await this.seedDefaultsIfNeeded();
+      this.initialized = true;
     })();
 
     return this.initPromise;
@@ -299,16 +298,20 @@ export class Win32VFS {
   }
 
   private async ensureInit() {
-    if (!this.initialized) {
+    if (this.initialized) return;
+    if (this.initPromise) {
+      await this.initPromise;
+    } else {
       await this.init();
     }
   }
 
   // --- Seed Initial Windows 98 File System ---
   private async seedDefaultsIfNeeded(): Promise<void> {
+    const cHandle = await this.rootDir.getDirectoryHandle("C", { create: true });
     try {
-      // Check if drive 'C' already exists
-      await this.rootDir.getDirectoryHandle("C", { create: false });
+      // Check if drive 'C' and 'wasm_application' already exist
+      await cHandle.getDirectoryHandle("wasm_application", { create: false });
       return; // Already initialized!
     } catch {
       // Need to seed
@@ -316,7 +319,7 @@ export class Win32VFS {
 
     // Default structure and files for Drive C
     const defaultFiles: Record<string, string> = {
-      "C:\\My Documents\\Welcome.txt": "Welcome to win32-svelte with Origin Private File System (OPFS)!\r\n\r\n" +
+      "My Documents/Welcome.txt": "Welcome to win32-svelte with Origin Private File System (OPFS)!\r\n\r\n" +
         "This virtual filesystem is backed by the modern W3C Origin Private File System standard.\r\n" +
         "Features supported:\r\n" +
         "• Native Win32 File APIs (CreateFile, ReadFile, WriteFile, FindFirstFile, etc.)\r\n" +
@@ -324,34 +327,59 @@ export class Win32VFS {
         "• Full drag-and-drop file import from your real host computer\r\n" +
         "• File export/download back to your desktop\r\n" +
         "• Live reactive updates in Windows Explorer\r\n",
-      "C:\\wasm_application\\sample_app.c": SAMPLE_APP_C_SOURCE,
-      "C:\\wasm_application\\windows.h": WINDOWS_H_SOURCE,
-      "C:\\INCLUDE\\windows.h": WINDOWS_H_SOURCE,
-      "C:\\INCLUDE\\windef.h": WINDEF_H_SOURCE,
-      "C:\\INCLUDE\\winuser.h": WINUSER_H_SOURCE,
-      "C:\\INCLUDE\\wingdi.h": WINGDI_H_SOURCE,
-      "C:\\INCLUDE\\winbase.h": WINBASE_H_SOURCE,
+      "wasm_application/sample_app.c": SAMPLE_APP_C_SOURCE,
+      "wasm_application/windows.h": WINDOWS_H_SOURCE,
+      "INCLUDE/windows.h": WINDOWS_H_SOURCE,
+      "INCLUDE/windef.h": WINDEF_H_SOURCE,
+      "INCLUDE/winuser.h": WINUSER_H_SOURCE,
+      "INCLUDE/wingdi.h": WINGDI_H_SOURCE,
+      "INCLUDE/winbase.h": WINBASE_H_SOURCE,
     };
 
     const defaultDirs = [
-      "C:\\My Documents",
-      "C:\\wasm_application",
-      "C:\\INCLUDE",
-      "C:\\Recycle Bin",
+      "My Documents",
+      "wasm_application",
+      "INCLUDE",
+      "Recycle Bin",
     ];
+
+    // Helper to get or create nested directory inside C
+    const getSubDir = async (dirPath: string) => {
+      const parts = dirPath.split("/").filter(Boolean);
+      let cur = cHandle;
+      for (const p of parts) {
+        cur = await cur.getDirectoryHandle(p, { create: true });
+      }
+      return cur;
+    };
+
+    // Helper to write file into C
+    const writeToC = async (relPath: string, data: Uint8Array | string) => {
+      const parts = relPath.split("/").filter(Boolean);
+      const fileName = parts.pop()!;
+      const dirHandle = await getSubDir(parts.join("/"));
+      const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      if (typeof data === "string") {
+        await writable.write(new TextEncoder().encode(data));
+      } else {
+        await writable.write(data);
+      }
+      await writable.close();
+    };
 
     // Create directories
     for (const dir of defaultDirs) {
-      await this.CreateDirectory(dir);
+      await getSubDir(dir);
     }
 
     // Write text files
-    for (const [filePath, content] of Object.entries(defaultFiles)) {
-      await this.writeTextFile(filePath, content);
+    for (const [relPath, content] of Object.entries(defaultFiles)) {
+      await writeToC(relPath, content);
     }
 
     // Write WASM application binary
-    await this.writeBinaryFile("C:\\wasm_application\\sample_app.wasm", getSampleAppWasmBytes());
+    await writeToC("wasm_application/sample_app.wasm", getSampleAppWasmBytes());
   }
 
   // --- Win32 File APIs (kernel32.dll) ---
