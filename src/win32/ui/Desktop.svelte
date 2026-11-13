@@ -134,6 +134,14 @@
       action: () => launchLuaHost(220, 70),
     },
     {
+      id: "doom",
+      title: "DOOM 95",
+      icon: "💀",
+      x: 106,
+      y: 496,
+      action: () => launchDoom(100, 50),
+    },
+    {
       id: "recycle",
       title: "Recycle Bin",
       icon: "🗑️",
@@ -203,6 +211,12 @@
     });
   }
 
+  function launchDoom(x = 100, y = 50) {
+    import("../../samples/doom").then(({ StartDoom }) => {
+      StartDoom(x, y);
+    });
+  }
+
   function minimizeAll() {
     const allMin = topWindows.every((w) => w.minimized);
     for (const win of topWindows) {
@@ -269,6 +283,9 @@
       </button>
       <button class="quick-btn" title="Lua 5.3 Command Center" onclick={() => launchLuaHost(220, 70)}>
         🌙
+      </button>
+      <button class="quick-btn" title="DOOM 95" onclick={() => launchDoom(100, 50)}>
+        💀
       </button>
       <button class="quick-btn" title="Notepad" onclick={() => StartNotepad(320, 70)}>
         📝

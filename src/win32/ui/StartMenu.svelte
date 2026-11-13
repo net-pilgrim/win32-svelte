@@ -21,6 +21,12 @@
     });
   }
 
+  function launchDoom(x = 100, y = 50) {
+    import("../../samples/doom").then(({ StartDoom }) => {
+      StartDoom(x, y);
+    });
+  }
+
   interface Props {
     isOpen: boolean;
     onClose: () => void;
@@ -121,6 +127,10 @@
             <button type="button" class="submenu-item" onclick={() => executeAction(() => launchLuaHost(220, 70))}>
               <span class="item-icon">🌙</span>
               <span class="item-label">Lua 5.3 Command Center</span>
+            </button>
+            <button type="button" class="submenu-item" onclick={() => executeAction(() => launchDoom(100, 50))}>
+              <span class="item-icon">💀</span>
+              <span class="item-label">DOOM 95</span>
             </button>
             <button type="button" class="submenu-item" onclick={() => executeAction(() => StartMinesweeper(120, 80))}>
               <span class="item-icon">💣</span>
@@ -266,6 +276,11 @@
       <button type="button" class="start-item" onclick={() => executeAction(() => launchLuaHost(220, 70))}>
         <span class="item-icon">🌙</span>
         <span class="item-label"><u>L</u>ua 5.3 Host</span>
+      </button>
+
+      <button type="button" class="start-item" onclick={() => executeAction(() => launchDoom(100, 50))}>
+        <span class="item-icon">💀</span>
+        <span class="item-label"><u>D</u>OOM 95</span>
       </button>
 
       <button type="button" class="start-item" onclick={() => executeAction(() => StartHwndInspector())}>

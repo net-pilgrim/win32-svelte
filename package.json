@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "tsx src/win32/__tests__/vfs.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/print.test.ts && tsx src/win32/__tests__/odbc.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/wasm.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/lua.test.ts && tsx src/rc/__tests__/rc_compiler.test.ts",
+    "test": "tsx src/win32/__tests__/vfs.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/print.test.ts && tsx src/win32/__tests__/odbc.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/wasm.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/lua.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/doom.test.ts && tsx src/rc/__tests__/rc_compiler.test.ts",
     "rc": "tsx src/rc/cli.ts",
     "build:wasm": "zig build-exe -target wasm32-freestanding -Iinclude src/wasm/sample_app.c -fno-entry --export=WinMain --export-table -femit-bin=src/wasm/sample_app.wasm && tsx src/wasm/embed_wasm.ts"
   },
@@ -27,6 +27,7 @@
     "98.css": "^0.1.21",
     "fengari": "^0.1.5",
     "fengari-interop": "^0.1.4",
-    "fengari-web": "^0.1.4"
+    "fengari-web": "^0.1.4",
+    "wasm-doom": "^1.2.0"
   }
 }

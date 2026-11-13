@@ -372,6 +372,18 @@ export class Win32VFS {
         'local win = win32.CreateWindow("LuaGdiClass", "Lua GDI Procedural Art", 240, 130, 330, 230)\n' +
         'win32.ShowWindow(win, win32.SW_SHOW)\n' +
         'win32.PlaySound("Chime")\n',
+      "GAMES/DOOM/DOOM95.EXE": "[DOOM95.EXE Win32 / WASM Binary Executable]",
+      "GAMES/DOOM/DOOM1.WAD": "[DOOM1.WAD Shareware Game Data]",
+      "GAMES/DOOM/README.TXT": "DOOM 95 for win32-svelte\r\n\r\n" +
+        "Controls:\r\n" +
+        "• Move: Arrow Keys or W / A / S / D\r\n" +
+        "• Fire: Ctrl or Left Mouse Click\r\n" +
+        "• Open / Use: Spacebar or E\r\n" +
+        "• Speed / Run: Shift\r\n" +
+        "• Strafe: Alt\r\n" +
+        "• Weapons: 1 - 7\r\n" +
+        "• Automap: Tab\r\n\r\n" +
+        "id Software (C) 1993\r\n",
     };
 
     const defaultDirs = [
@@ -379,6 +391,8 @@ export class Win32VFS {
       "wasm_application",
       "INCLUDE",
       "lua",
+      "GAMES",
+      "GAMES/DOOM",
       "Recycle Bin",
     ];
 

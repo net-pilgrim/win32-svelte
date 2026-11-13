@@ -375,12 +375,20 @@ function ExplorerWndProc(
               StartOdbcAdmin(200, 80);
             } else if (baseName === "ISQL.EXE") {
               StartISQL(160, 90);
+            } else if (baseName === "DOOM95.EXE" || baseName === "DOOM.EXE") {
+              import("./doom").then(({ StartDoom }) => {
+                StartDoom(100, 50);
+              });
             } else {
 
               MessageBox(hwnd, `Executed virtual application: ${name}`, "Windows Explorer", MB_OK);
             }
           } else if (ext === "WASM") {
             StartWasmApp(260, 90, targetPath);
+          } else if (ext === "WAD") {
+            import("./doom").then(({ StartDoom }) => {
+              StartDoom(100, 50);
+            });
           } else if (ext === "LUA") {
             import("./lua_host").then(({ StartLuaHost }) => {
               StartLuaHost(240, 70, targetPath);

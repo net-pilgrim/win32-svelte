@@ -11,6 +11,8 @@
     WM_LBUTTONUP,
     WM_MOUSEMOVE,
     WM_DROPFILES,
+    WM_KEYDOWN,
+    WM_KEYUP,
     WS_THICKFRAME,
     WS_MINIMIZEBOX,
     WS_MAXIMIZEBOX,
@@ -60,6 +62,25 @@
 
   function onCanvasPointerUp(e: PointerEvent) {
     SendMessage(win.hwnd, WM_LBUTTONUP, 0, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
+  }
+
+  function onWindowKeyDown(e: KeyboardEvent) {
+    if (!isActive) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.code)) {
+      e.preventDefault();
+    }
+    SendMessage(win.hwnd, WM_KEYDOWN, e.keyCode, 0);
+  }
+
+  function onWindowKeyUp(e: KeyboardEvent) {
+    if (!isActive) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+    SendMessage(win.hwnd, WM_KEYUP, e.keyCode, 0);
   }
 
   let isActive = $derived(kernel.activeHwnd === win.hwnd);
@@ -232,6 +253,8 @@
   }
 </script>
 
+<svelte:window onkeydown={onWindowKeyDown} onkeyup={onWindowKeyUp} />
+
 {#if win.visible && !win.minimized}
   <div
     class="window win32-window {isActive ? 'active' : 'inactive'} {isDragOver ? 'drop-target-active' : ''}"
@@ -280,8 +303,9 @@
         <canvas
           bind:this={canvasRef}
           class="win32-client-canvas"
-          width={clientCanvasWidth}
-          height={clientCanvasHeight}
+          style={win.customProps?.canvasStyle ?? ""}
+          width={win.customProps?.canvasWidth ?? clientCanvasWidth}
+          height={win.customProps?.canvasHeight ?? clientCanvasHeight}
           onpointerdown={onCanvasPointerDown}
           onpointermove={onCanvasPointerMove}
           onpointerup={onCanvasPointerUp}

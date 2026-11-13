@@ -212,6 +212,7 @@ The repository includes several sample applications built to test the prototype:
 
 | App | File | Description |
 |---|---|---|
+| **DOOM 95** | [`src/samples/doom.ts`](src/samples/doom.ts) & [`src/win32/doom_runtime.ts`](src/win32/doom_runtime.ts) | Classic **DOOM (1993)** running as WebAssembly in a dedicated Win32 window at 60 FPS! Translates Win32 keyboard messages (`WM_KEYDOWN`/`WM_KEYUP`) and mouse clicks (`WM_LBUTTONDOWN`) into the game event queue. Seeded in `C:\GAMES\DOOM\DOOM95.EXE`. |
 | **Lua 5.3 Host** | [`src/samples/lua_host.ts`](src/samples/lua_host.ts) & [`src/win32/lua_engine.ts`](src/win32/lua_engine.ts) | An experimental Lua 5.3 runner powered by `fengari-web`. Allows testing small Lua scripts with toy Win32 bindings (`CreateWindow`, `CreateButton`, `MessageBox`, GDI drawing) and double-clicking `.lua` files in Explorer. |
 | **WASM C99 App** | [`src/wasm/sample_app.c`](src/wasm/sample_app.c) & [`src/samples/wasm_app.ts`](src/samples/wasm_app.ts) | A sample C program compiled to freestanding WebAssembly via Zig/Clang to test running a native C `WndProc` against the browser message dispatcher. Located in `C:\wasm_application` inside the virtual filesystem. |
 | **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | An experiment testing MFC-style architecture in TypeScript: `CWinApp`, `CFrameWnd`, message map routing, `CPaintDC` drawing, and a modal `CDialog`. |
