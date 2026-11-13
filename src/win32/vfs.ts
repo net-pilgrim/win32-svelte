@@ -334,12 +334,51 @@ export class Win32VFS {
       "INCLUDE/winuser.h": WINUSER_H_SOURCE,
       "INCLUDE/wingdi.h": WINGDI_H_SOURCE,
       "INCLUDE/winbase.h": WINBASE_H_SOURCE,
+      "lua/hello.lua":
+        'print("Hello from Lua 5.3 in win32-svelte!")\n' +
+        'win32.PlaySound("Chime")\n' +
+        'win32.MessageBox("Welcome to Lua 5.3 scripting inside Windows 98!\\n\\nRunning on Svelte 5 + 98.css.", "Lua 5.3 Host", win32.MB_ICONINFORMATION)\n' +
+        'local total = 0\nfor i = 1, 10 do total = total + i end\nprint("Computed sum 1..10 = " .. total)\n',
+      "lua/gui_demo.lua":
+        'print("Creating dynamic Win32 GUI window from Lua...")\n' +
+        'local win = win32.CreateWindow("LuaDynamicApp", "Dynamic Lua Win32 Application", 180, 100, 340, 210, win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE)\n' +
+        'local clicks = 0\nlocal btn = nil\n' +
+        'btn = win32.CreateButton("Clicks: 0", 20, 20, 140, 30, win, function(h)\n' +
+        '  clicks = clicks + 1\n' +
+        '  win32.SetWindowText(h, "Clicks: " .. clicks)\n' +
+        '  win32.PlaySound("Ding")\n' +
+        '  print("Button clicked from Lua! Total clicks:", clicks)\n' +
+        '  if clicks == 5 then win32.MessageBox(win, "High five! You clicked 5 times!", "Lua Counter", win32.MB_ICONINFORMATION); win32.PlaySound("Tada") end\n' +
+        'end)\n' +
+        'win32.CreateButton("Show Message", 170, 20, 140, 30, win, function()\n' +
+        '  win32.MessageBox(win, "Hello from secondary Lua button!", "Notice", win32.MB_OK)\n' +
+        'end)\n' +
+        'win32.CreateStatic("Edit this script and click Run to test live changes!", 20, 70, 290, 30, win)\n',
+      "lua/gdi_art.lua":
+        'print("Registering custom GDI drawing window in Lua...")\n' +
+        'win32.RegisterClass("LuaGdiClass", function(hwnd, msg, wp, lp)\n' +
+        '  if msg == win32.WM_PAINT then\n' +
+        '    local hdc = win32.BeginPaint(hwnd)\n' +
+        '    for i = 1, 8 do\n' +
+        '      win32.Rectangle(hdc, 15 + i*16, 15 + i*10, 290 - i*14, 180 - i*8)\n' +
+        '      win32.Ellipse(hdc, 35 + i*12, 25 + i*8, 270 - i*12, 160 - i*8)\n' +
+        '    end\n' +
+        '    win32.TextOut(hdc, 50, 95, "Generated Procedurally by Lua 5.3!")\n' +
+        '    win32.EndPaint(hwnd)\n' +
+        '    return 0\n' +
+        '  end\n' +
+        '  return win32.DefWindowProc(hwnd, msg, wp, lp)\n' +
+        'end)\n' +
+        'local win = win32.CreateWindow("LuaGdiClass", "Lua GDI Procedural Art", 240, 130, 330, 230)\n' +
+        'win32.ShowWindow(win, win32.SW_SHOW)\n' +
+        'win32.PlaySound("Chime")\n',
     };
 
     const defaultDirs = [
       "My Documents",
       "wasm_application",
       "INCLUDE",
+      "lua",
       "Recycle Bin",
     ];
 

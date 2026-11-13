@@ -15,6 +15,7 @@
   import { StartOdbcAdmin } from "../../samples/odbc_admin";
   import { StartISQL } from "../../samples/isql";
   import { StartHwndInspector } from "../../samples/hwnd_inspector";
+  import { StartLuaHost } from "../../samples/lua_host";
 
   interface Props {
     isOpen: boolean;
@@ -113,6 +114,10 @@
               <span class="item-icon">⚡</span>
               <span class="item-label">WASM C Application</span>
             </button>
+            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartLuaHost(220, 70))}>
+              <span class="item-icon">🌙</span>
+              <span class="item-label">Lua 5.3 Command Center</span>
+            </button>
             <button type="button" class="submenu-item" onclick={() => executeAction(() => StartMinesweeper(120, 80))}>
               <span class="item-icon">💣</span>
               <span class="item-label">Minesweeper</span>
@@ -191,6 +196,22 @@
               <span class="item-icon">📝</span>
               <span class="item-label">Welcome.txt</span>
             </button>
+            <button
+              type="button"
+              class="submenu-item"
+              onclick={() => executeAction(() => StartLuaHost(240, 80, "C:\\lua\\hello.lua"))}
+            >
+              <span class="item-icon">🌙</span>
+              <span class="item-label">hello.lua</span>
+            </button>
+            <button
+              type="button"
+              class="submenu-item"
+              onclick={() => executeAction(() => StartLuaHost(250, 90, "C:\\lua\\gui_demo.lua"))}
+            >
+              <span class="item-icon">🌙</span>
+              <span class="item-label">gui_demo.lua</span>
+            </button>
           </div>
         {/if}
       </div>
@@ -236,6 +257,11 @@
       <button type="button" class="start-item" onclick={() => executeAction(() => StartWasmApp(260, 110))}>
         <span class="item-icon">⚡</span>
         <span class="item-label"><u>W</u>ASM C Application</span>
+      </button>
+
+      <button type="button" class="start-item" onclick={() => executeAction(() => StartLuaHost(220, 70))}>
+        <span class="item-icon">🌙</span>
+        <span class="item-label"><u>L</u>ua 5.3 Host</span>
       </button>
 
       <button type="button" class="start-item" onclick={() => executeAction(() => StartHwndInspector())}>

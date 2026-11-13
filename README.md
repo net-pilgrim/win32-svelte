@@ -216,10 +216,11 @@ Run native C Win32 code directly in the browser:
 
 ## 🕹️ Sample Applications
 
-The project includes eight complete sample applications:
+The project includes nine complete sample applications:
 
 | App | File | Features Demonstrated |
 |---|---|---|
+| **Lua 5.3 Command Center** | [`src/samples/lua_host.ts`](src/samples/lua_host.ts) & [`src/win32/lua_engine.ts`](src/win32/lua_engine.ts) | Full **Lua 5.3** scripting host! Write and run Lua code with live execution console (F5), full `win32` API bindings (`CreateWindow`, `CreateButton`, `MessageBox`, `PlaySound`, GDI drawing), custom `RegisterClass` with `WndProc` in Lua, and double-click `.lua` file execution in Explorer! |
 | **WASM C99 Native App** | [`src/wasm/sample_app.c`](src/wasm/sample_app.c) & [`src/samples/wasm_app.ts`](src/samples/wasm_app.ts) | Real **ISO C99 Win32** code compiled to WebAssembly via Zig/Clang! Exports `WinMain`, registers window classes, handles `WM_CREATE`, `WM_COMMAND`, and `WM_PAINT` through C function pointers, manipulates Win32 child controls, and calls `ShellExecute`. Located in `C:\wasm_application` inside Windows Explorer. (See [howto-wasm.md](howto-wasm.md)). |
 | **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | Object-oriented **MFC** architecture! `CWinApp` lifecycle, `CFrameWnd` frame, `createMessageMap()` command routing, `CPaintDC` GDI rendering, `CButton` and `CProgressCtrl` child controls, and modal `CDialog::doModal()`. |
 | **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | The flagship **`comctl32`** showcase! Left-pane `SysTreeView32` folder hierarchy, right-pane `SysListView32` in report/details mode with multi-column sorting & selection, two-part `msctls_statusbar32`, cascading menu commands, and `WM_NOTIFY` (`TVN_SELCHANGED`, `LVN_ITEMCHANGED`) event routing. |
@@ -296,6 +297,31 @@ class CMyApp extends CWinApp {
 
 const app = new CMyApp();
 app.run();
+```
+
+#### Writing an App in Lua 5.3
+
+```lua
+-- Register a custom window class and window procedure directly in Lua!
+win32.RegisterClass("MyLuaWindow", function(hwnd, msg, wParam, lParam)
+  if msg == win32.WM_CREATE then
+    win32.CreateButton("Click Me", 20, 20, 140, 30, hwnd, function()
+      win32.MessageBox(hwnd, "Hello from Lua in Windows 98!", "Lua Host", win32.MB_ICONINFORMATION)
+      win32.PlaySound("Ding")
+    end)
+    return 0
+  elseif msg == win32.WM_PAINT then
+    local hdc = win32.BeginPaint(hwnd)
+    win32.Rectangle(hdc, 20, 70, 260, 160)
+    win32.TextOut(hdc, 35, 95, "Rendered via GDI from Lua!")
+    win32.EndPaint(hwnd)
+    return 0
+  end
+  return win32.DefWindowProc(hwnd, msg, wParam, lParam)
+end)
+
+local win = win32.CreateWindow("MyLuaWindow", "Lua Application", 180, 120, 320, 220)
+win32.ShowWindow(win, win32.SW_SHOW)
 ```
 
 ---

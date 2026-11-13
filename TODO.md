@@ -353,4 +353,19 @@ flowchart TD
 - [ ] **Desktop & Shell Integration**:
   - Add a classic Doom desktop icon and Start Menu entry (`Start -> Programs -> Games -> DOOM`).
 
+---
+
+### 14. Lua 5.3 Scripting Engine & Command Center
+- [x] **Lua 5.3 Embedded VM & Win32 Bindings**:
+  - Full Lua 5.3 virtual machine integrated via Fengari engine (`src/win32/lua_engine.ts`).
+  - Complete `win32` table exposed to Lua: `win32.MessageBox`, `win32.PlaySound`, `win32.CreateWindow`, `win32.CreateButton`, `win32.CreateEdit`, `win32.CreateStatic`, `win32.SetWindowText`, `win32.GetWindowText`, `win32.ShowWindow`, `win32.SendMessage`, `win32.PostMessage`, `win32.DefWindowProc`.
+  - Custom window class registration (`win32.RegisterClass`) and window procedure dispatch (`WndProc(hwnd, msg, wp, lp)`) executed directly in Lua callbacks.
+  - GDI graphics drawing from Lua: `win32.BeginPaint`, `win32.EndPaint`, `win32.Rectangle`, `win32.Ellipse`, `win32.Line`, `win32.TextOut`.
+  - VFS integration: `win32.ReadFile`, `win32.WriteFile`, and direct `.lua` file association in Windows Explorer.
+- [x] **"Lua 5.3 Command Center" GUI Application (`StartLuaHost`)**:
+  - Retro Windows 98 script editor and interactive live execution console.
+  - Pre-built demo scripts (Hello Win32 & Audio, Dynamic GUI & Buttons, Procedural GDI Art).
+  - Reset VM and Clear Console actions with Run (F5) execution.
+  - Desktop icon, taskbar Quick Launch button, and Start Menu entries.
+
 

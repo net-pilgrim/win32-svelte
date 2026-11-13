@@ -16,6 +16,7 @@
   import { StartMfcDemo } from "../../samples/mfc_demo";
   import { StartRcDemo } from "../../samples/rc_demo.ts";
   import { StartWasmApp } from "../../samples/wasm_app";
+  import { StartLuaHost } from "../../samples/lua_host";
 
   let topWindows = $derived(kernel.windows.filter((w) => w.parentHwnd === null));
 
@@ -124,6 +125,14 @@
       x: 106,
       y: 336,
       action: () => StartNotepad(420, 110, "C:\\wasm_application\\windows.h"),
+    },
+    {
+      id: "lua_host",
+      title: "Lua 5.3 Host",
+      icon: "🌙",
+      x: 106,
+      y: 416,
+      action: () => StartLuaHost(220, 70),
     },
     {
       id: "recycle",
@@ -252,6 +261,9 @@
       </button>
       <button class="quick-btn" title="WASM C Application" onclick={() => StartWasmApp(260, 110)}>
         ⚡
+      </button>
+      <button class="quick-btn" title="Lua 5.3 Command Center" onclick={() => StartLuaHost(220, 70)}>
+        🌙
       </button>
       <button class="quick-btn" title="Notepad" onclick={() => StartNotepad(320, 70)}>
         📝

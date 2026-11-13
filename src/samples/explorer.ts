@@ -63,6 +63,7 @@ import { StartMinesweeper } from "./minesweeper";
 import { StartOdbcAdmin } from "./odbc_admin";
 import { StartISQL } from "./isql";
 import { StartWasmApp } from "./wasm_app";
+import { StartLuaHost } from "./lua_host";
 
 
 // Control IDs
@@ -380,6 +381,8 @@ function ExplorerWndProc(
             }
           } else if (ext === "WASM") {
             StartWasmApp(260, 90, targetPath);
+          } else if (ext === "LUA") {
+            StartLuaHost(240, 70, targetPath);
           } else {
             // Open in Notepad
             StartNotepad(220, 80, targetPath);
