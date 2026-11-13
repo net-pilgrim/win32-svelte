@@ -91,10 +91,11 @@ The project includes a pre-configured [`vercel.json`](file:///home/dsv/work/win3
 When the app opens:
 1. **Windows 98 Desktop Environment**: Fully featured desktop with icons (*My Computer*, *Minesweeper*, *GDI Paint*, *Notepad*, *Calculator*, *Recycle Bin*), movable and resizable windows, taskbar with running tasks, Start button, and system tray clock.
 2. **Preloaded Applications**: Launches *Minesweeper* and *GDI Paint Demo* by default.
-3. **Debug HUD & HWND Inspector**:
-   - Quick-spawn buttons in the top-right corner.
-   - Audio mute/unmute toggle.
-   - **Inspect HWNDs**: An interactive live inspector showing the internal kernel handle table (`HWND`, parent, window class, text, and visibility).
+3. **Classic Start Menu & Quick Launch**:
+   - Authentic Windows 98 **Start Menu** with *Programs* flyouts, *Documents*, *Settings*, sound toggle, and *Shut Down*.
+   - **Taskbar Quick Launch Toolbar** with single-click launchers for Explorer, WASM, Notepad, Paint, and Show Desktop (`🖥️`).
+   - System tray clock and interactive audio toggle speaker (`🔊` / `🔇`).
+   - **Inspect HWNDs**: Live interactive inspector displaying the internal kernel handle table (`HWND`, parent, window class, text, and visibility).
 
 ---
 
