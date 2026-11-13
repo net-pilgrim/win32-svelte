@@ -1,4 +1,5 @@
-import fengari from "fengari";
+import * as fengariWeb from "fengari-web";
+const fengari: any = (fengariWeb as any).default || fengariWeb;
 import {
   kernel,
   CreateWindowEx,

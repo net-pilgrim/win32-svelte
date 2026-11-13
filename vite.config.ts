@@ -8,6 +8,14 @@ export default defineConfig({
     win32RcPlugin(),
     svelte(),
   ],
+  define: {
+    'process.env': {},
+  },
+  resolve: {
+    alias: {
+      'fengari': 'fengari-web',
+    },
+  },
   build: {
     cssMinify: false,
   },

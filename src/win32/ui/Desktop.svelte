@@ -16,7 +16,6 @@
   import { StartMfcDemo } from "../../samples/mfc_demo";
   import { StartRcDemo } from "../../samples/rc_demo.ts";
   import { StartWasmApp } from "../../samples/wasm_app";
-  import { StartLuaHost } from "../../samples/lua_host";
 
   let topWindows = $derived(kernel.windows.filter((w) => w.parentHwnd === null));
 
@@ -132,7 +131,7 @@
       icon: "🌙",
       x: 106,
       y: 416,
-      action: () => StartLuaHost(220, 70),
+      action: () => launchLuaHost(220, 70),
     },
     {
       id: "recycle",
@@ -196,6 +195,12 @@
   function toggleSound() {
     soundEnabled = !soundEnabled;
     audio.enabled = soundEnabled;
+  }
+
+  function launchLuaHost(x?: number, y?: number, scriptPath?: string) {
+    import("../../samples/lua_host").then(({ StartLuaHost }) => {
+      StartLuaHost(x, y, scriptPath);
+    });
   }
 
   function minimizeAll() {
@@ -262,7 +267,7 @@
       <button class="quick-btn" title="WASM C Application" onclick={() => StartWasmApp(260, 110)}>
         ⚡
       </button>
-      <button class="quick-btn" title="Lua 5.3 Command Center" onclick={() => StartLuaHost(220, 70)}>
+      <button class="quick-btn" title="Lua 5.3 Command Center" onclick={() => launchLuaHost(220, 70)}>
         🌙
       </button>
       <button class="quick-btn" title="Notepad" onclick={() => StartNotepad(320, 70)}>

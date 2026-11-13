@@ -15,7 +15,11 @@
   import { StartOdbcAdmin } from "../../samples/odbc_admin";
   import { StartISQL } from "../../samples/isql";
   import { StartHwndInspector } from "../../samples/hwnd_inspector";
-  import { StartLuaHost } from "../../samples/lua_host";
+  function launchLuaHost(x?: number, y?: number, scriptPath?: string) {
+    import("../../samples/lua_host").then(({ StartLuaHost }) => {
+      StartLuaHost(x, y, scriptPath);
+    });
+  }
 
   interface Props {
     isOpen: boolean;
@@ -114,7 +118,7 @@
               <span class="item-icon">⚡</span>
               <span class="item-label">WASM C Application</span>
             </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartLuaHost(220, 70))}>
+            <button type="button" class="submenu-item" onclick={() => executeAction(() => launchLuaHost(220, 70))}>
               <span class="item-icon">🌙</span>
               <span class="item-label">Lua 5.3 Command Center</span>
             </button>
@@ -199,7 +203,7 @@
             <button
               type="button"
               class="submenu-item"
-              onclick={() => executeAction(() => StartLuaHost(240, 80, "C:\\lua\\hello.lua"))}
+              onclick={() => executeAction(() => launchLuaHost(240, 80, "C:\\lua\\hello.lua"))}
             >
               <span class="item-icon">🌙</span>
               <span class="item-label">hello.lua</span>
@@ -207,7 +211,7 @@
             <button
               type="button"
               class="submenu-item"
-              onclick={() => executeAction(() => StartLuaHost(250, 90, "C:\\lua\\gui_demo.lua"))}
+              onclick={() => executeAction(() => launchLuaHost(250, 90, "C:\\lua\\gui_demo.lua"))}
             >
               <span class="item-icon">🌙</span>
               <span class="item-label">gui_demo.lua</span>
@@ -259,7 +263,7 @@
         <span class="item-label"><u>W</u>ASM C Application</span>
       </button>
 
-      <button type="button" class="start-item" onclick={() => executeAction(() => StartLuaHost(220, 70))}>
+      <button type="button" class="start-item" onclick={() => executeAction(() => launchLuaHost(220, 70))}>
         <span class="item-icon">🌙</span>
         <span class="item-label"><u>L</u>ua 5.3 Host</span>
       </button>
