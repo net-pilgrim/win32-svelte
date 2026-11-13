@@ -23,14 +23,14 @@ async function runTests() {
 
   // 1. Verify default seeded files exist
   console.log("Test 1: Verify seeded default files...");
-  const autoexec = await testVfs.readTextFile("C:\\AUTOEXEC.BAT");
-  if (!autoexec.includes("PROMPT $P$G")) {
-    throw new Error(`Failed to read AUTOEXEC.BAT, got: ${autoexec}`);
-  }
-
   const welcome = await testVfs.readTextFile("C:\\My Documents\\Welcome.txt");
   if (!welcome.includes("OPFS")) {
     throw new Error(`Failed to read Welcome.txt, got: ${welcome}`);
+  }
+
+  const sampleC = await testVfs.readTextFile("C:\\My Documents\\sample_app.c");
+  if (!sampleC.includes("windows.h")) {
+    throw new Error(`Failed to read sample_app.c, got: ${sampleC}`);
   }
   console.log("✓ Seeded files verified");
 
@@ -38,8 +38,8 @@ async function runTests() {
   console.log("Test 2: getDirectoryEntries for C:\\...");
   const cEntries = await testVfs.getDirectoryEntries("C:\\");
   const names = cEntries.map((e) => e.name);
-  if (!names.includes("WINDOWS") || !names.includes("AUTOEXEC.BAT")) {
-    throw new Error(`Expected WINDOWS and AUTOEXEC.BAT in C:\\, got: ${names.join(", ")}`);
+  if (!names.includes("My Documents") || !names.includes("INCLUDE")) {
+    throw new Error(`Expected My Documents and INCLUDE in C:\\, got: ${names.join(", ")}`);
   }
   console.log(`✓ C:\\ entries: ${names.join(", ")}`);
 

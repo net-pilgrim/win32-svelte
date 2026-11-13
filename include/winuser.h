@@ -244,6 +244,9 @@ UINT_PTR WINAPI SetTimer(HWND hWnd, UINT_PTR nIDEvent, UINT uElapse, void* lpTim
 WIN32_IMPORT("KillTimer")
 BOOL WINAPI KillTimer(HWND hWnd, UINT_PTR uIDEvent);
 
+WIN32_IMPORT("ShellExecuteA")
+HINSTANCE WINAPI ShellExecuteA(HWND hWnd, LPCSTR lpOperation, LPCSTR lpFile, LPCSTR lpParameters, LPCSTR lpDirectory, INT nShowCmd);
+
 // Standard aliases
 #define MessageBox      MessageBoxA
 #define RegisterClassEx RegisterClassExA
@@ -253,6 +256,7 @@ BOOL WINAPI KillTimer(HWND hWnd, UINT_PTR uIDEvent);
 #define PostMessage     PostMessageA
 #define SetWindowText   SetWindowTextA
 #define GetWindowText   GetWindowTextA
+#define ShellExecute    ShellExecuteA
 
 #ifdef __cplusplus
 }

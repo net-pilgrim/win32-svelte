@@ -4,6 +4,8 @@
 #define IDC_BTN_COUNTER 1002
 #define IDC_BTN_REFRESH 1003
 #define IDC_STATIC_INFO 1004
+#define IDC_BTN_VIEW_C  1005
+#define IDC_BTN_VIEW_H  1006
 
 static HWND g_hBtnCounter = NULL;
 static int g_counter = 0;
@@ -53,7 +55,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
                 0, "STATIC",
                 "Compiled with Zig/Clang to WebAssembly (WASM32)!\nRunning on win32-svelte user32/gdi32 engine.",
                 WS_CHILD | WS_VISIBLE,
-                15, 12, 310, 36,
+                15, 10, 310, 34,
                 hwnd, (HMENU)IDC_STATIC_INFO, NULL, NULL
             );
 
@@ -61,7 +63,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             CreateWindowEx(
                 0, "BUTTON", "Show C MessageBox",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                15, 56, 150, 26,
+                15, 50, 150, 24,
                 hwnd, (HMENU)IDC_BTN_MSGBOX, NULL, NULL
             );
 
@@ -69,7 +71,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             g_hBtnCounter = CreateWindowEx(
                 0, "BUTTON", "C Clicks: 0",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                175, 56, 150, 26,
+                175, 50, 150, 24,
                 hwnd, (HMENU)IDC_BTN_COUNTER, NULL, NULL
             );
 
@@ -77,8 +79,23 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             CreateWindowEx(
                 0, "BUTTON", "Invalidate GDI Canvas",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                15, 90, 310, 24,
+                15, 80, 310, 24,
                 hwnd, (HMENU)IDC_BTN_REFRESH, NULL, NULL
+            );
+
+            // Source code viewer buttons
+            CreateWindowEx(
+                0, "BUTTON", "📄 View sample_app.c",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                15, 110, 150, 24,
+                hwnd, (HMENU)IDC_BTN_VIEW_C, NULL, NULL
+            );
+
+            CreateWindowEx(
+                0, "BUTTON", "📋 View windows.h",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                175, 110, 150, 24,
+                hwnd, (HMENU)IDC_BTN_VIEW_H, NULL, NULL
             );
 
             return 0;
@@ -111,6 +128,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
                 return 0;
             }
 
+            if (id == IDC_BTN_VIEW_C) {
+                ShellExecute(hwnd, "open", "sample_app.c", NULL, NULL, SW_SHOW);
+                return 0;
+            }
+
+            if (id == IDC_BTN_VIEW_H) {
+                ShellExecute(hwnd, "open", "windows.h", NULL, NULL, SW_SHOW);
+                return 0;
+            }
+
             return 0;
         }
 
@@ -121,12 +148,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             // Draw a navy blue banner
             HBRUSH hNavyBrush = CreateSolidBrush(RGB(0, 0, 128));
             SelectObject(hdc, hNavyBrush);
-            Rectangle(hdc, 15, 125, 325, 185);
+            Rectangle(hdc, 15, 145, 325, 210);
             DeleteObject(hNavyBrush);
 
             // White text inside banner
             SetTextColor(hdc, RGB(255, 255, 255));
-            TextOut(hdc, 25, 138, "Native GDI 2D Graphics via WASM", 31);
+            TextOut(hdc, 25, 158, "Native GDI 2D Graphics via WASM", 31);
 
             char counterMsg[64] = "Current C State Counter: ";
             char num[16];
@@ -137,12 +164,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
                 counterMsg[cp++] = num[np++];
             }
             counterMsg[cp] = '\0';
-            TextOut(hdc, 25, 158, counterMsg, cp);
+            TextOut(hdc, 25, 180, counterMsg, cp);
 
             // Draw accent circles with green brush
             HBRUSH hGreenBrush = CreateSolidBrush(RGB(0, 128, 64));
             SelectObject(hdc, hGreenBrush);
-            Ellipse(hdc, 280, 135, 315, 175);
+            Ellipse(hdc, 280, 155, 315, 200);
             DeleteObject(hGreenBrush);
 
             EndPaint(hwnd, &ps);
@@ -181,7 +208,7 @@ int WINAPI WinMain(
         "WasmCWindowClass",
         "WASM Win32 Native App (C99)",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-        140, 110, 355, 240,
+        140, 110, 355, 265,
         NULL, NULL, hInstance, NULL
     );
 

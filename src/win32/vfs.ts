@@ -19,6 +19,14 @@ import {
 } from "./constants";
 
 import type { HANDLE, WIN32_FIND_DATA, VFSFileInfo } from "./types";
+import {
+  SAMPLE_APP_C_SOURCE,
+  WINDOWS_H_SOURCE,
+  WINDEF_H_SOURCE,
+  WINUSER_H_SOURCE,
+  WINGDI_H_SOURCE,
+  WINBASE_H_SOURCE,
+} from "../wasm/sample_app_wasm";
 
 // --- OPFS In-Memory Shim for Node.js / Fallback Environments ---
 interface MockEntry {
@@ -243,7 +251,7 @@ export class Win32VFS {
   }
 
   /**
-   * Normalizes Win32 paths such as "C:\WINDOWS\SYSTEM.INI", "C:/WINDOWS", "\AUTOEXEC.BAT", or "test.txt".
+   * Normalizes Win32 paths such as "C:\My Documents\sample_app.c", "C:/INCLUDE", or "test.txt".
    */
   normalizePath(rawPath: string): { drive: string; parts: string[]; fullPath: string } {
     let p = rawPath.replace(/\\/g, "/").trim();
@@ -307,18 +315,6 @@ export class Win32VFS {
 
     // Default structure and files for Drive C
     const defaultFiles: Record<string, string> = {
-      "C:\\AUTOEXEC.BAT": "@ECHO OFF\r\nPROMPT $P$G\r\nPATH C:\\WINDOWS;C:\\WINDOWS\\COMMAND\r\nSET TEMP=C:\\WINDOWS\\TEMP\r\n",
-      "C:\\CONFIG.SYS": "DOS=HIGH,UMB\r\nDEVICE=C:\\WINDOWS\\HIMEM.SYS\r\nDEVICE=C:\\WINDOWS\\EMM386.EXE NOEMS\r\nFILES=40\r\nBUFFERS=30\r\n",
-      "C:\\COMMAND.COM": "[MS-DOS 7.10 Executive Command Interpreter Binary]",
-      "C:\\WINDOWS\\SYSTEM.INI": "[boot]\r\nshell=Explorer.exe\r\nmouse.drv=mouse.drv\r\nnetwork.drv=null\r\nsystem.drv=system.drv\r\n\r\n[drivers]\r\nwave=mmsound.drv\r\n",
-      "C:\\WINDOWS\\WIN.INI": "[windows]\r\nload=\r\nrun=\r\nNullPort=None\r\n\r\n[Desktop]\r\nWallpaper=win98.bmp\r\nTileWallpaper=0\r\n",
-      "C:\\WINDOWS\\SYSTEM\\SETUP.LOG": "[System Setup Log]\r\nOS=Microsoft Windows 98 Second Edition\r\nBuild=4.10.2222 A\r\nDate=11/12/1998\r\nStatus=Completed Successfully\r\n",
-      "C:\\WINDOWS\\NOTEPAD.EXE": "[Win32 Application - Notepad]",
-      "C:\\WINDOWS\\CALC.EXE": "[Win32 Application - Calculator]",
-      "C:\\WINDOWS\\WINMINE.EXE": "[Win32 Application - Minesweeper]",
-      "C:\\WINDOWS\\EXPLORER.EXE": "[Win32 Application - Windows Explorer]",
-      "C:\\WINDOWS\\ODBCAD32.EXE": "[Win32 ODBC Data Source Administrator]",
-      "C:\\Program Files\\ISQL.EXE": "[Win32 SQL Query Analyzer - Supabase ODBC]",
       "C:\\My Documents\\Welcome.txt": "Welcome to win32-svelte with Origin Private File System (OPFS)!\r\n\r\n" +
         "This virtual filesystem is backed by the modern W3C Origin Private File System standard.\r\n" +
         "Features supported:\r\n" +
@@ -327,20 +323,18 @@ export class Win32VFS {
         "• Full drag-and-drop file import from your real host computer\r\n" +
         "• File export/download back to your desktop\r\n" +
         "• Live reactive updates in Windows Explorer\r\n",
-      "C:\\My Documents\\Letter to Bill.doc": "Dear Bill,\r\n\r\nWindows 98 running on Svelte 5 and OPFS is working marvelously!\r\n\r\nBest regards,\r\nThe DeepMind Engineering Team\r\n",
-      "C:\\My Documents\\Budget98.txt": "Quarterly Budget 1998:\r\nQ1: $120,000\r\nQ2: $145,000\r\nQ3: $190,000\r\nQ4: $220,000\r\nTotal: $675,000\r\n",
-      "A:\\README.TXT": "Windows 98 Emergency Startup Disk (A:)\r\nContains boot diagnostics and system utilities.\r\n",
-      "D:\\AUTORUN.INF": "[autorun]\r\nopen=setup.exe\r\nicon=setup.exe,0\r\n",
-      "D:\\SETUP.EXE": "[Microsoft Windows 98 CD-ROM Setup Binary]\r\n",
+      "C:\\My Documents\\sample_app.c": SAMPLE_APP_C_SOURCE,
+      "C:\\My Documents\\windows.h": WINDOWS_H_SOURCE,
+      "C:\\INCLUDE\\windows.h": WINDOWS_H_SOURCE,
+      "C:\\INCLUDE\\windef.h": WINDEF_H_SOURCE,
+      "C:\\INCLUDE\\winuser.h": WINUSER_H_SOURCE,
+      "C:\\INCLUDE\\wingdi.h": WINGDI_H_SOURCE,
+      "C:\\INCLUDE\\winbase.h": WINBASE_H_SOURCE,
     };
 
     const defaultDirs = [
-      "C:\\WINDOWS\\SYSTEM32",
-      "C:\\WINDOWS\\COMMAND",
-      "C:\\WINDOWS\\TEMP",
-      "C:\\Program Files\\Accessories",
-      "C:\\Program Files\\Internet Explorer",
-      "C:\\Program Files\\WinZip",
+      "C:\\My Documents",
+      "C:\\INCLUDE",
       "C:\\Recycle Bin",
     ];
 

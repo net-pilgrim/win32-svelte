@@ -28,6 +28,7 @@ import {
   HDC,
 } from "./gdi";
 import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "./types";
+import { StartNotepad } from "../samples/notepad";
 
 export interface WasmBridgeOptions {
   initialX?: number;
@@ -235,6 +236,33 @@ export class Win32WasmRuntime {
 
         KillTimer: (hWnd: number, uIDEvent: number) => {
           return KillTimer(hWnd, uIDEvent) ? 1 : 0;
+        },
+
+        ShellExecuteA: (
+          _hWnd: number,
+          _lpOperation: number,
+          lpFile: number,
+          _lpParameters: number,
+          _lpDirectory: number,
+          _nShowCmd: number
+        ) => {
+          const file = this.readCString(lpFile);
+          if (file === "sample_app.c" || file.endsWith("sample_app.c")) {
+            StartNotepad(480, 70, "C:\\My Documents\\sample_app.c");
+            return 32;
+          }
+          if (file === "windows.h" || file.endsWith("windows.h")) {
+            StartNotepad(510, 100, "C:\\My Documents\\windows.h");
+            return 32;
+          }
+          if (file.startsWith("http://") || file.startsWith("https://")) {
+            if (typeof window !== "undefined") {
+              window.open(file, "_blank", "noopener,noreferrer");
+            }
+            return 32;
+          }
+          StartNotepad(480, 80, file);
+          return 32;
         },
 
         // --- GDI APIs ---

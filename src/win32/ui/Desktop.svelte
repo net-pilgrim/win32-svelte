@@ -107,6 +107,22 @@
       action: () => StartWasmApp(260, 110),
     },
     {
+      id: "c_source",
+      title: "sample_app.c",
+      icon: "📄",
+      x: 106,
+      y: 256,
+      action: () => StartNotepad(360, 80, "C:\\My Documents\\sample_app.c"),
+    },
+    {
+      id: "windows_h",
+      title: "windows.h",
+      icon: "📋",
+      x: 106,
+      y: 336,
+      action: () => StartNotepad(420, 110, "C:\\My Documents\\windows.h"),
+    },
+    {
       id: "recycle",
       title: "Recycle Bin",
       icon: "🗑️",

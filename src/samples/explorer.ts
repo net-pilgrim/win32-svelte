@@ -96,11 +96,10 @@ const FOLDER_PATH_MAP: Record<string, string> = {
   root: "C:\\",
   drive_a: "A:\\",
   drive_c: "C:\\",
-  windows: "C:\\WINDOWS",
-  prog_files: "C:\\Program Files",
   my_docs: "C:\\My Documents",
-  drive_d: "D:\\",
+  include: "C:\\INCLUDE",
   recycle: "C:\\Recycle Bin",
+  drive_d: "D:\\",
 };
 
 async function PopulateListView(ctx: ExplorerControls, folderPath: string) {
@@ -194,9 +193,8 @@ function ExplorerWndProc(
                 icon: "💽",
                 expanded: true,
                 children: [
-                  { id: "windows", text: "WINDOWS", icon: "📁" },
-                  { id: "prog_files", text: "Program Files", icon: "📁" },
                   { id: "my_docs", text: "My Documents", icon: "📁" },
+                  { id: "include", text: "INCLUDE", icon: "📁" },
                   { id: "recycle", text: "Recycle Bin", icon: "🗑️" },
                 ],
               },

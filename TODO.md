@@ -32,7 +32,7 @@ flowchart TD
   - Backed by W3C `navigator.storage.getDirectory()` with seamless in-memory fallback for headless/Node environments.
   - Implements full Win32 `kernel32.dll` file I/O APIs: `CreateFile`, `ReadFile`, `WriteFile`, `CloseHandle`, `SetFilePointer`, `GetFileSize`, `DeleteFile`, `MoveFile`, `CopyFile`, `CreateDirectory`, `RemoveDirectory`, `GetFileAttributes`.
   - Wildcard search: `FindFirstFile` / `FindNextFile` / `FindClose` (`*.txt`, `*.*`).
-  - Pre-seeded with authentic Windows 98 directory tree and system files (`AUTOEXEC.BAT`, `CONFIG.SYS`, `SYSTEM.INI`, `WIN.INI`, `SYSTEM32`, `Welcome.txt`, etc.).
+  - Pre-seeded with documents, Win32 C headers, and C sample source files (`Welcome.txt`, `sample_app.c`, `windows.h`, etc.).
   - Reactive change listeners (`vfs.addChangeListener`) automatically synchronizing open explorer windows.
 - [x] **Virtual Removable Media (`A:` & `D:`)**:
   - Top-level virtual drive mapping (`A:`, `C:`, `D:`) integrated into Win32 path normalization.
