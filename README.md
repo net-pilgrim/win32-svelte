@@ -1,41 +1,43 @@
 # 🪟 win32-svelte
 
-> **"Why write modern reactive components when you can register a `WNDCLASSEX` and write a 1995-era `WndProc` switch statement in TypeScript?"**
+> ⚠️ **Disclaimer:** This project is a playful, educational experiment and technical prototype exploring legacy Win32 operating system concepts in the browser. It is **not** a production-ready framework, complete emulation layer, or shippable product.
 
-`win32-svelte` is a faithful, playful, and architecturally serious re-implementation of the classic **Win32 API** (Handles, Window Classes, Message Loop, GDI, Controls, Dialogs, Web Audio Sound Blaster/PC-speaker synthesizers) running on top of **Svelte 5** and styled with **98.css**.
+> *"Why write modern reactive components when you can register a `WNDCLASSEX` and write a 1995-era `WndProc` switch statement in TypeScript?"*
+
+`win32-svelte` is an experimental prototype exploring classic **Win32 API** patterns (window handles, window classes, message loops, GDI primitives, basic dialogs, and synthesized retro sound effects) running on top of **Svelte 5** and styled with **98.css**.
 
 ---
 
-Demo here: https://win32-svelte.vercel.app/
+Demo: https://win32-svelte.vercel.app/
 
 <img width="1600" height="927" alt="image" src="https://github.com/user-attachments/assets/61f3e2a3-9420-41af-8a9a-4cde1606b49f" />
 
 ---
 
-## 🎨 The Playful Motivation
+## 🎨 The Motivation Behind the Experiment
 
-The modern web development world is awash with reactive signals, virtual DOM diffing, JSX transforms, server components, and hydration boundaries. But decades before modern front-end frameworks existed, software engineers built rock-solid, highly responsive GUI software using a remarkably enduring architecture: **The Win32 User & GDI subsystem**.
+The modern web development world is awash with reactive signals, virtual DOM diffing, JSX transforms, server components, and hydration boundaries. But decades before modern front-end frameworks existed, desktop software was built using a procedural, message-driven architecture: **The Win32 User & GDI subsystem**.
 
-This project asks a delightfully absurd question:
+This project asks a playful question:
 
-*What if Charles Petzold’s classic 1998 bible "Programming Windows" was written for the modern browser?*
+*What if Charles Petzold’s classic 1998 book "Programming Windows" was adapted as a toy experiment for the modern browser?*
 
-Instead of abstracting the web, `win32-svelte` implements:
-- Real `HWND` handles, parent-child hierarchies, and Z-indexing.
-- `RegisterClassEx` and window procedure callbacks (`lpfnWndProc(hwnd, uMsg, wParam, lParam)`).
+Rather than following typical web patterns, `win32-svelte` experiments with:
+- Simulated numeric `HWND` handles, parent-child hierarchies, and basic Z-ordering.
+- A toy `RegisterClassEx` and window procedure callbacks (`lpfnWndProc(hwnd, uMsg, wParam, lParam)`).
 - Synchronous `SendMessage` and queued `PostMessage`.
 - An asynchronous message loop pump (`GetMessage`, `TranslateMessage`, `DispatchMessage`).
-- Classic standard controls (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`).
-- A canvas-based GDI subsystem (`BeginPaint`, `MoveToEx`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`, `CreateSolidBrush`, `SelectObject`).
-- **Native C WebAssembly Execution**: Compile real ISO C99 Win32 code targeting `<windows.h>` into standalone `.wasm` binaries and run them directly in the browser!
-- Synthesized Windows 98 system sound effects (Chord, Ding, Chime, Tada) using the Web Audio API—no external `.wav` files needed!
-- The authentic look and feel of Windows 98 via [98.css](https://jdan.github.io/98.css/).
+- Classic standard control wrappers (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`).
+- A canvas-based GDI drawing prototype (`BeginPaint`, `MoveToEx`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`).
+- **Experimental C WebAssembly Execution**: Compiling small C snippets targeting minimal `<windows.h>` header stubs into freestanding `.wasm` binaries that run within the browser prototype.
+- Synthesized retro system sounds (Chord, Ding, Chime, Tada) using the Web Audio API without external audio files.
+- Nostalgic Windows 98 aesthetics courtesy of [98.css](https://jdan.github.io/98.css/).
 
-It bridges the procedural, message-oriented mental model of C programming with the fine-grained reactivity of **Svelte 5 runes** (`$state`, `$derived`, `$effect`).
+It explores bridging the procedural, message-oriented mental model of C programming with the fine-grained reactivity of **Svelte 5 runes** (`$state`, `$derived`, `$effect`).
 
 ---
 
-## 🚀 How to Run
+## 🚀 Running the Prototype Locally
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (version 18+ recommended)
@@ -62,50 +64,41 @@ Open your browser at `http://localhost:5173` (or the URL displayed in your termi
 | Script | Command | Purpose |
 |---|---|---|
 | `npm run dev` | `vite` | Starts local development server with Vite HMR |
-| `npm run build` | `vite build` | Compiles the project to production-ready static assets in `dist/` |
-| `npm run preview` | `vite preview` | Previews the built production app locally |
+| `npm run build` | `vite build` | Compiles the prototype to static assets in `dist/` |
+| `npm run preview` | `vite preview` | Previews the built static assets locally |
 | `npm run check` | `svelte-check ... && tsc ...` | Typechecks Svelte components and TypeScript code |
 | `npm test` | `tsx src/win32/__tests__/...` | Runs test suites (VFS, Print Spooler, ODBC, WASM Bridge, RC Compiler) |
 | `npm run rc` | `tsx src/rc/cli.ts` | Compiles Win32 `.rc` resource scripts to TypeScript/JSON |
 | `npm run build:wasm` | `tsx src/wasm/embed_wasm.ts` | Compiles C sample app to freestanding `.wasm` with Zig/Clang |
 
-### 🌐 Deploying to Vercel
+### Deploying to Vercel
 
-You can deploy `win32-svelte` to Vercel with zero additional configuration:
+The prototype can be deployed to Vercel as a static single-page application:
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnet-pilgrim%2Fwin32-svelte)
 
-Or deploy using the [Vercel CLI](https://vercel.com/docs/cli):
+The project includes a basic [`vercel.json`](file:///home/dsv/work/win32-svelte/vercel.json) specifying static output (`dist/`) and SPA routing.
 
-```bash
-# Deploy to preview
-npx vercel
+### What's In The Demo
 
-# Deploy to production
-npx vercel --prod
-```
-
-The project includes a pre-configured [`vercel.json`](file:///home/dsv/work/win32-svelte/vercel.json) specifying the Vite framework build output (`dist/`) and SPA index routing.
-
-### What You'll Experience
-When the app opens:
-1. **Windows 98 Desktop Environment**: Fully featured desktop with icons (*My Computer*, *Minesweeper*, *GDI Paint*, *Notepad*, *Calculator*, *Recycle Bin*), movable and resizable windows, taskbar with running tasks, Start button, and system tray clock.
-2. **Preloaded Applications**: Launches *Minesweeper* and *GDI Paint Demo* by default.
-3. **Classic Start Menu & Quick Launch**:
-   - Authentic Windows 98 **Start Menu** with *Programs* flyouts, *Documents*, *Settings*, sound toggle, and *Shut Down*.
-   - **Taskbar Quick Launch Toolbar** with single-click launchers for Explorer, WASM, Notepad, Paint, and Show Desktop (`🖥️`).
-   - System tray clock and interactive audio toggle speaker (`🔊` / `🔇`).
-   - **Inspect HWNDs**: Live interactive inspector displaying the internal kernel handle table (`HWND`, parent, window class, text, and visibility).
+When the demo loads:
+1. **Retro Desktop Sandbox**: Simulated desktop surface with movable and resizable windows, taskbar with active tasks, Start menu, desktop icons, and system tray clock.
+2. **Preloaded Demo Apps**: Opens *Minesweeper* and *GDI Paint Demo* by default.
+3. **Start Menu & Quick Launch**:
+   - Windows 98-style **Start Menu** with *Programs* flyouts, *Documents*, *Settings*, sound toggle, and *Shut Down*.
+   - **Taskbar Quick Launch Toolbar** with shortcuts for Explorer, WASM, Notepad, Paint, and Show Desktop (`🖥️`).
+   - System tray clock and audio mute toggle (`🔊` / `🔇`).
+   - **Inspect HWNDs**: A debugging inspector displaying the in-memory window handle table (`HWND`, parent, class, title, and visibility).
 
 ---
 
-## 🏛️ Architecture
+## 🏛️ Experimental Architecture
 
-`win32-svelte` is structured into three clean layers: the **Win32 Kernel Runtime**, the **GDI & Audio Engines**, and the **Svelte 5 Reactive Presentation Layer**.
+The prototype is organized into three exploratory layers: a simulated **Win32 Kernel**, helper **GDI & Audio Engines**, and a **Svelte 5 Presentation Layer**.
 
 ```mermaid
 flowchart TD
-    subgraph Apps["Applications & Samples"]
+    subgraph Apps["Sample & Demo Apps"]
         Explorer["Windows Explorer"]
         MfcScribble["MFC Scribble Demo"]
         Minesweeper["Minesweeper"]
@@ -115,11 +108,11 @@ flowchart TD
         ControlGallery["Control Gallery"]
     end
 
-    subgraph MfcLayer["MFC C++ Object-Oriented Framework (CWinApp, CFrameWnd, CDialog, CDC)"]
+    subgraph MfcLayer["Toy MFC Simulation Layer (CWinApp, CFrameWnd, CDialog, CDC)"]
         MessageMaps["Message Maps (ON_COMMAND, ON_BN_CLICKED, ON_WM_MESSAGE)"]
     end
 
-    subgraph KernelSubsystem["Win32 Kernel & Subsystems"]
+    subgraph KernelSubsystem["Simulated Kernel & Subsystems"]
         KernelCore["Kernel Core<br/>(HWND Registry, Class Table, Z-Index)"]
         MsgPump["Message Dispatcher<br/>(SendMessage, PostMessage, DispatchMessage)"]
         ComCtl32["Common Controls (comctl32)<br/>(TreeView, ListView, TabControl, StatusBar)"]
@@ -142,33 +135,32 @@ flowchart TD
     KernelSubsystem -->|"Dispatched WM_* Messages (WM_COMMAND, WM_NOTIFY, WM_PAINT)"| Apps
 ```
 
-### 1. The Kernel Subsystem (`src/win32/kernel.svelte.ts`)
-The kernel acts as the operating system GUI manager:
-- **Handle Allocation**: Assigns unique numeric handles (`HWND` starting at 100, `HMENU` starting at 500).
-- **Window Class Registry (`RegisterClassEx`)**: Stores window classes with their associated `lpfnWndProc`. Built-in system classes (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`) are pre-registered on boot.
+### 1. Simulated Kernel Subsystem (`src/win32/kernel.svelte.ts`)
+The kernel acts as a lightweight in-memory GUI manager:
+- **Handle Allocation**: Assigns incremental numeric handles (`HWND` starting at 100, `HMENU` starting at 500).
+- **Window Class Registry (`RegisterClassEx`)**: Stores window classes with their associated `lpfnWndProc`. Built-in classes (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`) are pre-registered on startup.
 - **Message Dispatching**:
-  - `SendMessage(hwnd, msg, wParam, lParam)`: Synchronously invokes the target window's `WndProc` and returns an `LRESULT`.
+  - `SendMessage(hwnd, msg, wParam, lParam)`: Synchronously invokes the window's `WndProc` and returns an `LRESULT`.
   - `PostMessage(hwnd, msg, wParam, lParam)`: Enqueues messages asynchronously.
   - `GetMessage(msg)`: Yields from the queue or awaits incoming posted messages.
-  - `DispatchMessage(msg)`: Dispatches queued messages to their window procedures.
-  - `RunMessageLoop()`: Standard message loop helper:
+  - `DispatchMessage(msg)`: Dispatches queued messages to their target window procedure.
+  - `RunMessageLoop()`: Basic message loop helper:
     ```typescript
     while (await GetMessage(msg)) {
       TranslateMessage(msg);
       DispatchMessage(msg);
     }
     ```
-- **Hierarchical Menus**: `CreateMenu`, `CreatePopupMenu`, `AppendMenu`, `SetMenu`, `CheckMenuItem`, `EnableMenuItem`.
-- **Timers**: `SetTimer` and `KillTimer` dispatches `WM_TIMER` through the message queue.
-- **Modal Dialogs**: `MessageBox(hwnd, text, caption, type)` suspends via a Promise until the user clicks OK, Yes, No, or Cancel.
+- **Hierarchical Menus**: Toy implementation of `CreateMenu`, `CreatePopupMenu`, `AppendMenu`, and `SetMenu`.
+- **Timers**: `SetTimer` and `KillTimer` dispatch `WM_TIMER` messages through the queue.
+- **Modal Dialogs**: `MessageBox(hwnd, text, caption, type)` suspends via a Promise until the user dismisses the dialog.
 - **Shell Drag & Drop (`shell32`)**:
-  - `DragAcceptFiles(hwnd, fAccept)`: Registers windows for file drops (`WS_EX_ACCEPTFILES`).
-  - `WM_DROPFILES`: Dispatched with `HDROP` containing dropped file metadata and text content.
-  - `DragQueryFile(hDrop, iFile)` & `DragQueryPoint(hDrop, lpPoint)` & `DragFinish(hDrop)`.
-  - Seamlessly bridges native host OS file drag-and-drop (`.txt`, `.js`, etc.) and internal app-to-app dragging (e.g., from Windows Explorer to Notepad or Recycle Bin).
+  - Basic `DragAcceptFiles(hwnd, fAccept)` handling.
+  - `WM_DROPFILES` dispatch with simulated `HDROP` metadata.
+  - Simple bridge between host OS file drops and internal app-to-app dragging (e.g., from Explorer to Notepad).
 
 ### 2. GDI 2D Graphics Engine (`src/win32/gdi.ts`)
-Encapsulates HTML5 `<canvas>` rendering within standard Win32 Device Context (`HDC`) semantics:
+Encapsulates HTML5 `<canvas>` rendering within basic Win32 Device Context (`HDC`) function signatures:
 - `BeginPaint(hwnd, ps)` / `EndPaint(hwnd, ps)`
 - `MoveToEx(hdc, x, y)` & `LineTo(hdc, x, y)`
 - `Rectangle(hdc, left, top, right, bottom)`
@@ -176,61 +168,61 @@ Encapsulates HTML5 `<canvas>` rendering within standard Win32 Device Context (`H
 - `TextOut(hdc, x, y, text)` & `SetTextColor(hdc, color)`
 - `CreateSolidBrush(color)` & `CreatePen(style, width, color)`
 - `SelectObject(hdc, hGdiObj)`
-- `InvalidateRect(hwnd, rect, erase)`: Triggers a fresh `WM_PAINT` message.
+- `InvalidateRect(hwnd, rect, erase)`: Triggers a `WM_PAINT` message.
 
 ### 3. Web Audio Sound Engine (`src/win32/audio.ts`)
-Uses Web Audio API oscillators and gain envelopes to synthesize legendary retro OS sounds in real time:
+Uses Web Audio API oscillators and gain envelopes to approximate retro sound effects in code:
 - `playChord()`: Minor-major chord cluster for `MB_ICONERROR` / Critical Stop.
-- `playDing()`: Resonant sine sweep for `MB_ICONWARNING` / Exclamation.
-- `playChime()`: Ascending glockenspiel bell tones for `MB_ICONINFORMATION` / Asterisk.
+- `playDing()`: Resonant sweep for `MB_ICONWARNING` / Exclamation.
+- `playChime()`: Glockenspiel bell tones for `MB_ICONINFORMATION` / Asterisk.
 - `playTada()`: Fanfare brass synth for victories / startup.
-- `MessageBeep(type)`: Standard Win32 sound dispatcher.
+- `MessageBeep(type)`: Simple sound dispatcher.
 
-### 4. Microsoft Foundation Classes (MFC) Layer (`src/win32/mfc/`)
-A pure object-oriented C++ simulation layer mirroring classic MFC:
-- **`CObject`**: Root class providing runtime class information and `isKindOf()` type introspection.
+### 4. Toy MFC Layer (`src/win32/mfc/`)
+A small TypeScript simulation exploring object-oriented MFC concepts:
+- **`CObject`**: Base class providing simple runtime class information and `isKindOf()` checks.
 - **`CCmdTarget`**: Message map dispatcher routing `WM_COMMAND`, `WM_NOTIFY`, and window messages via `ON_COMMAND`, `ON_BN_CLICKED`, `ON_EN_CHANGE`, and `ON_NOTIFY`.
-- **`CWnd`**: Complete object-oriented window wrapper managing `m_hWnd`, `FromHandle()`, and message routing.
-- **`CFrameWnd`**: Top-level single-document interface (SDI) frame windows with menu bar management.
-- **`CDialog`**: Modal and modeless dialog architecture with `doModal()`, `onInitDialog()`, `onOK()`, and `onCancel()`.
-- **`CWinApp`**: Application singleton managing initialization (`initInstance`), main window binding (`m_pMainWnd`), and exit teardown.
-- **`CDC` & `CPaintDC`**: Device context wrappers providing clean object-oriented GDI drawing (`MoveTo`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`).
-- **Control Wrappers**: `CButton`, `CEdit`, `CStatic`, `CComboBox`, `CProgressCtrl`, `CSliderCtrl`, `CTreeCtrl`, `CListCtrl`.
+- **`CWnd`**: Window wrapper managing `m_hWnd`, `FromHandle()`, and message routing.
+- **`CFrameWnd`**: Top-level single-document interface (SDI) frame window helper.
+- **`CDialog`**: Modal dialog prototype with `doModal()`, `onInitDialog()`, `onOK()`, and `onCancel()`.
+- **`CWinApp`**: Application class managing initialization (`initInstance`) and main window binding (`m_pMainWnd`).
+- **`CDC` & `CPaintDC`**: Device context wrappers providing GDI drawing methods (`MoveTo`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`).
+- **Control Wrappers**: Minimal wrappers for `CButton`, `CEdit`, `CStatic`, `CComboBox`, `CProgressCtrl`, `CSliderCtrl`, `CTreeCtrl`, `CListCtrl`.
 
-### 5. C WebAssembly Bridge & SDK (`include/` and `src/win32/wasm_bridge.ts`)
-Run native C Win32 code directly in the browser:
-- **Modular C Headers (`include/`)**: Self-contained [`windows.h`](include/windows.h), [`windef.h`](include/windef.h), [`winuser.h`](include/winuser.h), [`wingdi.h`](include/wingdi.h), and [`winbase.h`](include/winbase.h).
-- **Freestanding Compilation**: Works with standard Zig (`zig cc`) or Clang targeting `wasm32-freestanding`—no bloated POSIX or libc shims required.
-- **Function Pointer Callbacks**: Window procedures (`WndProc`) are exported via `__indirect_function_table`, allowing the TypeScript kernel to dispatch Win32 messages (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`) straight into compiled C code.
-- **Direct VFS Execution**: Read and execute arbitrary `.wasm` binaries directly from the virtual filesystem (`vfs.readBinaryFile`), via Windows Explorer double-click, or via host OS drag-and-drop.
-- Complete step-by-step tutorial available in [howto-wasm.md](howto-wasm.md).
+### 5. Experimental C WebAssembly Bridge (`include/` & `src/win32/wasm_bridge.ts`)
+Enables running small C snippets compiled to WebAssembly inside the sandbox:
+- **Minimal Header Stubs (`include/`)**: Self-contained stubs for [`windows.h`](include/windows.h), [`windef.h`](include/windef.h), [`winuser.h`](include/winuser.h), [`wingdi.h`](include/wingdi.h), and [`winbase.h`](include/winbase.h).
+- **Freestanding Compilation**: Works with standard Zig (`zig cc`) or Clang targeting `wasm32-freestanding` without requiring libc.
+- **Function Pointer Callbacks**: Window procedures (`WndProc`) are exported via `__indirect_function_table`, allowing the TypeScript dispatcher to invoke C function pointers when events occur.
+- **VFS Execution**: Reads and executes `.wasm` binaries from the virtual filesystem, via Windows Explorer double-click, or via host OS drag-and-drop.
+- A walkthrough of this experiment is available in [howto-wasm.md](howto-wasm.md).
 
-### 6. Svelte 5 UI Bridge (`src/win32/ui/`)
-- **[Desktop.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Desktop.svelte)**: Manages desktop background, icons, running window taskbar entries, system time, and modal overlays.
-- **[Window.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Window.svelte)**: Renders the active/inactive window frame, title bar controls, handles dragging/resizing, and mounts `<canvas>` for GDI windows.
-- **[Control.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Control.svelte)**: Maps child `HWND`s to DOM elements based on window style bitmasks (`BS_AUTOCHECKBOX`, `BS_AUTORADIOBUTTON`, `ES_MULTILINE`, `CBS_DROPDOWN`, etc.).
-- **[MenuBar.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/MenuBar.svelte)**: Handles top-level menu strips, dropdown popups, separators, shortcuts, and sends `WM_COMMAND` with menu IDs.
-- **[MessageBoxModal.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/MessageBoxModal.svelte)**: Faithful reproduction of the classic Windows 98 message box dialog with icons.
+### 6. Svelte 5 Presentation Layer (`src/win32/ui/`)
+- **[Desktop.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Desktop.svelte)**: Renders desktop background, draggable icons, taskbar items, and system clock.
+- **[Window.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Window.svelte)**: Renders window frames, title bar controls, handles dragging/resizing, and mounts the `<canvas>` for GDI windows.
+- **[Control.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Control.svelte)**: Maps child `HWND`s to DOM elements based on window style bitmasks (`BS_AUTOCHECKBOX`, `BS_AUTORADIOBUTTON`, `ES_MULTILINE`, etc.).
+- **[MenuBar.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/MenuBar.svelte)**: Renders menu strips and popups, sending `WM_COMMAND` with menu IDs.
+- **[MessageBoxModal.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/MessageBoxModal.svelte)**: Renders a message box modal styled like classic Windows 98.
 
 ---
 
 ## 🕹️ Sample Applications
 
-The project includes nine complete sample applications:
+The repository includes several sample applications built to test the prototype:
 
-| App | File | Features Demonstrated |
+| App | File | Description |
 |---|---|---|
-| **Lua 5.3 Command Center** | [`src/samples/lua_host.ts`](src/samples/lua_host.ts) & [`src/win32/lua_engine.ts`](src/win32/lua_engine.ts) | Full **Lua 5.3** scripting host! Write and run Lua code with live execution console (F5), full `win32` API bindings (`CreateWindow`, `CreateButton`, `MessageBox`, `PlaySound`, GDI drawing), custom `RegisterClass` with `WndProc` in Lua, and double-click `.lua` file execution in Explorer! |
-| **WASM C99 Native App** | [`src/wasm/sample_app.c`](src/wasm/sample_app.c) & [`src/samples/wasm_app.ts`](src/samples/wasm_app.ts) | Real **ISO C99 Win32** code compiled to WebAssembly via Zig/Clang! Exports `WinMain`, registers window classes, handles `WM_CREATE`, `WM_COMMAND`, and `WM_PAINT` through C function pointers, manipulates Win32 child controls, and calls `ShellExecute`. Located in `C:\wasm_application` inside Windows Explorer. (See [howto-wasm.md](howto-wasm.md)). |
-| **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | Object-oriented **MFC** architecture! `CWinApp` lifecycle, `CFrameWnd` frame, `createMessageMap()` command routing, `CPaintDC` GDI rendering, `CButton` and `CProgressCtrl` child controls, and modal `CDialog::doModal()`. |
-| **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | The flagship **`comctl32`** showcase! Left-pane `SysTreeView32` folder hierarchy, right-pane `SysListView32` in report/details mode with multi-column sorting & selection, two-part `msctls_statusbar32`, cascading menu commands, and `WM_NOTIFY` (`TVN_SELCHANGED`, `LVN_ITEMCHANGED`) event routing. |
-| **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | 81 child button controls, right-click `BN_RIGHTCLICK` flagging, `SetTimer` game clock, custom 7-segment LED numbers, reset smiley button, win/loss fanfare sound. |
-| **GDI Paint** | [`src/samples/paint_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/paint_demo.ts) | Interactive freehand drawing on canvas, GDI geometry primitives (`Rectangle`, `Ellipse`, `LineTo`), menu color palettes, clear canvas command. |
-| **Calculator** | [`src/samples/calculator.ts`](file:///home/dsv/work/win32-svelte/src/samples/calculator.ts) | Grid of button controls sending `WM_COMMAND`, `EDIT` display control updating via `SetWindowText`, arithmetic state machine. |
-| **Notepad** | [`src/samples/notepad.ts`](file:///home/dsv/work/win32-svelte/src/samples/notepad.ts) | Multiline `EDIT` control with automatic resize on `WM_SIZE`, cascading *File*, *Edit*, and *Help* menus, *Time/Date* insertion, *Select All*, *About* dialog. |
-| **Control Gallery** | [`src/samples/control_gallery.ts`](file:///home/dsv/work/win32-svelte/src/samples/control_gallery.ts) | Tabbed display properties featuring `SysTabControl32` (`TCM_INSERTITEM`, `TCN_SELCHANGE`), GroupBoxes, Checkboxes, Radio button groups, Progress bar stepping, Slider / Trackbar scrubbing, Combobox dropdowns, and Message Box triggers. |
+| **Lua 5.3 Host** | [`src/samples/lua_host.ts`](src/samples/lua_host.ts) & [`src/win32/lua_engine.ts`](src/win32/lua_engine.ts) | An experimental Lua 5.3 runner powered by `fengari-web`. Allows testing small Lua scripts with toy Win32 bindings (`CreateWindow`, `CreateButton`, `MessageBox`, GDI drawing) and double-clicking `.lua` files in Explorer. |
+| **WASM C99 App** | [`src/wasm/sample_app.c`](src/wasm/sample_app.c) & [`src/samples/wasm_app.ts`](src/samples/wasm_app.ts) | A sample C program compiled to freestanding WebAssembly via Zig/Clang to test running a native C `WndProc` against the browser message dispatcher. Located in `C:\wasm_application` inside the virtual filesystem. |
+| **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | An experiment testing MFC-style architecture in TypeScript: `CWinApp`, `CFrameWnd`, message map routing, `CPaintDC` drawing, and a modal `CDialog`. |
+| **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | A demo explorer interface combining a left-pane `SysTreeView32` with a right-pane `SysListView32` in report mode with multi-column sorting and a status bar. |
+| **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | A recreation of Minesweeper using child button controls, right-click flagging, timer tick messages, and custom 7-segment display digits. |
+| **GDI Paint** | [`src/samples/paint_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/paint_demo.ts) | Freehand drawing demo exercising GDI geometry primitives (`Rectangle`, `Ellipse`, `LineTo`) on an HTML5 canvas. |
+| **Calculator** | [`src/samples/calculator.ts`](file:///home/dsv/work/win32-svelte/src/samples/calculator.ts) | Simple calculator using button controls sending `WM_COMMAND` to update an `EDIT` display. |
+| **Notepad** | [`src/samples/notepad.ts`](file:///home/dsv/work/win32-svelte/src/samples/notepad.ts) | Multiline text editor testing `WM_SIZE` resizing, menu actions, and file read/write operations against the virtual filesystem. |
+| **Control Gallery** | [`src/samples/control_gallery.ts`](file:///home/dsv/work/win32-svelte/src/samples/control_gallery.ts) | A tabbed dialog exercising `SysTabControl32`, group boxes, checkboxes, radio buttons, sliders, progress bars, and combo boxes. |
 
-### How Writing an App Looks
+### How Writing a Window Procedure Looks
 
 ```typescript
 import { RegisterClassEx, CreateWindowEx, ShowWindow, DefWindowProc } from "./win32/kernel.svelte";
@@ -239,13 +231,13 @@ import { WM_CREATE, WM_COMMAND, WS_OVERLAPPEDWINDOW, WS_VISIBLE, WS_CHILD, SW_SH
 function MyWndProc(hwnd, msg, wParam, lParam) {
   switch (msg) {
     case WM_CREATE:
-      // Create a child button!
+      // Create a child button
       CreateWindowEx(0, "BUTTON", "Click Me", WS_CHILD | WS_VISIBLE, 20, 20, 100, 26, hwnd, 101);
       return 0;
 
     case WM_COMMAND:
       if (wParam === 101) {
-        MessageBox(hwnd, "Hello from Win32 Svelte!", "Notice");
+        MessageBox(hwnd, "Hello from the win32-svelte prototype!", "Notice");
       }
       return 0;
 
@@ -259,104 +251,34 @@ const hwnd = CreateWindowEx(0, "MyWindowClass", "Sample Window", WS_OVERLAPPEDWI
 ShowWindow(hwnd, SW_SHOW);
 ```
 
-#### Writing an App in MFC Style (CWinApp + CFrameWnd + Message Maps)
-
-```typescript
-import { CWinApp, CFrameWnd, CPaintDC, createMessageMap, ON_COMMAND, ON_WM_MESSAGE } from "./win32/mfc";
-import { WM_PAINT } from "./win32/constants";
-
-class CMainFrame extends CFrameWnd {
-  protected override getMessageMap() {
-    return createMessageMap(
-      undefined,
-      ON_WM_MESSAGE(WM_PAINT, "OnPaint"),
-      ON_COMMAND(101, "OnButtonClicked")
-    );
-  }
-
-  public OnPaint(): void {
-    const dc = new CPaintDC(this);
-    dc.rectangle(20, 20, 200, 100);
-    dc.textOut(30, 40, "Hello from MFC CDC!");
-    dc.dispose();
-  }
-
-  public OnButtonClicked(): void {
-    this.messageBox("Button clicked via MFC message map!", "MFC Demo");
-  }
-}
-
-class CMyApp extends CWinApp {
-  public override async initInstance(): Promise<boolean> {
-    const pFrame = new CMainFrame();
-    pFrame.create(null, "MFC Application");
-    pFrame.showWindow();
-    return true;
-  }
-}
-
-const app = new CMyApp();
-app.run();
-```
-
-#### Writing an App in Lua 5.3
-
-```lua
--- Register a custom window class and window procedure directly in Lua!
-win32.RegisterClass("MyLuaWindow", function(hwnd, msg, wParam, lParam)
-  if msg == win32.WM_CREATE then
-    win32.CreateButton("Click Me", 20, 20, 140, 30, hwnd, function()
-      win32.MessageBox(hwnd, "Hello from Lua in Windows 98!", "Lua Host", win32.MB_ICONINFORMATION)
-      win32.PlaySound("Ding")
-    end)
-    return 0
-  elseif msg == win32.WM_PAINT then
-    local hdc = win32.BeginPaint(hwnd)
-    win32.Rectangle(hdc, 20, 70, 260, 160)
-    win32.TextOut(hdc, 35, 95, "Rendered via GDI from Lua!")
-    win32.EndPaint(hwnd)
-    return 0
-  end
-  return win32.DefWindowProc(hwnd, msg, wParam, lParam)
-end)
-
-local win = win32.CreateWindow("MyLuaWindow", "Lua Application", 180, 120, 320, 220)
-win32.ShowWindow(win, win32.SW_SHOW)
-```
-
 ---
 
-## 🚧 Open Points & Known Limitations
+## 🚧 Known Limitations & Experimental Nature
 
-While the core runtime supports an impressive array of classic software patterns, several interesting areas remain open for expansion:
+Because this is a conceptual prototype, there are substantial limitations and intentional simplifications:
 
 1. **Message Loop & JavaScript Concurrency**:
-   - In native C Win32, `GetMessage` blocks the OS thread until a message arrives. In JavaScript's single-threaded event loop, blocking is impossible, so `GetMessage` is asynchronous (`Promise<boolean>`).
-   - Modal loops (like nested `DialogBoxParam`) require non-blocking fiber-like orchestration or `async/await` coroutines.
-2. **Coordinate Spaces & Non-Client Area Metrics**:
-   - Currently, window widths and heights approximate client rectangles.
-   - Full support for `GetClientRect`, `GetWindowRect`, `AdjustWindowRectEx`, and `ScreenToClient` is partially mocked.
-3. **Common Controls (`COMCTL32`) Enhancements**:
-   - `WC_TABCONTROL`, `WC_TREEVIEW`, `WC_LISTVIEW`, and `STATUSCLASSNAME` are now supported!
-   - Future extensions: Image lists (`HIMAGELIST`), column reordering/sorting drag-drop in `SysListView32`, and TreeView in-place label editing (`TVM_EDITLABEL`).
-4. **Keyboard Navigation & Accelerator Tables**:
-   - `WS_TABSTOP` keyboard tabbing between controls.
-   - Accelerators (`HACCEL`, `TranslateAccelerator`) for global hotkeys (e.g., `Ctrl+O`, `Ctrl+S`, `Alt+F4`).
-   - Mnemonic underline navigation (`Alt+F` for File menu).
-5. **System Clipboard & OLE Data Transfer**:
-   - Win32 Shell Drag & Drop (`DragAcceptFiles`, `WM_DROPFILES`, `DragQueryFile`) is now implemented!
-   - Next steps: `OpenClipboard`, `EmptyClipboard`, `SetClipboardData`, and `GetClipboardData` bridged to the browser `navigator.clipboard` API, and OLE COM structured data transfer (`IDropTarget`, `IDropSource`).
-6. **Custom Window Framing (`WM_NCPAINT`, `WM_NCHITTEST`)**:
-   - Ability for user windows to perform custom non-client rendering and custom window shapes.
+   - In native Win32, `GetMessage` blocks the OS thread until a message arrives. In JavaScript's single-threaded event loop, blocking is impossible, so `GetMessage` is asynchronous (`Promise<boolean>`).
+   - Nested modal loops require `async/await` coroutines rather than native stack-blocking.
+2. **Simplified Coordinate Spaces**:
+   - Window widths and heights approximate client rectangles. Standard non-client metric APIs (`AdjustWindowRectEx`, `ScreenToClient`) are minimal stubs.
+3. **Partial Common Controls (`COMCTL32`)**:
+   - Only basic subsets of `WC_TABCONTROL`, `WC_TREEVIEW`, and `WC_LISTVIEW` are implemented to support the demo apps.
+   - Features like image lists (`HIMAGELIST`), in-place label editing, and column drag-and-drop are omitted or rudimentary.
+4. **Keyboard Navigation & Accelerators**:
+   - Minimal tab-stop navigation between controls.
+   - Global accelerator tables (`HACCEL`) and menu mnemonic key underlines are partially implemented.
+5. **API Coverage**:
+   - Only a tiny fraction of the thousands of Win32 functions are stubbed out—just enough to power the included demo applications.
 
 ---
 
-## 🔮 Possible Outcomes & Future Horizons
+## 🧪 Exploratory Ideas
 
-`win32-svelte` is more than a novelty; it is a foundation for several fascinating compilation and virtualization targets:
+While `win32-svelte` is primarily an educational toy, it serves as an interesting sandbox for experimenting with ideas:
 
-### 1. Resource Script (.rc) Compiler & Build Integration
-Classic Windows applications separate UI layout from logic using `.rc` resource definition files:
+### 1. Resource Script (.rc) Compiler Prototype
+Testing whether classic `.rc` dialog templates can be parsed directly in the web build pipeline:
 ```rc
 IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
@@ -368,42 +290,22 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
 END
 ```
-- **Direct Vite Import & HMR**: Import `.rc` files directly in TypeScript:
-  ```ts
-  import resources, { IDD_ABOUTBOX, IDR_CALC_MENU } from './sample.rc';
-  ```
-  The integrated `win32RcPlugin` compiles resource scripts during dev and build, automatically tracking `#include "resource.h"` header dependencies for hot module reload!
-- **CLI Compilation**: Compile `.rc` scripts standalone:
-  ```bash
-  npm run rc -- src/samples/sample.rc -o src/samples/sample_rc.ts
-  ```
-- **Dialog Box & Menu Engine**:
-  - `CreateDialogParam` / `DialogBoxParam` natively instantiate dialogs and controls using standard Win32 Dialog Template Units (DLUs).
-  - `LoadMenu` builds Win32 `HMENU` trees directly from `.rc` `MENU` definitions.
-  - MFC `CDialog` integration: `new CDialog(IDD_ABOUTBOX, pParent, resources)`.
-- **Outcome**: Take unmodified 1990s Windows dialog and menu scripts and compile them straight into web GUI components without writing any HTML/CSS!
+- Includes an experimental `win32RcPlugin` for Vite to compile `.rc` files to TypeScript objects at build time.
+- Instantiates dialogs using Win32 Dialog Template Units (DLUs) calculated from font metrics.
 
-### 2. Transpilation & Compilation Target (C to WebAssembly) — *Now Live!*
-- **Compiling Real Win32 C Code to Web**:
-  - `win32-svelte` now includes complete freestanding `<windows.h>` C headers and an indirect table message dispatcher.
-  - Compile real C code using `zig cc` or `clang` directly to WebAssembly (`wasm32-freestanding`) and run it in the browser!
-  - Step-by-step compilation walkthrough: **[howto-wasm.md](howto-wasm.md)**.
-- **Transpiling Back to Native C**:
-  - Since the TypeScript API strictly mirrors Win32 naming and calling conventions, a source-to-source transpiler or LLM-assisted pipeline could transpile TypeScript `win32-svelte` applications into ISO C99 targeting Microsoft Visual C++ or MinGW GCC to produce native `.exe` binaries.
+### 2. C to WebAssembly Execution
+- Demonstrates compiling freestanding C code with `zig cc` or `clang` targeting `wasm32-freestanding` and linking to browser-provided Win32 imports.
+- See **[howto-wasm.md](howto-wasm.md)** for compilation notes and flags.
 
-### 3. Visual Basic 6.0 Runtime Bridge
-- VB6 forms and controls map directly onto Win32 window handles and notification messages.
-- A parser for `.frm` (VB Form) files could mount directly onto `win32-svelte` controls, reviving classic line-of-business forms in the browser.
+### 3. Headless UI Testing
+- Because the window handle table and message queue live in memory independently of the DOM, event flows and window procedures can be tested headlessly in Node.js test runners without requiring a physical display or virtual X server.
 
-### 4. Headless Automated UI Testing Harness
-- Because the entire Win32 handle table and message queue live in memory independently of a physical desktop, entire suites of Win32 GUI tests can run in headless CI environments (`Node.js`) without needing a virtual display server (Xvfb / Wine).
-
-See the [TODO & Roadmap](file:///home/dsv/work/win32-svelte/TODO.md) for detailed blueprints on remote container filesystem, printing, Winsock, and registry subsystems.
+See the [Exploration Notes](file:///home/dsv/work/win32-svelte/TODO.md) for additional experimental ideas.
 
 ---
 
 ## 📜 License
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](file:///home/dsv/work/win32-svelte/LICENSE) file for the full text.
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](file:///home/dsv/work/win32-svelte/LICENSE) file for details.
 
 Windows 98 styling is provided courtesy of [98.css](https://github.com/jdan/98.css) (MIT License).

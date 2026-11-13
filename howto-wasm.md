@@ -1,31 +1,33 @@
-# 🚀 Building WebAssembly Applications for win32-svelte
+# 🧪 Building WebAssembly Applications for win32-svelte
 
-This guide explains how to write, compile, and run native C Win32 applications inside **win32-svelte** using WebAssembly (WASM).
+> ⚠️ **Disclaimer:** This guide describes an experimental prototype demonstrating how C code can interact with a toy in-browser Win32 dispatcher. It is **not** a complete Win32 SDK or production toolchain.
+
+This document explains how to write, compile, and run small C applications inside the **win32-svelte** experiment using WebAssembly (WASM).
 
 ---
 
 ## 📖 Overview & Architecture
 
-`win32-svelte` provides a complete, freestanding WebAssembly runtime bridge ([`src/win32/wasm_bridge.ts`](src/win32/wasm_bridge.ts)) and a lightweight Win32 C header SDK ([`include/windows.h`](include/windows.h)).
+`win32-svelte` provides an experimental WebAssembly runtime bridge ([`src/win32/wasm_bridge.ts`](src/win32/wasm_bridge.ts)) and a minimal Win32 C header stub ([`include/windows.h`](include/windows.h)).
 
-Unlike traditional Emscripten setups that bundle hundreds of kilobytes of POSIX emulation shims, `win32-svelte` treats WebAssembly as a **freestanding 32-bit execution target (`wasm32-freestanding`)**:
-- **Imports (`user32.dll` / `gdi32.dll`)**: System APIs like `CreateWindowEx`, `MessageBox`, `ShowWindow`, and `BeginPaint` are imported directly from the JavaScript environment (`env`).
-- **Function Pointers & Callbacks (`WndProc`)**: Window procedures (`lpfnWndProc`) are C function pointers stored in the WebAssembly Indirect Function Table (`__indirect_function_table`). When a window receives a message (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`), the TypeScript kernel invokes the C function pointer directly through this table.
-- **Linear Memory & Strings**: Pointers (`HWND`, `LPCSTR`, `LPVOID`, structs) are simply byte offsets into the WASM module's `WebAssembly.Memory`. The bridge translates UTF-8/ASCII strings and structs seamlessly across the boundary.
+Unlike setups that bundle heavy POSIX emulation shims, this prototype treats WebAssembly as a **freestanding 32-bit execution target (`wasm32-freestanding`)**:
+- **Imports (`user32.dll` / `gdi32.dll`)**: A few basic APIs like `CreateWindowEx`, `MessageBox`, `ShowWindow`, and `BeginPaint` are imported from the JavaScript environment (`env`).
+- **Function Pointers & Callbacks (`WndProc`)**: Window procedures (`lpfnWndProc`) are C function pointers stored in the WebAssembly Indirect Function Table (`__indirect_function_table`). When a window receives a message (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`), the TypeScript kernel invokes the C function pointer through this table.
+- **Linear Memory & Strings**: Pointers (`HWND`, `LPCSTR`, `LPVOID`, structs) are byte offsets into the WASM module's `WebAssembly.Memory`. The bridge translates UTF-8 strings and simple structs across the WebAssembly memory boundary.
 
 ---
 
-## 📁 The Header SDK (`include/`)
+## 📁 The Header Stubs (`include/`)
 
-The header files in [`include/`](include/) are self-contained and require no external libc:
+The header files in [`include/`](include/) are minimal stubs covering only the types and functions needed for the demo:
 
 * **[`include/windows.h`](include/windows.h)**: Main entry header.
 * **[`include/windef.h`](include/windef.h)**: Basic Win32 types (`HWND`, `UINT`, `WPARAM`, `LPARAM`, `BOOL`, `RECT`, `POINT`, `HINSTANCE`, etc.).
-* **[`include/winuser.h`](include/winuser.h)**: Window classes (`WNDCLASSEX`), window styles (`WS_OVERLAPPEDWINDOW`, `WS_CHILD`, etc.), messages (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`, etc.), control styles (`BS_PUSHBUTTON`, `ES_MULTILINE`), and User32 function prototypes.
-* **[`include/wingdi.h`](include/wingdi.h)**: GDI types (`HDC`, `PAINTSTRUCT`, `COLORREF`, `RGB`), stock objects, and drawing prototypes (`BeginPaint`, `EndPaint`, `Rectangle`, `Ellipse`, `TextOut`, `MoveToEx`, `LineTo`).
+* **[`include/winuser.h`](include/winuser.h)**: Window classes (`WNDCLASSEX`), window styles (`WS_OVERLAPPEDWINDOW`, `WS_CHILD`, etc.), messages (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`, etc.), control styles (`BS_PUSHBUTTON`, `ES_MULTILINE`), and User32 prototypes.
+* **[`include/wingdi.h`](include/wingdi.h)**: GDI types (`HDC`, `PAINTSTRUCT`, `COLORREF`, `RGB`), stock objects, and basic drawing prototypes (`BeginPaint`, `EndPaint`, `Rectangle`, `Ellipse`, `TextOut`, `MoveToEx`, `LineTo`).
 * **[`include/winbase.h`](include/winbase.h)**: Helper macros (`LOWORD`, `HIWORD`, `MAKEWPARAM`, `MAKELPARAM`).
 
-All Win32 functions are declared with the `WIN32_IMPORT` attribute:
+Win32 functions in these stubs are declared with the `WIN32_IMPORT` attribute:
 ```c
 #define WIN32_IMPORT(name) __attribute__((import_module("env"), import_name(name)))
 
@@ -153,7 +155,7 @@ You can compile using any C compiler with a WebAssembly backend (such as **Zig**
 
 ### Method A: Using Zig (Recommended)
 
-[Zig](https://ziglang.org/) contains a built-in Clang compiler and LLVM toolchain that cross-compiles freestanding WASM out of the box without requiring emscripten.
+[Zig](https://ziglang.org/) contains a built-in Clang compiler and LLVM toolchain that cross-compiles freestanding WASM without requiring emscripten.
 
 ```bash
 zig cc -target wasm32-freestanding -nostdlib \
@@ -193,7 +195,7 @@ clang --target=wasm32-unknown-unknown -nostdlib \
 
 ---
 
-## 🔍 Critical Compiler Flags Explained
+## 🔍 Compiler Flags Explained
 
 | Flag | Purpose |
 |---|---|
@@ -201,23 +203,23 @@ clang --target=wasm32-unknown-unknown -nostdlib \
 | `-nostdlib` | Prevents linking against standard C runtimes (keeps the output binary tiny, typically ~10–20 KB). |
 | `-Wl,--no-entry` | Tells the linker that there is no standard C `_start` or `main` entry point. |
 | `-Wl,--export=WinMain` | Exports `WinMain` as a WebAssembly function export so `win32-svelte` can invoke it. |
-| `-Wl,--export-table` | **Crucial!** Exports `__indirect_function_table`. This allows the JavaScript runtime to invoke your `WndProc` function pointer when window messages arrive. |
-| `-Iinclude` | Tells the compiler where to find `<windows.h>` and related headers. |
+| `-Wl,--export-table` | Exports `__indirect_function_table`. This allows the JavaScript runtime to invoke your `WndProc` function pointer when window messages arrive. |
+| `-Iinclude` | Tells the compiler where to find the `<windows.h>` stubs. |
 
 ---
 
-## 🏃 Step 3: Run in win32-svelte
+## 🏃 Step 3: Run in the win32-svelte Sandbox
 
-There are four ways to run your `.wasm` application:
+There are a few ways to test your `.wasm` binary in the prototype:
 
 ### 1. Drag & Drop into Windows Explorer
-Because Windows Explorer supports `WM_DROPFILES`, you can simply drag your `hello_win32.wasm` file from your computer desktop directly into the **Windows Explorer** window inside the browser. It will be stored persistently in the browser's Origin Private File System (OPFS).
+Because the demo Windows Explorer supports `WM_DROPFILES`, you can drag your `hello_win32.wasm` file from your desktop into the **Windows Explorer** window inside the browser. It will be stored in the browser's Origin Private File System (OPFS) sandbox.
 
 ### 2. Double-Click in Windows Explorer
-Navigate to `C:\wasm_application` (or the folder where you placed the file) inside Windows Explorer, and double-click `hello_win32.wasm`. The kernel will load the bytecode, instantiate the runtime, and execute `WinMain`!
+Navigate to `C:\wasm_application` (or wherever you placed the file) inside the simulated Windows Explorer, and double-click `hello_win32.wasm`. The prototype will load the bytecode, instantiate the runtime, and execute `WinMain`.
 
 ### 3. Launch Programmatically via VFS Path
-You can invoke the application from anywhere in TypeScript:
+You can invoke the application programmatically in TypeScript:
 
 ```typescript
 import { StartWasmApp } from "./samples/wasm_app";
@@ -241,7 +243,7 @@ runtime.runWinMain();
 
 ## 📦 Existing Sample & Build Scripts
 
-The repository includes a complete working example in [`src/wasm/sample_app.c`](src/wasm/sample_app.c), complete with:
+The repository includes a working example in [`src/wasm/sample_app.c`](src/wasm/sample_app.c) with:
 - Multiple interactive buttons
 - Stateful C counter updating UI labels
 - GDI drawing triggers

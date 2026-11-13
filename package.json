@@ -2,6 +2,7 @@
   "name": "win32-svelte",
   "private": true,
   "version": "0.0.0",
+  "description": "A playful, educational experiment and prototype exploring classic Win32 GUI concepts in the browser using Svelte 5 and 98.css",
   "type": "module",
   "scripts": {
     "dev": "vite",

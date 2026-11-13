@@ -1,12 +1,12 @@
-# 📋 TODO & Architectural Roadmap
+# 📋 Exploration Notes & Future Experiments
 
-This document outlines planned features, architectural milestones, and subsystem expansions for `win32-svelte`.
+> ⚠️ **Disclaimer:** This document tracks experimental ideas, technical sketches, and prototype notes for the `win32-svelte` sandbox. None of these items represent a committed product roadmap.
 
 ---
 
-## 💾 Client-Side Storage & Offline-First Subsystems (Zero-Backend)
+## 💾 Client-Side Storage & Offline Subsystems (Zero-Backend)
 
-A tremendous amount of authentic OS functionality can be achieved entirely in-browser using standard **`localStorage`**, **`IndexedDB`**, and the modern **Origin Private File System (OPFS)**. This gives `win32-svelte` persistent, offline-capable storage with zero server requirements.
+Several retro OS-style interactions can be explored directly in-browser using standard **`localStorage`**, **`IndexedDB`**, and the modern **Origin Private File System (OPFS)**. This gives the `win32-svelte` sandbox persistent client-side storage without requiring a server backend.
 
 ```mermaid
 flowchart TD
@@ -83,9 +83,9 @@ flowchart TD
 
 ---
 
-## ☁️ Remote Subsystems & Containerized Backend Architecture (Hybrid Mode)
+## ☁️ Remote Subsystems & Containerized Backend (Concept Exploration)
 
-Integrate a lightweight remote container (Docker / Linux daemon) communicating with the browser frontend via **REST** and **WebSockets** to elevate `win32-svelte` from an in-memory GUI sandbox to a persistent, networked cloud workstation.
+Conceptual thoughts on how a lightweight remote container (Docker / Linux daemon) could communicate with the browser frontend via **REST** and **WebSockets** for experimenting with remote file systems or hybrid process execution.
 
 ```mermaid
 flowchart TD
@@ -357,8 +357,8 @@ flowchart TD
 
 ### 14. Lua 5.3 Scripting Engine & Command Center
 - [x] **Lua 5.3 Embedded VM & Win32 Bindings**:
-  - Full Lua 5.3 virtual machine integrated via Fengari engine (`src/win32/lua_engine.ts`).
-  - Complete `win32` table exposed to Lua: `win32.MessageBox`, `win32.PlaySound`, `win32.CreateWindow`, `win32.CreateButton`, `win32.CreateEdit`, `win32.CreateStatic`, `win32.SetWindowText`, `win32.GetWindowText`, `win32.ShowWindow`, `win32.SendMessage`, `win32.PostMessage`, `win32.DefWindowProc`.
+  - Embedded Lua 5.3 virtual machine integrated via `fengari-web` (`src/win32/lua_engine.ts`).
+  - Experimental `win32` table exposed to Lua: `win32.MessageBox`, `win32.PlaySound`, `win32.CreateWindow`, `win32.CreateButton`, `win32.CreateEdit`, `win32.CreateStatic`, `win32.SetWindowText`, `win32.GetWindowText`, `win32.ShowWindow`, `win32.SendMessage`, `win32.PostMessage`, `win32.DefWindowProc`.
   - Custom window class registration (`win32.RegisterClass`) and window procedure dispatch (`WndProc(hwnd, msg, wp, lp)`) executed directly in Lua callbacks.
   - GDI graphics drawing from Lua: `win32.BeginPaint`, `win32.EndPaint`, `win32.Rectangle`, `win32.Ellipse`, `win32.Line`, `win32.TextOut`.
   - VFS integration: `win32.ReadFile`, `win32.WriteFile`, and direct `.lua` file association in Windows Explorer.
