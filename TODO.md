@@ -66,6 +66,20 @@ flowchart TD
   - Print Preview: Interactive `StartPrintPreview` SDI window with page navigation, zoom in/out, and direct print trigger.
   - Full application wiring into Notepad (`File -> Print...`, `Print Preview`) and GDI Paint (`File -> Print...`, `Print Preview`).
 
+### 4. Client-Side Web Audio Sound Synthesizer (`winmm.dll` & Web Audio API)
+- [x] **Procedural Retro Sound Synthesis (`src/win32/audio.ts`)**:
+  - Pure client-side Web Audio API synthesizer with zero external `.wav` files or assets.
+  - Authentic procedural synthesis for Windows 98 sound schemes:
+    - Critical Stop / Error (`playChord`): Minor-major chord cluster (A3, C4, E4, A4).
+    - Exclamation / Warning (`playDing`): Resonant sine sweep (880 Hz to 1320 Hz).
+    - Asterisk / Information (`playChime`): Ascending glockenspiel arpeggio (C5, E5, G5, C6).
+    - Startup / Victory Fanfare (`playTada`): Multi-oscillator brass fanfare synth.
+    - Minesweeper Explosion (`playExplosion`): Filtered white noise burst with sub-bass frequency ramp.
+    - Button Click (`playClick`): High-frequency transient pulse.
+- [x] **Win32 Message & System Integration**:
+  - `MessageBeep(uType)` dispatcher hooked into `MessageBox` dialogs and desktop event triggers.
+  - Global audio mute/unmute state toggle integrated into the Desktop HUD panel.
+
 
 ---
 
@@ -215,11 +229,19 @@ flowchart TD
 
 ## 🪟 GUI, Common Controls & Architecture Enhancements
 
-### 7. Common Controls 32 (`COMCTL32`) Roadmap
-- [x] `SysTreeView32` (`WC_TREEVIEW`): Hierarchical tree nodes, expand/collapse, dotted lines, selection.
-- [x] `SysListView32` (`WC_LISTVIEW`): Report/details mode, sticky column headers, row selection.
-- [x] `SysTabControl32` (`WC_TABCONTROL`): Tabbed property sheet strips with selection switching.
-- [x] `msctls_statusbar32` (`STATUSCLASSNAME`): Multi-field recessed status bar panels.
+### 7. Common Controls 32 (`COMCTL32`) & Standard Controls
+- [x] `SysTreeView32` (`WC_TREEVIEW`): Hierarchical tree nodes, expand/collapse, dotted lines, selection, and `TVN_SELCHANGED` event routing.
+- [x] `SysListView32` (`WC_LISTVIEW`): Report/details mode, sticky column headers, row selection, column insertion/deletion (`LVM_INSERTCOLUMN`, `LVM_DELETECOLUMN`), item insertion (`LVM_INSERTITEM`, `LVM_SETITEMTEXT`), and `LVN_ITEMCHANGED`.
+- [x] `SysTabControl32` (`WC_TABCONTROL`): Tabbed property sheet strips with selection switching (`TCM_INSERTITEM`, `TCM_SETCURSEL`, `TCM_GETCURSEL`, `TCN_SELCHANGE`).
+- [x] `msctls_statusbar32` (`STATUSCLASSNAME`): Multi-field recessed status bar panels (`SB_SETPARTS`, `SB_SETTEXT`).
+- [x] `msctls_progress32` (`PROGRESS_CLASS`): Step, range, and position tracking (`PBM_SETPOS`, `PBM_SETRANGE`, `PBM_STEPIT`, `PBM_GETPOS`).
+- [x] `msctls_trackbar32` (`TRACKBAR_CLASS`): Slider/trackbar controls with range limits and value scrubbing (`TBM_SETPOS`, `TBM_SETRANGE`, `TBM_GETPOS`, `WM_HSCROLL`).
+- [x] `SysLink` (`WC_LINK`): Interactive hyperlink control with URL anchor navigation and `ShellExecute` dispatching.
+- [x] **Standard Win32 Controls**:
+  - `BUTTON`: Push buttons, default push buttons (`BS_DEFPUSHBUTTON`), checkboxes (`BS_AUTOCHECKBOX`), radio buttons (`BS_AUTORADIOBUTTON`), group boxes (`BS_GROUPBOX`), check states (`BM_GETCHECK`, `BM_SETCHECK`).
+  - `EDIT`: Single-line and multiline (`ES_MULTILINE`), text selection (`EM_SETSEL`), line count (`EM_GETLINECOUNT`), text setting/retrieval (`WM_SETTEXT`, `WM_GETTEXT`).
+  - `STATIC`: Static text labels, horizontal etched separator rules (`SS_ETCHEDHORZ`), and icons (`SS_ICON`).
+  - `COMBOBOX`: Dropdown select lists (`CBS_DROPDOWN`, `CB_ADDSTRING`, `CB_SETCURSEL`, `CB_GETCURSEL`, `CB_GETLBTEXT`, `CBN_SELCHANGE`).
 - [ ] **Image Lists (`HIMAGELIST`)**:
   - Support for `ImageList_Create`, `ImageList_Add`, and binding icons to ListView and TreeView nodes.
 - [ ] **ListView Column Reordering & Sorting**:
@@ -229,11 +251,13 @@ flowchart TD
 
 ---
 
-### 8. Drag & Drop and Clipboard Subsystems
+### 8. Drag & Drop, Shell & Clipboard Subsystems
 - [x] **Shell Drag & Drop (`shell32.dll`)**:
   - `DragAcceptFiles`, `WM_DROPFILES`, `DragQueryFile`, `DragQueryPoint`, `DragFinish`.
   - Host OS file dropping into Notepad and Explorer.
   - In-app dragging from Explorer to Notepad and Recycle Bin.
+- [x] **Shell API & Execution (`shell32.dll`)**:
+  - `ShellExecute(hwnd, lpOperation, lpFile, lpParameters, lpDirectory, nShowCmd)` for web hyperlink navigation and external URL dispatching (`SE_ERR_SUCCESS`).
 - [ ] **System Clipboard (`user32.dll`)**:
   - `OpenClipboard(hwnd)`, `EmptyClipboard()`, `SetClipboardData(uFormat, hMem)`, `GetClipboardData(uFormat)`, `CloseClipboard()`.
   - Bridge to browser `navigator.clipboard` API for text and images.
@@ -283,9 +307,50 @@ flowchart TD
 
 ---
 
-### 11. WebAssembly & C Compilation Target
-- [ ] **C Header Bridge (`windows.h`)**:
-  - Create a lightweight `windows.h` header for Emscripten / Clang that compiles native C Win32 code directly to WebAssembly and links against this JavaScript/Svelte kernel!
+### 11. Developer Diagnostics & HWND Tree Inspector
+- [x] **Live HWND Component Tree Inspector (`StartHwndInspector`)**:
+  - Real-time window handle table inspector dynamically enumerating all top-level and child `HWND`s.
+  - Visualized as a hierarchical tree via `SysTreeView32` with automatic periodic polling and state change detection.
+  - Inspects window classes, parent-child relations, titles, edit values, coordinates, and visibility flags.
+- [x] **Desktop Shell & Window Manager**:
+  - Interactive desktop icons (My Computer, Explorer, Minesweeper, Paint, Notepad, Calculator, MFC Scribble, RC Compiler, Recycle Bin).
+  - Drag-and-drop file recycling into Recycle Bin with warning/error sound feedback.
+  - Taskbar with active window buttons, minimize/restore toggling, Start button, and live digital clock in system tray.
+  - Top-right Debug HUD for instant application launching, sound toggling, and diagnostics.
+
+---
+
+### 12. WebAssembly & C Compilation Target
+- [x] **C Header Bridge (`windows.h`) & WASM Runtime**:
+  - Lightweight C Win32 headers (`include/windows.h`, `include/windef.h`, `include/winuser.h`, `include/wingdi.h`, `include/winbase.h`).
+  - Targetable via Clang/Zig (`zig build-exe -target wasm32-freestanding`).
+  - Function pointer and callback table bridge connecting WASM `__indirect_function_table` to JavaScript `WndProc` handlers.
+  - Bridge runtime (`src/win32/wasm_bridge.ts`) providing User32 (`RegisterClassEx`, `CreateWindowEx`, `ShowWindow`, `DefWindowProc`, `SendMessage`, `PostMessage`, `MessageBox`, `SetWindowText`, `GetWindowText`) and GDI32 (`BeginPaint`, `EndPaint`, `Rectangle`, `Ellipse`, `TextOut`, `CreateSolidBrush`, `CreatePen`, `SelectObject`).
+  - Sample native C application (`src/wasm/sample_app.c`) demonstrating buttons, state counter, GDI drawing, and message box popups.
+  - Desktop integration with `WASM C App` desktop icon and Debug HUD quick-launcher.
 - [ ] **Native C Transpilation**:
   - Pipeline to take TypeScript `win32-svelte` applications and emit clean C99 code targetable by GCC or MSVC.
+
+---
+
+### 13. Classic Gaming & WASM DOOM (`DOOM95.EXE`)
+- [ ] **WASM DOOM Engine Integration**:
+  - Integrate a WebAssembly DOOM engine (e.g., `wasm-doom` / `doomgeneric-wasm` / Emscripten build of Chocolate Doom/Doom95) running client-side at 60 FPS without external servers.
+  - Implement a dedicated window class (`"DOOM_WNDCLASS"`) and `WndProc` lifecycle (`WM_CREATE`, `WM_DESTROY`, `WM_PAINT`).
+- [ ] **GDI & Canvas Framebuffer Pipeline**:
+  - Route the 320×200 / 640×400 software rendering framebuffer (`Uint8ClampedArray` / `ImageData`) directly to the window's registered canvas `HDC` via `StretchDIBits` / `putImageData`.
+  - Support authentic aspect-ratio correction, scaling modes, and fullscreen toggling (`WS_MAXIMIZE` / Alt+Enter).
+- [ ] **Win32 Message & Input Routing**:
+  - Intercept and translate Win32 keyboard events (`WM_KEYDOWN`, `WM_KEYUP`, virtual keycodes `VK_UP`, `VK_DOWN`, `VK_LEFT`, `VK_RIGHT`, `VK_CONTROL`, `VK_SPACE`, etc.) into DOOM's input event queue.
+  - Handle `WM_SETFOCUS` and `WM_KILLFOCUS` to automatically pause and resume gameplay when switching windows.
+  - Optional mouse capture support (`SetCapture` / `ReleaseCapture` and `WM_MOUSEMOVE` for classic freelook/turning).
+- [ ] **VFS & WAD Game Data Integration**:
+  - Load the shareware `DOOM1.WAD` from the persistent OPFS virtual filesystem (`C:\GAMES\DOOM\DOOM1.WAD`).
+  - Persist game saves (`DOOMSAV0.DSG` through `DOOMSAV5.DSG`) directly to OPFS so saves survive page reloads and can be inspected via Windows Explorer.
+  - Support drag-and-drop custom `.WAD` files onto the DOOM window via `WM_DROPFILES`.
+- [ ] **Audio & Sound Blaster Synthesis**:
+  - Route DOOM's digital sound effects and OPL2/OPL3 AdLib / MIDI music to the Web Audio subsystem (`src/win32/audio.ts`).
+- [ ] **Desktop & Shell Integration**:
+  - Add a classic Doom desktop icon and Start Menu entry (`Start -> Programs -> Games -> DOOM`).
+
 

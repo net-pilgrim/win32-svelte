@@ -12,6 +12,7 @@
   import { StartRcDemo } from "./samples/rc_demo.ts";
   import { StartOdbcAdmin } from "./samples/odbc_admin";
   import { StartISQL } from "./samples/isql";
+  import { StartWasmApp } from "./samples/wasm_app";
   import { kernel, audio } from "./win32/kernel.svelte";
 
   import { StartHwndInspector } from "./samples/hwnd_inspector";
@@ -27,6 +28,7 @@
     // Launch default windows on startup
     StartMinesweeper(110, 40);
     StartPaintDemo(350, 40);
+    StartWasmApp(260, 90);
   });
 </script>
 
@@ -64,6 +66,9 @@
     </button>
     <button onclick={() => StartISQL(Math.floor(Math.random() * 150 + 120), Math.floor(Math.random() * 150 + 80))}>
       + ISQL Query
+    </button>
+    <button onclick={() => StartWasmApp(Math.floor(Math.random() * 150 + 80), Math.floor(Math.random() * 150 + 60))}>
+      + WASM App
     </button>
 
     <button onclick={toggleSound}>

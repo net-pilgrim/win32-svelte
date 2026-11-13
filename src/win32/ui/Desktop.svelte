@@ -14,6 +14,7 @@
   import { StartExplorer } from "../../samples/explorer";
   import { StartMfcDemo } from "../../samples/mfc_demo";
   import { StartRcDemo } from "../../samples/rc_demo.ts";
+  import { StartWasmApp } from "../../samples/wasm_app";
 
   let topWindows = $derived(kernel.windows.filter((w) => w.parentHwnd === null));
 
@@ -96,6 +97,14 @@
       x: 106,
       y: 96,
       action: () => StartRcDemo(240, 90),
+    },
+    {
+      id: "wasm_app",
+      title: "WASM C App",
+      icon: "⚡",
+      x: 106,
+      y: 176,
+      action: () => StartWasmApp(260, 110),
     },
     {
       id: "recycle",
