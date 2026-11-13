@@ -9,79 +9,92 @@
         "id": "explorer",
         "label": "Windows Explorer",
         "icon": "🗂️",
-        "action": "explorer"
+        "action": "explorer",
+        "params": { "x": 160, "y": 70 }
       },
       {
         "id": "wasm_app",
         "label": "WASM C Application",
         "icon": "⚡",
-        "action": "wasm"
+        "action": "wasm",
+        "params": { "x": 260, "y": 110 }
       },
       {
         "id": "lua_host",
         "label": "Lua 5.3 Command Center",
         "icon": "🌙",
-        "action": "lua"
+        "action": "lua",
+        "params": { "x": 220, "y": 70 }
       },
       {
         "id": "doom",
         "label": "DOOM 95",
         "icon": "💀",
-        "action": "doom"
+        "action": "doom",
+        "params": { "x": 100, "y": 50 }
       },
       {
         "id": "minesweeper",
         "label": "Minesweeper",
         "icon": "💣",
-        "action": "minesweeper"
+        "action": "minesweeper",
+        "params": { "x": 120, "y": 80 }
       },
       {
         "id": "paint",
         "label": "GDI Paint",
         "icon": "🎨",
-        "action": "paint"
+        "action": "paint",
+        "params": { "x": 240, "y": 100 }
       },
       {
         "id": "notepad",
         "label": "Notepad",
         "icon": "📝",
-        "action": "notepad"
+        "action": "notepad",
+        "params": { "x": 320, "y": 70 }
       },
       {
         "id": "calculator",
         "label": "Calculator",
         "icon": "🔢",
-        "action": "calculator"
+        "action": "calculator",
+        "params": { "x": 380, "y": 90 }
       },
       {
         "id": "mfc",
         "label": "MFC Scribble",
         "icon": "📐",
-        "action": "mfc"
+        "action": "mfc",
+        "params": { "x": 220, "y": 80 }
       },
       {
         "id": "rc",
         "label": "RC Compiler Demo",
         "icon": "📦",
-        "action": "rc"
+        "action": "rc",
+        "params": { "x": 240, "y": 90 }
       },
       {
         "id": "odbc",
         "label": "ODBC Administrator",
         "icon": "🗄️",
-        "action": "odbc"
+        "action": "odbc",
+        "params": { "x": 180, "y": 80 }
       },
       {
         "id": "isql",
         "label": "ISQL Query Tool",
         "icon": "🔍",
-        "action": "isql"
+        "action": "isql",
+        "params": { "x": 200, "y": 90 }
       },
       {
         "id": "control_gallery",
         "label": "Control Gallery",
         "icon": "🎛️",
-        "action": "control_gallery"
+        "action": "control_gallery",
+        "params": { "x": 180, "y": 50 }
       }
     ]
   },
@@ -96,42 +109,66 @@
         "label": "sample_app.c",
         "icon": "📄",
         "action": "notepad",
-        "args": [360, 80, "C:\\wasm_application\\sample_app.c"]
+        "params": {
+          "x": 360,
+          "y": 80,
+          "path": "C:\\wasm_application\\sample_app.c"
+        }
       },
       {
         "id": "doc_windows_h",
         "label": "windows.h",
         "icon": "📋",
         "action": "notepad",
-        "args": [420, 110, "C:\\wasm_application\\windows.h"]
+        "params": {
+          "x": 420,
+          "y": 110,
+          "path": "C:\\wasm_application\\windows.h"
+        }
       },
       {
         "id": "doc_welcome",
         "label": "Welcome.txt",
         "icon": "📝",
         "action": "notepad",
-        "args": [300, 70, "C:\\My Documents\\Welcome.txt"]
+        "params": {
+          "x": 300,
+          "y": 70,
+          "path": "C:\\My Documents\\Welcome.txt"
+        }
       },
       {
         "id": "doc_hello_lua",
         "label": "hello.lua",
         "icon": "🌙",
         "action": "lua",
-        "args": [240, 80, "C:\\lua\\hello.lua"]
+        "params": {
+          "x": 240,
+          "y": 80,
+          "path": "C:\\lua\\hello.lua"
+        }
       },
       {
         "id": "doc_gui_lua",
         "label": "gui_demo.lua",
         "icon": "🌙",
         "action": "lua",
-        "args": [250, 90, "C:\\lua\\gui_demo.lua"]
+        "params": {
+          "x": 250,
+          "y": 90,
+          "path": "C:\\lua\\gui_demo.lua"
+        }
       },
       {
         "id": "doc_doom_readme",
         "label": "DOOM README.TXT",
         "icon": "💀",
         "action": "notepad",
-        "args": [320, 80, "C:\\GAMES\\DOOM\\README.TXT"]
+        "params": {
+          "x": 320,
+          "y": 80,
+          "path": "C:\\GAMES\\DOOM\\README.TXT"
+        }
       }
     ]
   },
@@ -145,19 +182,22 @@
         "id": "audio_toggle",
         "label": "Audio",
         "icon": "🔊",
-        "action": "toggle_sound"
+        "action": "toggle_sound",
+        "params": {}
       },
       {
         "id": "hwnd_inspector",
         "label": "HWND Tree Inspector",
         "icon": "🪟",
-        "action": "inspector"
+        "action": "inspector",
+        "params": {}
       },
       {
         "id": "control_panel",
         "label": "Control Panel",
         "icon": "💻",
-        "action": "control_gallery"
+        "action": "control_gallery",
+        "params": { "x": 180, "y": 50 }
       }
     ]
   },
@@ -169,35 +209,40 @@
     "label": "Windows Explorer",
     "mnemonic": "E",
     "icon": "🗂️",
-    "action": "explorer"
+    "action": "explorer",
+    "params": { "x": 160, "y": 70 }
   },
   {
     "id": "quick_wasm",
     "label": "WASM C Application",
     "mnemonic": "W",
     "icon": "⚡",
-    "action": "wasm"
+    "action": "wasm",
+    "params": { "x": 260, "y": 110 }
   },
   {
     "id": "quick_lua",
     "label": "Lua 5.3 Host",
     "mnemonic": "L",
     "icon": "🌙",
-    "action": "lua"
+    "action": "lua",
+    "params": { "x": 220, "y": 70 }
   },
   {
     "id": "quick_doom",
     "label": "DOOM 95",
     "mnemonic": "D",
     "icon": "💀",
-    "action": "doom"
+    "action": "doom",
+    "params": { "x": 100, "y": 50 }
   },
   {
     "id": "quick_inspector",
     "label": "Inspect HWNDs",
     "mnemonic": "I",
     "icon": "🪟",
-    "action": "inspector"
+    "action": "inspector",
+    "params": {}
   },
   {
     "type": "divider"
@@ -207,6 +252,7 @@
     "label": "Shut Down...",
     "mnemonic": "U",
     "icon": "🔌",
-    "action": "shutdown"
+    "action": "shutdown",
+    "params": {}
   }
 ]

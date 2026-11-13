@@ -25,6 +25,7 @@
     icon?: string;
     type?: string;
     action?: string;
+    params?: Record<string, any>;
     args?: any[];
     items?: MenuItem[];
   }
@@ -70,24 +71,24 @@
     });
   }
 
-  const actionHandlers: Record<string, (...args: any[]) => any> = {
-    explorer: (x = 160, y = 70) => StartExplorer(x, y),
-    wasm: (x = 260, y = 110, path?: string) => StartWasmApp(x, y, path),
-    lua: (x = 220, y = 70, path?: string) => {
-      import("../../samples/lua_host").then(({ StartLuaHost }) => StartLuaHost(x, y, path));
+  const actionHandlers: Record<string, (params: Record<string, any>) => any> = {
+    explorer: (p) => StartExplorer(p.x, p.y),
+    wasm: (p) => StartWasmApp(p.x, p.y, p.path),
+    lua: (p) => {
+      import("../../samples/lua_host").then(({ StartLuaHost }) => StartLuaHost(p.x, p.y, p.path));
     },
-    doom: (x = 100, y = 50) => {
-      import("../../samples/doom").then(({ StartDoom }) => StartDoom(x, y));
+    doom: (p) => {
+      import("../../samples/doom").then(({ StartDoom }) => StartDoom(p.x, p.y));
     },
-    minesweeper: (x = 120, y = 80) => StartMinesweeper(x, y),
-    paint: (x = 240, y = 100) => StartPaintDemo(x, y),
-    notepad: (x = 320, y = 70, path?: string) => StartNotepad(x, y, path),
-    calculator: (x = 380, y = 90) => StartCalculator(x, y),
-    mfc: (x = 220, y = 80) => StartMfcDemo(x, y),
-    rc: (x = 240, y = 90) => StartRcDemo(x, y),
-    odbc: (x = 180, y = 80) => StartOdbcAdmin(x, y),
-    isql: (x = 200, y = 90) => StartISQL(x, y),
-    control_gallery: (x = 180, y = 50) => StartControlGallery(x, y),
+    minesweeper: (p) => StartMinesweeper(p.x, p.y),
+    paint: (p) => StartPaintDemo(p.x, p.y),
+    notepad: (p) => StartNotepad(p.x, p.y, p.path),
+    calculator: (p) => StartCalculator(p.x, p.y),
+    mfc: (p) => StartMfcDemo(p.x, p.y),
+    rc: (p) => StartRcDemo(p.x, p.y),
+    odbc: (p) => StartOdbcAdmin(p.x, p.y),
+    isql: (p) => StartISQL(p.x, p.y),
+    control_gallery: (p) => StartControlGallery(p.x, p.y),
     inspector: () => StartHwndInspector(),
     toggle_sound: () => onToggleSound(),
     shutdown: () => handleShutDown(),
@@ -98,7 +99,7 @@
     executeAction(() => {
       const handler = actionHandlers[item.action!];
       if (handler) {
-        handler(...(item.args || []));
+        handler(item.params ?? {});
       } else {
         console.warn(`Unknown start menu action: ${item.action}`);
       }
