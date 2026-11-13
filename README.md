@@ -27,6 +27,7 @@ Instead of abstracting the web, `win32-svelte` implements:
 - An asynchronous message loop pump (`GetMessage`, `TranslateMessage`, `DispatchMessage`).
 - Classic standard controls (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`).
 - A canvas-based GDI subsystem (`BeginPaint`, `MoveToEx`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`, `CreateSolidBrush`, `SelectObject`).
+- **Native C WebAssembly Execution**: Compile real ISO C99 Win32 code targeting `<windows.h>` into standalone `.wasm` binaries and run them directly in the browser!
 - Synthesized Windows 98 system sound effects (Chord, Ding, Chime, Tada) using the Web Audio API—no external `.wav` files needed!
 - The authentic look and feel of Windows 98 via [98.css](https://jdan.github.io/98.css/).
 
@@ -64,7 +65,9 @@ Open your browser at `http://localhost:5173` (or the URL displayed in your termi
 | `npm run build` | `vite build` | Compiles the project to production-ready static assets in `dist/` |
 | `npm run preview` | `vite preview` | Previews the built production app locally |
 | `npm run check` | `svelte-check ... && tsc ...` | Typechecks Svelte components and TypeScript code |
+| `npm test` | `tsx src/win32/__tests__/...` | Runs test suites (VFS, Print Spooler, ODBC, WASM Bridge, RC Compiler) |
 | `npm run rc` | `tsx src/rc/cli.ts` | Compiles Win32 `.rc` resource scripts to TypeScript/JSON |
+| `npm run build:wasm` | `tsx src/wasm/embed_wasm.ts` | Compiles C sample app to freestanding `.wasm` with Zig/Clang |
 
 ### 🌐 Deploying to Vercel
 
@@ -193,7 +196,15 @@ A pure object-oriented C++ simulation layer mirroring classic MFC:
 - **`CDC` & `CPaintDC`**: Device context wrappers providing clean object-oriented GDI drawing (`MoveTo`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`).
 - **Control Wrappers**: `CButton`, `CEdit`, `CStatic`, `CComboBox`, `CProgressCtrl`, `CSliderCtrl`, `CTreeCtrl`, `CListCtrl`.
 
-### 5. Svelte 5 UI Bridge (`src/win32/ui/`)
+### 5. C WebAssembly Bridge & SDK (`include/` and `src/win32/wasm_bridge.ts`)
+Run native C Win32 code directly in the browser:
+- **Modular C Headers (`include/`)**: Self-contained [`windows.h`](include/windows.h), [`windef.h`](include/windef.h), [`winuser.h`](include/winuser.h), [`wingdi.h`](include/wingdi.h), and [`winbase.h`](include/winbase.h).
+- **Freestanding Compilation**: Works with standard Zig (`zig cc`) or Clang targeting `wasm32-freestanding`—no bloated POSIX or libc shims required.
+- **Function Pointer Callbacks**: Window procedures (`WndProc`) are exported via `__indirect_function_table`, allowing the TypeScript kernel to dispatch Win32 messages (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`) straight into compiled C code.
+- **Direct VFS Execution**: Read and execute arbitrary `.wasm` binaries directly from the virtual filesystem (`vfs.readBinaryFile`), via Windows Explorer double-click, or via host OS drag-and-drop.
+- Complete step-by-step tutorial available in [howto-wasm.md](howto-wasm.md).
+
+### 6. Svelte 5 UI Bridge (`src/win32/ui/`)
 - **[Desktop.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Desktop.svelte)**: Manages desktop background, icons, running window taskbar entries, system time, and modal overlays.
 - **[Window.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Window.svelte)**: Renders the active/inactive window frame, title bar controls, handles dragging/resizing, and mounts `<canvas>` for GDI windows.
 - **[Control.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Control.svelte)**: Maps child `HWND`s to DOM elements based on window style bitmasks (`BS_AUTOCHECKBOX`, `BS_AUTORADIOBUTTON`, `ES_MULTILINE`, `CBS_DROPDOWN`, etc.).
@@ -204,10 +215,11 @@ A pure object-oriented C++ simulation layer mirroring classic MFC:
 
 ## 🕹️ Sample Applications
 
-The project includes seven complete sample applications:
+The project includes eight complete sample applications:
 
 | App | File | Features Demonstrated |
 |---|---|---|
+| **WASM C99 Native App** | [`src/wasm/sample_app.c`](src/wasm/sample_app.c) & [`src/samples/wasm_app.ts`](src/samples/wasm_app.ts) | Real **ISO C99 Win32** code compiled to WebAssembly via Zig/Clang! Exports `WinMain`, registers window classes, handles `WM_CREATE`, `WM_COMMAND`, and `WM_PAINT` through C function pointers, manipulates Win32 child controls, and calls `ShellExecute`. Located in `C:\wasm_application` inside Windows Explorer. (See [howto-wasm.md](howto-wasm.md)). |
 | **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | Object-oriented **MFC** architecture! `CWinApp` lifecycle, `CFrameWnd` frame, `createMessageMap()` command routing, `CPaintDC` GDI rendering, `CButton` and `CProgressCtrl` child controls, and modal `CDialog::doModal()`. |
 | **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | The flagship **`comctl32`** showcase! Left-pane `SysTreeView32` folder hierarchy, right-pane `SysListView32` in report/details mode with multi-column sorting & selection, two-part `msctls_statusbar32`, cascading menu commands, and `WM_NOTIFY` (`TVN_SELCHANGED`, `LVN_ITEMCHANGED`) event routing. |
 | **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | 81 child button controls, right-click `BN_RIGHTCLICK` flagging, `SetTimer` game clock, custom 7-segment LED numbers, reset smiley button, win/loss fanfare sound. |
@@ -344,10 +356,11 @@ END
   - MFC `CDialog` integration: `new CDialog(IDD_ABOUTBOX, pParent, resources)`.
 - **Outcome**: Take unmodified 1990s Windows dialog and menu scripts and compile them straight into web GUI components without writing any HTML/CSS!
 
-### 2. Transpilation & Compilation Target (C to WebAssembly)
+### 2. Transpilation & Compilation Target (C to WebAssembly) — *Now Live!*
 - **Compiling Real Win32 C Code to Web**:
-  - By writing a thin C header layer (`windows.h`) with Clang/Emscripten, legacy C Win32 applications could compile to WebAssembly and import their `user32.dll` and `gdi32.dll` symbols directly from this Svelte kernel.
-  - Imagine compiling historical shareware, utilities, or classic demo code directly to modern web apps!
+  - `win32-svelte` now includes complete freestanding `<windows.h>` C headers and an indirect table message dispatcher.
+  - Compile real C code using `zig cc` or `clang` directly to WebAssembly (`wasm32-freestanding`) and run it in the browser!
+  - Step-by-step compilation walkthrough: **[howto-wasm.md](howto-wasm.md)**.
 - **Transpiling Back to Native C**:
   - Since the TypeScript API strictly mirrors Win32 naming and calling conventions, a source-to-source transpiler or LLM-assisted pipeline could transpile TypeScript `win32-svelte` applications into ISO C99 targeting Microsoft Visual C++ or MinGW GCC to produce native `.exe` binaries.
 
