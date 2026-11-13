@@ -28,7 +28,7 @@ async function runTests() {
     throw new Error(`Failed to read Welcome.txt, got: ${welcome}`);
   }
 
-  const sampleC = await testVfs.readTextFile("C:\\My Documents\\sample_app.c");
+  const sampleC = await testVfs.readTextFile("C:\\wasm_application\\sample_app.c");
   if (!sampleC.includes("windows.h")) {
     throw new Error(`Failed to read sample_app.c, got: ${sampleC}`);
   }
@@ -38,8 +38,8 @@ async function runTests() {
   console.log("Test 2: getDirectoryEntries for C:\\...");
   const cEntries = await testVfs.getDirectoryEntries("C:\\");
   const names = cEntries.map((e) => e.name);
-  if (!names.includes("My Documents") || !names.includes("INCLUDE")) {
-    throw new Error(`Expected My Documents and INCLUDE in C:\\, got: ${names.join(", ")}`);
+  if (!names.includes("My Documents") || !names.includes("wasm_application") || !names.includes("INCLUDE")) {
+    throw new Error(`Expected My Documents, wasm_application, and INCLUDE in C:\\, got: ${names.join(", ")}`);
   }
   console.log(`✓ C:\\ entries: ${names.join(", ")}`);
 

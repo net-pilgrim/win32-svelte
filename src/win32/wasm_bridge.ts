@@ -248,11 +248,11 @@ export class Win32WasmRuntime {
         ) => {
           const file = this.readCString(lpFile);
           if (file === "sample_app.c" || file.endsWith("sample_app.c")) {
-            StartNotepad(480, 70, "C:\\My Documents\\sample_app.c");
+            StartNotepad(480, 70, "C:\\wasm_application\\sample_app.c");
             return 32;
           }
           if (file === "windows.h" || file.endsWith("windows.h")) {
-            StartNotepad(510, 100, "C:\\My Documents\\windows.h");
+            StartNotepad(510, 100, "C:\\wasm_application\\windows.h");
             return 32;
           }
           if (file.startsWith("http://") || file.startsWith("https://")) {

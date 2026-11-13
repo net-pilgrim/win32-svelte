@@ -70,10 +70,10 @@
     <button onclick={() => StartWasmApp(Math.floor(Math.random() * 150 + 80), Math.floor(Math.random() * 150 + 60))}>
       + WASM App
     </button>
-    <button onclick={() => StartNotepad(360, 80, "C:\\My Documents\\sample_app.c")}>
+    <button onclick={() => StartNotepad(360, 80, "C:\\wasm_application\\sample_app.c")}>
       + sample_app.c
     </button>
-    <button onclick={() => StartNotepad(420, 110, "C:\\My Documents\\windows.h")}>
+    <button onclick={() => StartNotepad(420, 110, "C:\\wasm_application\\windows.h")}>
       + windows.h
     </button>
 

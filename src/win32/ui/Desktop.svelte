@@ -112,7 +112,7 @@
       icon: "📄",
       x: 106,
       y: 256,
-      action: () => StartNotepad(360, 80, "C:\\My Documents\\sample_app.c"),
+      action: () => StartNotepad(360, 80, "C:\\wasm_application\\sample_app.c"),
     },
     {
       id: "windows_h",
@@ -120,7 +120,7 @@
       icon: "📋",
       x: 106,
       y: 336,
-      action: () => StartNotepad(420, 110, "C:\\My Documents\\windows.h"),
+      action: () => StartNotepad(420, 110, "C:\\wasm_application\\windows.h"),
     },
     {
       id: "recycle",

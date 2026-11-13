@@ -26,6 +26,7 @@ import {
   WINUSER_H_SOURCE,
   WINGDI_H_SOURCE,
   WINBASE_H_SOURCE,
+  getSampleAppWasmBytes,
 } from "../wasm/sample_app_wasm";
 
 // --- OPFS In-Memory Shim for Node.js / Fallback Environments ---
@@ -323,8 +324,8 @@ export class Win32VFS {
         "• Full drag-and-drop file import from your real host computer\r\n" +
         "• File export/download back to your desktop\r\n" +
         "• Live reactive updates in Windows Explorer\r\n",
-      "C:\\My Documents\\sample_app.c": SAMPLE_APP_C_SOURCE,
-      "C:\\My Documents\\windows.h": WINDOWS_H_SOURCE,
+      "C:\\wasm_application\\sample_app.c": SAMPLE_APP_C_SOURCE,
+      "C:\\wasm_application\\windows.h": WINDOWS_H_SOURCE,
       "C:\\INCLUDE\\windows.h": WINDOWS_H_SOURCE,
       "C:\\INCLUDE\\windef.h": WINDEF_H_SOURCE,
       "C:\\INCLUDE\\winuser.h": WINUSER_H_SOURCE,
@@ -334,6 +335,7 @@ export class Win32VFS {
 
     const defaultDirs = [
       "C:\\My Documents",
+      "C:\\wasm_application",
       "C:\\INCLUDE",
       "C:\\Recycle Bin",
     ];
@@ -343,10 +345,13 @@ export class Win32VFS {
       await this.CreateDirectory(dir);
     }
 
-    // Write files
+    // Write text files
     for (const [filePath, content] of Object.entries(defaultFiles)) {
       await this.writeTextFile(filePath, content);
     }
+
+    // Write WASM application binary
+    await this.writeBinaryFile("C:\\wasm_application\\sample_app.wasm", getSampleAppWasmBytes());
   }
 
   // --- Win32 File APIs (kernel32.dll) ---

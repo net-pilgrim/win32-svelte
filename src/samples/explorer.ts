@@ -62,6 +62,7 @@ import { StartCalculator } from "./calculator";
 import { StartMinesweeper } from "./minesweeper";
 import { StartOdbcAdmin } from "./odbc_admin";
 import { StartISQL } from "./isql";
+import { StartWasmApp } from "./wasm_app";
 
 
 // Control IDs
@@ -96,6 +97,7 @@ const FOLDER_PATH_MAP: Record<string, string> = {
   root: "C:\\",
   drive_a: "A:\\",
   drive_c: "C:\\",
+  wasm_app: "C:\\wasm_application",
   my_docs: "C:\\My Documents",
   include: "C:\\INCLUDE",
   recycle: "C:\\Recycle Bin",
@@ -193,6 +195,7 @@ function ExplorerWndProc(
                 icon: "💽",
                 expanded: true,
                 children: [
+                  { id: "wasm_app", text: "wasm_application", icon: "📁" },
                   { id: "my_docs", text: "My Documents", icon: "📁" },
                   { id: "include", text: "INCLUDE", icon: "📁" },
                   { id: "recycle", text: "Recycle Bin", icon: "🗑️" },
@@ -375,6 +378,8 @@ function ExplorerWndProc(
 
               MessageBox(hwnd, `Executed virtual application: ${name}`, "Windows Explorer", MB_OK);
             }
+          } else if (ext === "WASM") {
+            StartWasmApp(260, 90);
           } else {
             // Open in Notepad
             StartNotepad(220, 80, targetPath);
