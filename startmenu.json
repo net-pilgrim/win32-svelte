@@ -1,0 +1,212 @@
+[
+  {
+    "id": "programs",
+    "label": "Programs",
+    "mnemonic": "P",
+    "icon": "📁",
+    "items": [
+      {
+        "id": "explorer",
+        "label": "Windows Explorer",
+        "icon": "🗂️",
+        "action": "explorer"
+      },
+      {
+        "id": "wasm_app",
+        "label": "WASM C Application",
+        "icon": "⚡",
+        "action": "wasm"
+      },
+      {
+        "id": "lua_host",
+        "label": "Lua 5.3 Command Center",
+        "icon": "🌙",
+        "action": "lua"
+      },
+      {
+        "id": "doom",
+        "label": "DOOM 95",
+        "icon": "💀",
+        "action": "doom"
+      },
+      {
+        "id": "minesweeper",
+        "label": "Minesweeper",
+        "icon": "💣",
+        "action": "minesweeper"
+      },
+      {
+        "id": "paint",
+        "label": "GDI Paint",
+        "icon": "🎨",
+        "action": "paint"
+      },
+      {
+        "id": "notepad",
+        "label": "Notepad",
+        "icon": "📝",
+        "action": "notepad"
+      },
+      {
+        "id": "calculator",
+        "label": "Calculator",
+        "icon": "🔢",
+        "action": "calculator"
+      },
+      {
+        "id": "mfc",
+        "label": "MFC Scribble",
+        "icon": "📐",
+        "action": "mfc"
+      },
+      {
+        "id": "rc",
+        "label": "RC Compiler Demo",
+        "icon": "📦",
+        "action": "rc"
+      },
+      {
+        "id": "odbc",
+        "label": "ODBC Administrator",
+        "icon": "🗄️",
+        "action": "odbc"
+      },
+      {
+        "id": "isql",
+        "label": "ISQL Query Tool",
+        "icon": "🔍",
+        "action": "isql"
+      },
+      {
+        "id": "control_gallery",
+        "label": "Control Gallery",
+        "icon": "🎛️",
+        "action": "control_gallery"
+      }
+    ]
+  },
+  {
+    "id": "documents",
+    "label": "Documents",
+    "mnemonic": "D",
+    "icon": "📄",
+    "items": [
+      {
+        "id": "doc_sample_c",
+        "label": "sample_app.c",
+        "icon": "📄",
+        "action": "notepad",
+        "args": [360, 80, "C:\\wasm_application\\sample_app.c"]
+      },
+      {
+        "id": "doc_windows_h",
+        "label": "windows.h",
+        "icon": "📋",
+        "action": "notepad",
+        "args": [420, 110, "C:\\wasm_application\\windows.h"]
+      },
+      {
+        "id": "doc_welcome",
+        "label": "Welcome.txt",
+        "icon": "📝",
+        "action": "notepad",
+        "args": [300, 70, "C:\\My Documents\\Welcome.txt"]
+      },
+      {
+        "id": "doc_hello_lua",
+        "label": "hello.lua",
+        "icon": "🌙",
+        "action": "lua",
+        "args": [240, 80, "C:\\lua\\hello.lua"]
+      },
+      {
+        "id": "doc_gui_lua",
+        "label": "gui_demo.lua",
+        "icon": "🌙",
+        "action": "lua",
+        "args": [250, 90, "C:\\lua\\gui_demo.lua"]
+      },
+      {
+        "id": "doc_doom_readme",
+        "label": "DOOM README.TXT",
+        "icon": "💀",
+        "action": "notepad",
+        "args": [320, 80, "C:\\GAMES\\DOOM\\README.TXT"]
+      }
+    ]
+  },
+  {
+    "id": "settings",
+    "label": "Settings",
+    "mnemonic": "S",
+    "icon": "⚙️",
+    "items": [
+      {
+        "id": "audio_toggle",
+        "label": "Audio",
+        "icon": "🔊",
+        "action": "toggle_sound"
+      },
+      {
+        "id": "hwnd_inspector",
+        "label": "HWND Tree Inspector",
+        "icon": "🪟",
+        "action": "inspector"
+      },
+      {
+        "id": "control_panel",
+        "label": "Control Panel",
+        "icon": "💻",
+        "action": "control_gallery"
+      }
+    ]
+  },
+  {
+    "type": "divider"
+  },
+  {
+    "id": "quick_explorer",
+    "label": "Windows Explorer",
+    "mnemonic": "E",
+    "icon": "🗂️",
+    "action": "explorer"
+  },
+  {
+    "id": "quick_wasm",
+    "label": "WASM C Application",
+    "mnemonic": "W",
+    "icon": "⚡",
+    "action": "wasm"
+  },
+  {
+    "id": "quick_lua",
+    "label": "Lua 5.3 Host",
+    "mnemonic": "L",
+    "icon": "🌙",
+    "action": "lua"
+  },
+  {
+    "id": "quick_doom",
+    "label": "DOOM 95",
+    "mnemonic": "D",
+    "icon": "💀",
+    "action": "doom"
+  },
+  {
+    "id": "quick_inspector",
+    "label": "Inspect HWNDs",
+    "mnemonic": "I",
+    "icon": "🪟",
+    "action": "inspector"
+  },
+  {
+    "type": "divider"
+  },
+  {
+    "id": "shutdown",
+    "label": "Shut Down...",
+    "mnemonic": "U",
+    "icon": "🔌",
+    "action": "shutdown"
+  }
+]

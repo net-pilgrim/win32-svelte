@@ -3,6 +3,8 @@
   import { MessageBox } from "../kernel.svelte";
   import { MB_OK } from "../constants";
   import { audio } from "../audio";
+  import menuData from "../../../startmenu.json";
+
   import { StartMinesweeper } from "../../samples/minesweeper";
   import { StartCalculator } from "../../samples/calculator";
   import { StartNotepad } from "../../samples/notepad";
@@ -15,16 +17,16 @@
   import { StartOdbcAdmin } from "../../samples/odbc_admin";
   import { StartISQL } from "../../samples/isql";
   import { StartHwndInspector } from "../../samples/hwnd_inspector";
-  function launchLuaHost(x?: number, y?: number, scriptPath?: string) {
-    import("../../samples/lua_host").then(({ StartLuaHost }) => {
-      StartLuaHost(x, y, scriptPath);
-    });
-  }
 
-  function launchDoom(x = 100, y = 50) {
-    import("../../samples/doom").then(({ StartDoom }) => {
-      StartDoom(x, y);
-    });
+  interface MenuItem {
+    id?: string;
+    label?: string;
+    mnemonic?: string;
+    icon?: string;
+    type?: string;
+    action?: string;
+    args?: any[];
+    items?: MenuItem[];
   }
 
   interface Props {
@@ -39,6 +41,8 @@
   let activeSubmenu = $state<string | null>(null);
   let menuContainerEl = $state<HTMLElement | null>(null);
 
+  const menuItems: MenuItem[] = menuData as MenuItem[];
+
   function executeAction(fn: () => void) {
     audio.playClick();
     onClose();
@@ -46,8 +50,8 @@
     fn();
   }
 
-  function handleSubmenuHover(name: string) {
-    activeSubmenu = name;
+  function handleSubmenuHover(name?: string) {
+    activeSubmenu = name ?? null;
   }
 
   function handleSubmenuLeave() {
@@ -66,6 +70,49 @@
     });
   }
 
+  const actionHandlers: Record<string, (...args: any[]) => any> = {
+    explorer: (x = 160, y = 70) => StartExplorer(x, y),
+    wasm: (x = 260, y = 110, path?: string) => StartWasmApp(x, y, path),
+    lua: (x = 220, y = 70, path?: string) => {
+      import("../../samples/lua_host").then(({ StartLuaHost }) => StartLuaHost(x, y, path));
+    },
+    doom: (x = 100, y = 50) => {
+      import("../../samples/doom").then(({ StartDoom }) => StartDoom(x, y));
+    },
+    minesweeper: (x = 120, y = 80) => StartMinesweeper(x, y),
+    paint: (x = 240, y = 100) => StartPaintDemo(x, y),
+    notepad: (x = 320, y = 70, path?: string) => StartNotepad(x, y, path),
+    calculator: (x = 380, y = 90) => StartCalculator(x, y),
+    mfc: (x = 220, y = 80) => StartMfcDemo(x, y),
+    rc: (x = 240, y = 90) => StartRcDemo(x, y),
+    odbc: (x = 180, y = 80) => StartOdbcAdmin(x, y),
+    isql: (x = 200, y = 90) => StartISQL(x, y),
+    control_gallery: (x = 180, y = 50) => StartControlGallery(x, y),
+    inspector: () => StartHwndInspector(),
+    toggle_sound: () => onToggleSound(),
+    shutdown: () => handleShutDown(),
+  };
+
+  function handleItemClick(item: MenuItem) {
+    if (!item.action) return;
+    executeAction(() => {
+      const handler = actionHandlers[item.action!];
+      if (handler) {
+        handler(...(item.args || []));
+      } else {
+        console.warn(`Unknown start menu action: ${item.action}`);
+      }
+    });
+  }
+
+  function formatMnemonic(label?: string, mnemonic?: string): string {
+    if (!label) return "";
+    if (!mnemonic) return label;
+    const idx = label.toLowerCase().indexOf(mnemonic.toLowerCase());
+    if (idx === -1) return label;
+    return `${label.slice(0, idx)}<u>${label[idx]}</u>${label.slice(idx + 1)}`;
+  }
+
   onMount(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -76,7 +123,6 @@
 
     const handlePointerDown = (e: PointerEvent) => {
       if (isOpen && menuContainerEl && !menuContainerEl.contains(e.target as Node)) {
-        // Check if click was on the start button itself (handled by parent)
         const target = e.target as HTMLElement;
         if (target.closest(".start-button")) return;
         onClose();
@@ -102,199 +148,57 @@
 
     <!-- Main Menu Column -->
     <div class="start-items">
-      <!-- Programs Item with Flyout Submenu -->
-      <div
-        class="start-parent-item {activeSubmenu === 'programs' ? 'active' : ''}"
-        onmouseenter={() => handleSubmenuHover("programs")}
-        role="menuitem"
-        tabindex="-1"
-      >
-        <span class="item-icon">📁</span>
-        <span class="item-label"><u>P</u>rograms</span>
-        <span class="item-arrow">▶</span>
+      {#each menuItems as item}
+        {#if item.type === "divider"}
+          <div class="start-divider"></div>
+        {:else if item.items && item.items.length > 0}
+          <!-- Parent item with flyout submenu -->
+          <div
+            class="start-parent-item {activeSubmenu === item.id ? 'active' : ''}"
+            onmouseenter={() => handleSubmenuHover(item.id)}
+            role="menuitem"
+            tabindex="-1"
+          >
+            <span class="item-icon">{item.icon}</span>
+            <span class="item-label">{@html formatMnemonic(item.label, item.mnemonic)}</span>
+            <span class="item-arrow">▶</span>
 
-        {#if activeSubmenu === "programs"}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="start-submenu" role="menu" tabindex="-1" onmouseleave={handleSubmenuLeave}>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartExplorer(160, 70))}>
-              <span class="item-icon">🗂️</span>
-              <span class="item-label">Windows Explorer</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartWasmApp(260, 110))}>
-              <span class="item-icon">⚡</span>
-              <span class="item-label">WASM C Application</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => launchLuaHost(220, 70))}>
-              <span class="item-icon">🌙</span>
-              <span class="item-label">Lua 5.3 Command Center</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => launchDoom(100, 50))}>
-              <span class="item-icon">💀</span>
-              <span class="item-label">DOOM 95</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartMinesweeper(120, 80))}>
-              <span class="item-icon">💣</span>
-              <span class="item-label">Minesweeper</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartPaintDemo(240, 100))}>
-              <span class="item-icon">🎨</span>
-              <span class="item-label">GDI Paint</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartNotepad(320, 70))}>
-              <span class="item-icon">📝</span>
-              <span class="item-label">Notepad</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartCalculator(380, 90))}>
-              <span class="item-icon">🔢</span>
-              <span class="item-label">Calculator</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartMfcDemo(220, 80))}>
-              <span class="item-icon">📐</span>
-              <span class="item-label">MFC Scribble</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartRcDemo(240, 90))}>
-              <span class="item-icon">📦</span>
-              <span class="item-label">RC Compiler Demo</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartOdbcAdmin(180, 80))}>
-              <span class="item-icon">🗄️</span>
-              <span class="item-label">ODBC Administrator</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartISQL(200, 90))}>
-              <span class="item-icon">🔍</span>
-              <span class="item-label">ISQL Query Tool</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartControlGallery(180, 50))}>
-              <span class="item-icon">🎛️</span>
-              <span class="item-label">Control Gallery</span>
-            </button>
+            {#if activeSubmenu === item.id}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="start-submenu" role="menu" tabindex="-1" onmouseleave={handleSubmenuLeave}>
+                {#each item.items as subItem}
+                  {#if subItem.type === "divider"}
+                    <div class="start-divider"></div>
+                  {:else}
+                    <button
+                      type="button"
+                      class="submenu-item"
+                      onclick={() => handleItemClick(subItem)}
+                    >
+                      <span class="item-icon">
+                        {subItem.id === "audio_toggle" ? (soundEnabled ? "🔊" : "🔇") : subItem.icon}
+                      </span>
+                      <span class="item-label">
+                        {subItem.id === "audio_toggle" ? `Audio: ${soundEnabled ? "Enabled" : "Muted"}` : subItem.label}
+                      </span>
+                    </button>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
           </div>
+        {:else}
+          <!-- Direct action button -->
+          <button
+            type="button"
+            class="start-item"
+            onclick={() => handleItemClick(item)}
+          >
+            <span class="item-icon">{item.icon}</span>
+            <span class="item-label">{@html formatMnemonic(item.label, item.mnemonic)}</span>
+          </button>
         {/if}
-      </div>
-
-      <!-- Documents Item with Flyout Submenu -->
-      <div
-        class="start-parent-item {activeSubmenu === 'documents' ? 'active' : ''}"
-        onmouseenter={() => handleSubmenuHover("documents")}
-        role="menuitem"
-        tabindex="-1"
-      >
-        <span class="item-icon">📄</span>
-        <span class="item-label"><u>D</u>ocuments</span>
-        <span class="item-arrow">▶</span>
-
-        {#if activeSubmenu === "documents"}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="start-submenu" role="menu" tabindex="-1" onmouseleave={handleSubmenuLeave}>
-            <button
-              type="button"
-              class="submenu-item"
-              onclick={() => executeAction(() => StartNotepad(360, 80, "C:\\wasm_application\\sample_app.c"))}
-            >
-              <span class="item-icon">📄</span>
-              <span class="item-label">sample_app.c</span>
-            </button>
-            <button
-              type="button"
-              class="submenu-item"
-              onclick={() => executeAction(() => StartNotepad(420, 110, "C:\\wasm_application\\windows.h"))}
-            >
-              <span class="item-icon">📋</span>
-              <span class="item-label">windows.h</span>
-            </button>
-            <button
-              type="button"
-              class="submenu-item"
-              onclick={() => executeAction(() => StartNotepad(300, 70, "C:\\My Documents\\Welcome.txt"))}
-            >
-              <span class="item-icon">📝</span>
-              <span class="item-label">Welcome.txt</span>
-            </button>
-            <button
-              type="button"
-              class="submenu-item"
-              onclick={() => executeAction(() => launchLuaHost(240, 80, "C:\\lua\\hello.lua"))}
-            >
-              <span class="item-icon">🌙</span>
-              <span class="item-label">hello.lua</span>
-            </button>
-            <button
-              type="button"
-              class="submenu-item"
-              onclick={() => executeAction(() => launchLuaHost(250, 90, "C:\\lua\\gui_demo.lua"))}
-            >
-              <span class="item-icon">🌙</span>
-              <span class="item-label">gui_demo.lua</span>
-            </button>
-          </div>
-        {/if}
-      </div>
-
-      <!-- Settings / Tools Submenu -->
-      <div
-        class="start-parent-item {activeSubmenu === 'settings' ? 'active' : ''}"
-        onmouseenter={() => handleSubmenuHover("settings")}
-        role="menuitem"
-        tabindex="-1"
-      >
-        <span class="item-icon">⚙️</span>
-        <span class="item-label"><u>S</u>ettings</span>
-        <span class="item-arrow">▶</span>
-
-        {#if activeSubmenu === "settings"}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="start-submenu" role="menu" tabindex="-1" onmouseleave={handleSubmenuLeave}>
-            <button type="button" class="submenu-item" onclick={onToggleSound}>
-              <span class="item-icon">{soundEnabled ? "🔊" : "🔇"}</span>
-              <span class="item-label">Audio: {soundEnabled ? "Enabled" : "Muted"}</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartHwndInspector())}>
-              <span class="item-icon">🪟</span>
-              <span class="item-label">HWND Tree Inspector</span>
-            </button>
-            <button type="button" class="submenu-item" onclick={() => executeAction(() => StartControlGallery(180, 50))}>
-              <span class="item-icon">💻</span>
-              <span class="item-label">Control Panel</span>
-            </button>
-          </div>
-        {/if}
-      </div>
-
-      <div class="start-divider"></div>
-
-      <!-- Direct Quick Launchers -->
-      <button type="button" class="start-item" onclick={() => executeAction(() => StartExplorer(160, 70))}>
-        <span class="item-icon">🗂️</span>
-        <span class="item-label">Windows <u>E</u>xplorer</span>
-      </button>
-
-      <button type="button" class="start-item" onclick={() => executeAction(() => StartWasmApp(260, 110))}>
-        <span class="item-icon">⚡</span>
-        <span class="item-label"><u>W</u>ASM C Application</span>
-      </button>
-
-      <button type="button" class="start-item" onclick={() => executeAction(() => launchLuaHost(220, 70))}>
-        <span class="item-icon">🌙</span>
-        <span class="item-label"><u>L</u>ua 5.3 Host</span>
-      </button>
-
-      <button type="button" class="start-item" onclick={() => executeAction(() => launchDoom(100, 50))}>
-        <span class="item-icon">💀</span>
-        <span class="item-label"><u>D</u>OOM 95</span>
-      </button>
-
-      <button type="button" class="start-item" onclick={() => executeAction(() => StartHwndInspector())}>
-        <span class="item-icon">🪟</span>
-        <span class="item-label"><u>I</u>nspect HWNDs</span>
-      </button>
-
-      <div class="start-divider"></div>
-
-      <!-- Shut Down Option -->
-      <button type="button" class="start-item" onclick={handleShutDown}>
-        <span class="item-icon">🔌</span>
-        <span class="item-label"><u>S</u>hut Down...</span>
-      </button>
+      {/each}
     </div>
   </div>
 {/if}
@@ -303,88 +207,94 @@
   .start-menu-container {
     position: absolute;
     bottom: 30px;
-    left: 0;
-    z-index: 100000;
+    left: 2px;
     display: flex;
+    z-index: 99999;
+    box-sizing: border-box;
+    min-width: 200px;
     background: #c0c0c0;
-    box-shadow:
-      inset -1px -1px #0a0a0a,
-      inset 1px 1px #dfdfdf,
-      inset -2px -2px grey,
-      inset 2px 2px #fff,
-      3px 3px 10px rgba(0, 0, 0, 0.4);
-    padding: 2px;
-    font-family: "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, Arial, sans-serif;
+    border-top: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    border-right: 2px solid #000000;
+    border-bottom: 2px solid #000000;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
     user-select: none;
+    font-family: "Pixelated MS Sans Serif", Arial, sans-serif;
   }
 
+  /* Authentic Windows 98 Vertical Gradient Banner */
   .start-sidebar {
-    width: 25px;
+    width: 26px;
     background: linear-gradient(180deg, #000080 0%, #1084d0 100%);
     display: flex;
     align-items: flex-end;
-    justify-content: center;
     padding-bottom: 8px;
-    margin-right: 2px;
+    justify-content: center;
   }
 
   .sidebar-text {
-    color: #c0c0c0;
-    font-weight: normal;
-    font-size: 13px;
-    letter-spacing: 1px;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
+    transform: rotate(-90deg);
+    transform-origin: center center;
     white-space: nowrap;
+    color: #ffffff;
+    font-size: 15px;
+    letter-spacing: 1px;
+    font-weight: 500;
+    margin-bottom: 24px;
+    text-shadow: 1px 1px 1px #000000;
   }
 
   .sidebar-text strong {
-    color: #ffffff;
     font-weight: bold;
+    color: #ffffff;
   }
 
   .start-items {
-    width: 175px;
+    flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 1px 0;
+    padding: 2px;
+    background: #c0c0c0;
+    position: relative;
   }
 
+  .start-item,
   .start-parent-item,
-  .start-item {
-    position: relative;
+  .submenu-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 8px;
-    font-size: 11px;
-    color: #000;
-    cursor: default;
-    border: 1px solid transparent;
-    background: transparent;
-    box-shadow: none;
-    font-family: inherit;
     width: 100%;
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
     text-align: left;
-    border-radius: 0;
-    min-height: unset;
-    min-width: unset;
-    margin: 0;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: default;
+    color: #000000;
+    box-sizing: border-box;
   }
 
+  .start-parent-item {
+    position: relative;
+    cursor: default;
+  }
+
+  .start-item:hover,
   .start-parent-item:hover,
   .start-parent-item.active,
-  .start-item:hover {
+  .submenu-item:hover {
     background: #000080;
     color: #ffffff;
   }
 
   .item-icon {
-    width: 18px;
-    font-size: 14px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 20px;
+    font-size: 14px;
+    margin-right: 8px;
   }
 
   .item-label {
@@ -394,57 +304,37 @@
 
   .item-arrow {
     font-size: 9px;
-    color: inherit;
-    margin-left: auto;
+    margin-left: 12px;
+    color: #404040;
+  }
+
+  .start-parent-item:hover .item-arrow,
+  .start-parent-item.active .item-arrow {
+    color: #ffffff;
   }
 
   .start-divider {
-    height: 0px;
+    height: 0;
     border-top: 1px solid #808080;
     border-bottom: 1px solid #ffffff;
     margin: 3px 2px;
   }
 
+  /* Flyout Submenu */
   .start-submenu {
     position: absolute;
     left: 100%;
     top: -2px;
-    min-width: 195px;
-    background: #c0c0c0;
-    box-shadow:
-      inset -1px -1px #0a0a0a,
-      inset 1px 1px #dfdfdf,
-      inset -2px -2px grey,
-      inset 2px 2px #fff,
-      3px 3px 8px rgba(0, 0, 0, 0.4);
-    padding: 2px;
     display: flex;
     flex-direction: column;
-    z-index: 100001;
-  }
-
-  .submenu-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    font-size: 11px;
-    color: #000;
-    cursor: default;
-    border: 1px solid transparent;
-    background: transparent;
-    box-shadow: none;
-    font-family: inherit;
-    width: 100%;
-    text-align: left;
-    border-radius: 0;
-    min-height: unset;
-    min-width: unset;
-    margin: 0;
-  }
-
-  .submenu-item:hover {
-    background: #000080;
-    color: #ffffff;
+    min-width: 180px;
+    background: #c0c0c0;
+    border-top: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    border-right: 2px solid #000000;
+    border-bottom: 2px solid #000000;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+    padding: 2px;
+    z-index: 100000;
   }
 </style>
