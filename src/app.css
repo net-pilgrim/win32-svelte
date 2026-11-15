@@ -7,11 +7,21 @@ html, body, #app {
   height: 100%;
   overflow: hidden;
   user-select: none;
-  font-family: "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, Arial, sans-serif;
+  font-family: "MS Sans Serif", Tahoma, "Segoe UI", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Ensure smooth system typography while preserving 98.css bevels, borders, and paddings */
+button, input, textarea, select, .title-bar-text {
+  font-family: "MS Sans Serif", Tahoma, "Segoe UI", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Windows 98 Print Subsystem Stylesheet */

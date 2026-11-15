@@ -257,7 +257,7 @@
 
 {#if win.visible && !win.minimized}
   <div
-    class="window win32-window {isActive ? 'active' : 'inactive'} {isDragOver ? 'drop-target-active' : ''}"
+    class="window win32-window {isActive ? 'active' : 'inactive'} {win.maximized ? 'maximized' : ''} {isDragOver ? 'drop-target-active' : ''}"
     style={win.maximized
       ? "left: 0; top: 0; width: 100vw; height: calc(100vh - 30px); z-index: " + win.zIndex
       : `left: ${win.x}px; top: ${win.y}px; width: ${win.width}px; height: ${win.height}px; z-index: ${win.zIndex}`}
@@ -271,7 +271,7 @@
   >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="title-bar"
+      class="title-bar {isActive ? '' : 'inactive'}"
       onpointerdown={onTitleBarPointerDown}
       onpointermove={onTitleBarPointerMove}
       onpointerup={onTitleBarPointerUp}
@@ -335,7 +335,22 @@
     display: flex;
     flex-direction: column;
     user-select: none;
-    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+    padding: 3px;
+    background: silver;
+    box-shadow:
+      inset -1px -1px #0a0a0a,
+      inset 1px 1px #dfdfdf,
+      inset -2px -2px grey,
+      inset 2px 2px #fff,
+      2px 2px 6px rgba(0, 0, 0, 0.4);
+  }
+
+  .win32-window.maximized {
+    box-shadow:
+      inset -1px -1px #0a0a0a,
+      inset 1px 1px #dfdfdf,
+      inset -2px -2px grey,
+      inset 2px 2px #fff;
   }
 
   .title-bar {
@@ -362,8 +377,13 @@
     cursor: crosshair;
   }
 
-  .inactive .title-bar {
-    background: #808080 !important;
+  .inactive .title-bar,
+  .title-bar.inactive {
+    background: linear-gradient(90deg, grey, #b5b5b5) !important;
+  }
+
+  .inactive .title-bar .title-bar-text,
+  .title-bar.inactive .title-bar-text {
     color: #c0c0c0 !important;
   }
 

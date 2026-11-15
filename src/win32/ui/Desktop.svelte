@@ -335,7 +335,10 @@
     flex-direction: column;
     overflow: hidden;
     background-color: #008080;
-    font-family: "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, Arial, sans-serif;
+    font-family: "MS Sans Serif", Tahoma, "Segoe UI", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   .desktop-surface {
@@ -365,6 +368,20 @@
     font-weight: bold;
     font-size: 11px;
     cursor: default;
+    color: #000000;
+    text-shadow: none;
+    font-family: inherit;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .start-flag {
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    color: initial !important;
+    text-shadow: none !important;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   }
 
   .start-button.active {
@@ -392,11 +409,15 @@
     align-items: center;
     justify-content: center;
     font-size: 13px;
+    line-height: 1;
     background: transparent;
     border: 1px solid transparent;
     cursor: default;
     border-radius: 0;
     box-shadow: none;
+    color: initial !important;
+    text-shadow: none !important;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   }
 
   .quick-btn:hover {
@@ -414,10 +435,6 @@
       inset -2px -2px #dfdfdf,
       inset 2px 2px grey;
     background: #e0e0e0;
-  }
-
-  .start-flag {
-    font-size: 13px;
   }
 
   .taskbar-divider {
@@ -448,16 +465,26 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    color: #000000;
+    text-shadow: none;
+    font-family: inherit;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .window-icon {
+    font-size: 11px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    color: initial !important;
+    text-shadow: none !important;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   }
 
   .taskbar-item.active {
     background: #e0e0e0;
     border: 2px inset #ffffff;
     font-weight: bold;
-  }
-
-  .window-icon {
-    font-size: 11px;
   }
 
   .window-title {
@@ -491,6 +518,8 @@
     min-height: unset;
     height: 18px;
     border-radius: 0;
+    color: #000000;
+    text-shadow: none;
   }
 
   .tray-btn:hover {
@@ -503,7 +532,10 @@
 
   .clock {
     font-size: 11px;
-    color: #000;
+    color: #000000;
+    text-shadow: none;
     padding-right: 2px;
+    font-family: inherit;
+    -webkit-font-smoothing: antialiased;
   }
 </style>

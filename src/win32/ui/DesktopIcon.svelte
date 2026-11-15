@@ -131,12 +131,16 @@
     padding: 4px;
     box-sizing: border-box;
     z-index: 5;
+    font-family: "MS Sans Serif", Tahoma, "Segoe UI", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .icon-graphic {
     font-size: 32px;
     line-height: 1;
     filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.5));
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   }
 
   .icon-label {

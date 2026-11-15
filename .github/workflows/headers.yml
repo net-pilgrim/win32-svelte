@@ -1,0 +1,69 @@
+name: Win32 Headers Generation & Verification
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'src/win32/**'
+      - 'src/rc/**'
+      - 'include/**'
+      - 'scripts/**'
+      - '.github/workflows/headers.yml'
+  pull_request:
+    paths:
+      - 'src/win32/**'
+      - 'src/rc/**'
+      - 'include/**'
+      - 'scripts/**'
+      - '.github/workflows/headers.yml'
+
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Setup Zig 0.13.0
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract & Regenerate Win32 C Headers
+        run: npm run headers
+
+      - name: Verify No Drift (Check headers are up to date)
+        run: |
+          git diff --exit-code include/ public/wasm/ src/wasm/sample_app_wasm.ts || (
+            echo "::error::Generated C headers are out of sync with TypeScript definitions! Run 'npm run headers' locally and commit the updated files."
+            exit 1
+          )
+
+      - name: Compile Freestanding C WebAssembly Sample App (Smoke Test)
+        run: npm run build:wasm
+
+      - name: Run Test Suites
+        run: npm test
+
+      - name: Run Type Check
+        run: npm run check
+
+      - name: Upload Header Artifacts
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: win32-wasm-headers
+          path: |
+            public/wasm/win32-wasm-headers.tar.gz
+            public/wasm/win32-wasm-headers.zip
+            public/wasm/windows.h
+            include/*.h

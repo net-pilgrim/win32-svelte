@@ -26,6 +26,10 @@ import {
   WINUSER_H_SOURCE,
   WINGDI_H_SOURCE,
   WINBASE_H_SOURCE,
+  COMMCTRL_H_SOURCE,
+  SHELLAPI_H_SOURCE,
+  WINSPOOL_H_SOURCE,
+  SQL_H_SOURCE,
   getSampleAppWasmBytes,
 } from "../wasm/sample_app_wasm";
 
@@ -334,6 +338,10 @@ export class Win32VFS {
       "INCLUDE/winuser.h": WINUSER_H_SOURCE,
       "INCLUDE/wingdi.h": WINGDI_H_SOURCE,
       "INCLUDE/winbase.h": WINBASE_H_SOURCE,
+      "INCLUDE/commctrl.h": COMMCTRL_H_SOURCE,
+      "INCLUDE/shellapi.h": SHELLAPI_H_SOURCE,
+      "INCLUDE/winspool.h": WINSPOOL_H_SOURCE,
+      "INCLUDE/sql.h": SQL_H_SOURCE,
       "lua/hello.lua":
         'print("Hello from Lua 5.3 in win32-svelte!")\n' +
         'win32.PlaySound("Chime")\n' +

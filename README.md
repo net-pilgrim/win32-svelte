@@ -85,10 +85,26 @@ When the demo loads:
 1. **Retro Desktop Sandbox**: Simulated desktop surface with movable and resizable windows, taskbar with active tasks, Start menu, desktop icons, and system tray clock.
 2. **Preloaded Demo Apps**: Opens *Minesweeper* and *GDI Paint Demo* by default.
 3. **Start Menu & Quick Launch**:
-   - Windows 98-style **Start Menu** with *Programs* flyouts, *Documents*, *Settings*, sound toggle, and *Shut Down*.
+   - Windows 98-style **Start Menu** featuring authentic flat entries (de-beveled, no button bevels or emboss), *Programs* flyouts, *Documents*, *Settings*, sound toggle, and *Shut Down*.
+   - **Keyboard Navigation & Accessibility**: Arrow keys navigation (`Up`/`Down`), flyout submenu expand/collapse (`Right`/`Left`), selection (`Enter`), and dismissal (`Esc`).
    - **Taskbar Quick Launch Toolbar** with shortcuts for Explorer, WASM, Notepad, Paint, and Show Desktop (`🖥️`).
    - System tray clock and audio mute toggle (`🔊` / `🔇`).
    - **Inspect HWNDs**: A debugging inspector displaying the in-memory window handle table (`HWND`, parent, class, title, and visibility).
+
+#### Start Menu Theming & Props
+
+The `StartMenu` component (`src/win32/ui/StartMenu.svelte`) renders authentic flat entries by default while supporting legacy beveling and full CSS custom property theming:
+
+* **`flat` Prop (boolean, default: `true`)**: When `true`, start menu items strip 98.css button bevels (`box-shadow: none`) and render authentic flat entries with solid navy selection highlights (`#000080`). Set `flat={false}` to opt into legacy beveled button items.
+* **Theming CSS Variables**:
+  | Variable | Default | Description |
+  | :--- | :--- | :--- |
+  | `--win98-menu-bg` | `#c0c0c0` | Background color for start menu container and submenus |
+  | `--win98-menu-color` | `#000000` | Text color for idle menu entries |
+  | `--win98-highlight` | `#000080` | Background highlight for hovered/active entries |
+  | `--win98-highlight-text` | `#ffffff` | Text color for hovered/active entries |
+  | `--win98-menu-disabled` | `#808080` | Text color for disabled entries |
+  | `--win98-focus-outline` | `#000000` | Focus ring color for keyboard navigation |
 
 ---
 
