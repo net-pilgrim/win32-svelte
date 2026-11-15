@@ -939,12 +939,12 @@ function main() {
 
     // Replace exported header sources
     const replaceExport = (varName: string, source: string) => {
-      const regex = new RegExp(`export const ${varName} = [^;]+;\\n`);
-      const replacement = `export const ${varName} = ${JSON.stringify(source)};\n`;
+      const regex = new RegExp(`^export const ${varName} = .*;$`, "m");
+      const replacement = `export const ${varName} = ${JSON.stringify(source)};`;
       if (regex.test(embedContent)) {
         embedContent = embedContent.replace(regex, replacement);
       } else {
-        embedContent += replacement;
+        embedContent += replacement + "\n";
       }
     };
 
