@@ -19,6 +19,10 @@ dist-ssr
 playwright-report
 test-results
 
+# Archive packages (generated in CI as artifacts)
+*.zip
+*.tar.gz
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
