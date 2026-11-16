@@ -119,6 +119,50 @@ async function runLuaIntegrationTests() {
   if (resBad.success) throw new Error("Expected script with error to fail, but it succeeded!");
   console.log(`✓ Error captured cleanly: "${resBad.error}"`);
 
+  // Test 6: Procedural GDI Graphics (SAMPLE_GDI)
+  console.log("Test 6: Testing Lua Procedural GDI Art & Graphics...");
+  const scriptGdi = `
+    local gdiPainted = false
+    win32.RegisterClass("TestLuaGdiClass", function(hwnd, msg, wp, lp)
+      if msg == win32.WM_PAINT then
+        local hdc = win32.BeginPaint(hwnd)
+        for i = 1, 4 do
+          local pen = win32.CreatePen(0, 1, "#ff0000")
+          local brush = win32.CreateSolidBrush("#00ff00")
+          win32.SelectObject(hdc, brush)
+          win32.SelectObject(hdc, pen)
+          win32.Rectangle(hdc, 10 * i, 10 * i, 100 - i * 5, 80 - i * 5)
+          win32.Ellipse(hdc, 15 * i, 15 * i, 90 - i * 5, 70 - i * 5)
+          win32.DeleteObject(brush)
+          win32.DeleteObject(pen)
+        end
+        win32.SetTextColor(hdc, "#0000ff")
+        win32.TextOut(hdc, 20, 20, "Lua GDI Art Test")
+        win32.EndPaint(hwnd)
+        gdiPainted = true
+        print("GDI Art WM_PAINT completed successfully")
+        return 0
+      end
+      return win32.DefWindowProc(hwnd, msg, wp, lp)
+    end)
+
+    local gdiWin = win32.CreateWindow("TestLuaGdiClass", "GDI Win", 10, 10, 200, 150)
+  `;
+  const resGdi = runtime.execute(scriptGdi);
+  if (!resGdi.success) throw new Error(`Script GDI failed: ${resGdi.error}`);
+
+  const gdiWindow = kernel.windows.find((w) => w.title === "GDI Win");
+  if (!gdiWindow) throw new Error("GDI window not found in kernel!");
+  if (!gdiWindow.customProps?.hasCanvas) {
+    throw new Error("GDI window is missing hasCanvas customProp!");
+  }
+
+  SendMessage(gdiWindow.hwnd, WM_PAINT, 0, 0);
+  if (!capturedLogs.some((l) => l.includes("GDI Art WM_PAINT completed successfully"))) {
+    throw new Error("GDI Art WM_PAINT log was not produced");
+  }
+  console.log("✓ Lua Procedural GDI Art painted with brushes, pens, rectangles, ellipses and text!");
+
   runtime.dispose();
   console.log("\nALL WIN32 LUA 5.3 INTEGRATION TESTS PASSED! 🌙⚡🎉");
 }

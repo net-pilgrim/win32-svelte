@@ -118,10 +118,17 @@ win32.RegisterClass("LuaGdiClass", function(hwnd, msg, wp, lp)
     if msg == win32.WM_PAINT then
         local hdc = win32.BeginPaint(hwnd)
         for i = 1, 8 do
+            local pen = win32.CreatePen(0, 2, string.format("#%02x%02x%02x", i * 30, 255 - i * 25, (i * 45) % 255))
+            local brush = win32.CreateSolidBrush(string.format("#%02x%02x%02x", 255 - i * 28, i * 25, 200 - i * 20))
+            win32.SelectObject(hdc, brush)
+            win32.SelectObject(hdc, pen)
             win32.Rectangle(hdc, 15 + i*16, 15 + i*10, 290 - i*14, 180 - i*8)
             win32.Ellipse(hdc, 35 + i*12, 25 + i*8, 270 - i*12, 160 - i*8)
+            win32.DeleteObject(brush)
+            win32.DeleteObject(pen)
         end
-        win32.TextOut(hdc, 50, 95, "Generated Procedurally by Lua 5.3!")
+        win32.SetTextColor(hdc, "#000080")
+        win32.TextOut(hdc, 45, 95, "Generated Procedurally by Lua 5.3!")
         win32.EndPaint(hwnd)
         return 0
     end
@@ -302,16 +309,19 @@ function LuaHostWndProc(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM):
 
         case IDC_BTN_SAMPLE1: {
           SetWindowText(ctx.hEditScript, SAMPLE_HELLO);
+          runCurrentScript(ctx);
           return 0;
         }
 
         case IDC_BTN_SAMPLE2: {
           SetWindowText(ctx.hEditScript, SAMPLE_GUI);
+          runCurrentScript(ctx);
           return 0;
         }
 
         case IDC_BTN_SAMPLE3: {
           SetWindowText(ctx.hEditScript, SAMPLE_GDI);
+          runCurrentScript(ctx);
           return 0;
         }
 

@@ -25,6 +25,13 @@ import {
   LineTo,
   TextOut,
   InvalidateRect,
+  GetWindowCanvas,
+  RegisterWindowCanvas,
+  CreateSolidBrush,
+  CreatePen,
+  SelectObject,
+  SetTextColor,
+  SetBkColor,
   HDC,
   type PAINTSTRUCT,
 } from "./gdi";
@@ -70,6 +77,10 @@ export class Win32LuaRuntime {
   private registeredCallbacks: number[] = [];
   private onCommandCallbacks = new Map<number, number>(); // hwnd -> registryRef
   private wndProcCallbacks = new Map<string, number>(); // className -> registryRef
+  private nextHdcHandle = 8000;
+  private hdcMap = new Map<number, HDC>();
+  private nextGdiHandle = 9000;
+  private gdiMap = new Map<number, any>();
   public logs: LuaLogMessage[] = [];
   public onLog: ((msg: LuaLogMessage) => void) | null = null;
 
@@ -252,8 +263,16 @@ export class Win32LuaRuntime {
         parent,
         null,
         null,
-        null
+        !parent ? { hasCanvas: true } : null
       );
+
+      const win = kernel.getWindow(hwnd);
+      if (win && !parent) {
+        win.customProps = {
+          ...(win.customProps ?? {}),
+          hasCanvas: true,
+        };
+      }
 
       lua.lua_pushinteger(L, hwnd);
       return 1;
@@ -449,12 +468,13 @@ export class Win32LuaRuntime {
       lua.lua_pushvalue(L, 2);
       const ref = lauxlib.luaL_ref(L, lua.LUA_REGISTRYINDEX);
       this.registeredCallbacks.push(ref);
-      this.wndProcCallbacks.set(className, ref);
+      const upper = className.toUpperCase();
+      this.wndProcCallbacks.set(upper, ref);
 
       RegisterClassEx({
         className,
         lpfnWndProc: (h, msg, wp, lp) => {
-          const cbRef = this.wndProcCallbacks.get(className);
+          const cbRef = this.wndProcCallbacks.get(upper);
           if (cbRef !== undefined) {
             const res = this.invokeLuaCallback(cbRef, [h, msg, wp, lp]);
             if (typeof res === "number") return res;
@@ -517,55 +537,171 @@ export class Win32LuaRuntime {
     setFunction("BeginPaint", (L: any) => {
       const hwnd = lua.lua_tointeger(L, 1);
       const ps: PAINTSTRUCT = {} as any;
-      const hdc = BeginPaint(hwnd, ps);
-      lua.lua_pushinteger(L, hdc);
-      return 1;
+      try {
+        let hdc: HDC;
+        const canvas = GetWindowCanvas(hwnd);
+        if (canvas) {
+          hdc = BeginPaint(hwnd, ps);
+        } else if (typeof document !== "undefined") {
+          const fallbackCanvas = document.createElement("canvas");
+          const win = kernel.getWindow(hwnd);
+          fallbackCanvas.width = win?.width ?? 300;
+          fallbackCanvas.height = win?.height ?? 200;
+          RegisterWindowCanvas(hwnd, fallbackCanvas);
+          hdc = BeginPaint(hwnd, ps);
+        } else {
+          // Headless / mock environment
+          const dummyCanvas: any = {
+            width: 300,
+            height: 200,
+            getContext: () => ({
+              save: () => {},
+              restore: () => {},
+              strokeRect: () => {},
+              fillRect: () => {},
+              beginPath: () => {},
+              stroke: () => {},
+              fill: () => {},
+              arc: () => {},
+              ellipse: () => {},
+              moveTo: () => {},
+              lineTo: () => {},
+              fillText: () => {},
+            }),
+          };
+          hdc = new HDC(hwnd, dummyCanvas, dummyCanvas.getContext("2d"));
+        }
+        const handle = ++this.nextHdcHandle;
+        this.hdcMap.set(handle, hdc);
+        lua.lua_pushinteger(L, handle);
+        return 1;
+      } catch (err: any) {
+        this.log("stderr", `BeginPaint failed for HWND ${hwnd}: ${err?.message || err}`);
+        lua.lua_pushinteger(L, 0);
+        return 1;
+      }
     });
 
     setFunction("EndPaint", (L: any) => {
       const hwnd = lua.lua_tointeger(L, 1);
       const ps: PAINTSTRUCT = {} as any;
-      EndPaint(hwnd, ps);
+      try {
+        EndPaint(hwnd, ps);
+      } catch {}
+      for (const [handle, hdc] of this.hdcMap.entries()) {
+        if (hdc.hwnd === hwnd) {
+          this.hdcMap.delete(handle);
+        }
+      }
       return 0;
     });
 
     setFunction("Rectangle", (L: any) => {
-      const hdc = lua.lua_tointeger(L, 1);
+      const hdcHandle = lua.lua_tointeger(L, 1);
       const left = lua.lua_tointeger(L, 2);
       const top = lua.lua_tointeger(L, 3);
       const right = lua.lua_tointeger(L, 4);
       const bottom = lua.lua_tointeger(L, 5);
-      Rectangle(hdc, left, top, right, bottom);
+      const hdc = this.hdcMap.get(hdcHandle);
+      if (hdc) {
+        Rectangle(hdc, left, top, right, bottom);
+      }
       return 0;
     });
 
     setFunction("Ellipse", (L: any) => {
-      const hdc = lua.lua_tointeger(L, 1);
+      const hdcHandle = lua.lua_tointeger(L, 1);
       const left = lua.lua_tointeger(L, 2);
       const top = lua.lua_tointeger(L, 3);
       const right = lua.lua_tointeger(L, 4);
       const bottom = lua.lua_tointeger(L, 5);
-      Ellipse(hdc, left, top, right, bottom);
+      const hdc = this.hdcMap.get(hdcHandle);
+      if (hdc) {
+        Ellipse(hdc, left, top, right, bottom);
+      }
       return 0;
     });
 
     setFunction("Line", (L: any) => {
-      const hdc = lua.lua_tointeger(L, 1);
+      const hdcHandle = lua.lua_tointeger(L, 1);
       const x1 = lua.lua_tointeger(L, 2);
       const y1 = lua.lua_tointeger(L, 3);
       const x2 = lua.lua_tointeger(L, 4);
       const y2 = lua.lua_tointeger(L, 5);
-      MoveToEx(hdc, x1, y1);
-      LineTo(hdc, x2, y2);
+      const hdc = this.hdcMap.get(hdcHandle);
+      if (hdc) {
+        MoveToEx(hdc, x1, y1);
+        LineTo(hdc, x2, y2);
+      }
       return 0;
     });
 
     setFunction("TextOut", (L: any) => {
-      const hdc = lua.lua_tointeger(L, 1);
+      const hdcHandle = lua.lua_tointeger(L, 1);
       const x = lua.lua_tointeger(L, 2);
       const y = lua.lua_tointeger(L, 3);
       const text = fengari.to_jsstring(lua.lua_tolstring(L, 4, null));
-      TextOut(hdc, x, y, text);
+      const hdc = this.hdcMap.get(hdcHandle);
+      if (hdc) {
+        TextOut(hdc, x, y, text);
+      }
+      return 0;
+    });
+
+    setFunction("SetTextColor", (L: any) => {
+      const hdcHandle = lua.lua_tointeger(L, 1);
+      const color = fengari.to_jsstring(lua.lua_tolstring(L, 2, null));
+      const hdc = this.hdcMap.get(hdcHandle);
+      if (hdc && color) {
+        SetTextColor(hdc, color);
+      }
+      return 0;
+    });
+
+    setFunction("SetBkColor", (L: any) => {
+      const hdcHandle = lua.lua_tointeger(L, 1);
+      const color = fengari.to_jsstring(lua.lua_tolstring(L, 2, null));
+      const hdc = this.hdcMap.get(hdcHandle);
+      if (hdc && color) {
+        SetBkColor(hdc, color);
+      }
+      return 0;
+    });
+
+    setFunction("CreateSolidBrush", (L: any) => {
+      const color = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      const brush = CreateSolidBrush(color || "#ffffff");
+      const handle = ++this.nextGdiHandle;
+      this.gdiMap.set(handle, brush);
+      lua.lua_pushinteger(L, handle);
+      return 1;
+    });
+
+    setFunction("CreatePen", (L: any) => {
+      const style = lua.lua_tointeger(L, 1);
+      const width = lua.lua_tointeger(L, 2) || 1;
+      const color = fengari.to_jsstring(lua.lua_tolstring(L, 3, null));
+      const pen = CreatePen(style, width, color || "#000000");
+      const handle = ++this.nextGdiHandle;
+      this.gdiMap.set(handle, pen);
+      lua.lua_pushinteger(L, handle);
+      return 1;
+    });
+
+    setFunction("SelectObject", (L: any) => {
+      const hdcHandle = lua.lua_tointeger(L, 1);
+      const objHandle = lua.lua_tointeger(L, 2);
+      const hdc = this.hdcMap.get(hdcHandle);
+      const obj = this.gdiMap.get(objHandle);
+      if (hdc && obj) {
+        SelectObject(hdc, obj);
+      }
+      return 0;
+    });
+
+    setFunction("DeleteObject", (L: any) => {
+      const objHandle = lua.lua_tointeger(L, 1);
+      this.gdiMap.delete(objHandle);
       return 0;
     });
 
@@ -637,6 +773,8 @@ export class Win32LuaRuntime {
       this.registeredCallbacks = [];
       this.onCommandCallbacks.clear();
       this.wndProcCallbacks.clear();
+      this.hdcMap.clear();
+      this.gdiMap.clear();
       lua.lua_close(this.L);
       this.L = null;
     }

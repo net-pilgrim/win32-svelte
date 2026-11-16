@@ -76,15 +76,17 @@ export function MoveToEx(hdc: HDC, x: number, y: number, lpPoint?: POINT): boole
 }
 
 export function LineTo(hdc: HDC, x: number, y: number): boolean {
-  const ctx = hdc.ctx;
-  ctx.save();
-  ctx.strokeStyle = hdc.currentPen.color;
-  ctx.lineWidth = hdc.currentPen.width;
-  ctx.beginPath();
-  ctx.moveTo(hdc.currentPoint.x, hdc.currentPoint.y);
-  ctx.lineTo(x, y);
-  ctx.stroke();
-  ctx.restore();
+  const ctx = hdc?.ctx;
+  if (ctx) {
+    ctx.save();
+    ctx.strokeStyle = hdc.currentPen.color;
+    ctx.lineWidth = hdc.currentPen.width;
+    ctx.beginPath();
+    ctx.moveTo(hdc.currentPoint.x, hdc.currentPoint.y);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   hdc.currentPoint.x = x;
   hdc.currentPoint.y = y;
@@ -98,7 +100,8 @@ export function Rectangle(
   right: number,
   bottom: number
 ): boolean {
-  const ctx = hdc.ctx;
+  const ctx = hdc?.ctx;
+  if (!ctx) return false;
   const w = right - left;
   const h = bottom - top;
 
@@ -122,7 +125,8 @@ export function Ellipse(
   right: number,
   bottom: number
 ): boolean {
-  const ctx = hdc.ctx;
+  const ctx = hdc?.ctx;
+  if (!ctx) return false;
   const rx = Math.abs(right - left) / 2;
   const ry = Math.abs(bottom - top) / 2;
   const cx = left + rx;
@@ -130,7 +134,11 @@ export function Ellipse(
 
   ctx.save();
   ctx.beginPath();
-  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  if (typeof ctx.ellipse === "function") {
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  } else if (typeof ctx.arc === "function") {
+    ctx.arc(cx, cy, Math.max(rx, ry), 0, Math.PI * 2);
+  }
   ctx.fillStyle = hdc.currentBrush.color;
   ctx.fill();
 
@@ -144,7 +152,8 @@ export function Ellipse(
 }
 
 export function TextOut(hdc: HDC, x: number, y: number, text: string): boolean {
-  const ctx = hdc.ctx;
+  const ctx = hdc?.ctx;
+  if (!ctx) return false;
   ctx.save();
   ctx.font = '12px "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, sans-serif';
   ctx.fillStyle = hdc.textColor;
@@ -189,7 +198,8 @@ export function SelectObject(hdc: HDC, hGdiObj: HGDIOBJ): HGDIOBJ {
 }
 
 export function FillRect(hdc: HDC, rc: RECT, hbr: HBRUSH): boolean {
-  const ctx = hdc.ctx;
+  const ctx = hdc?.ctx;
+  if (!ctx) return false;
   ctx.save();
   ctx.fillStyle = hbr.color;
   ctx.fillRect(rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top);
