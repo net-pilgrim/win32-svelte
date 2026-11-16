@@ -98,6 +98,9 @@ HGDIOBJ WINAPI SelectObject(HDC hdc, HGDIOBJ h);
 WIN32_IMPORT("DeleteObject")
 BOOL WINAPI DeleteObject(HGDIOBJ ho);
 
+WIN32_IMPORT("FillRect")
+int WINAPI FillRect(HDC hdc, const RECT *lprc, HBRUSH hbr);
+
 #define TextOut TextOutA
 
 #ifdef __cplusplus

@@ -315,6 +315,9 @@ HGDIOBJ WINAPI SelectObject(HDC hdc, HGDIOBJ h);
 WIN32_IMPORT("DeleteObject")
 BOOL WINAPI DeleteObject(HGDIOBJ ho);
 
+WIN32_IMPORT("FillRect")
+int WINAPI FillRect(HDC hdc, const RECT *lprc, HBRUSH hbr);
+
 #define TextOut TextOutA
 
 #ifdef __cplusplus
@@ -631,9 +634,29 @@ typedef struct tagMSG {
 #define MF_MENUBREAK               0x00000040
 #define MF_MENUBARBREAK            0x00000020
 
+// DrawText Format Flags (DT_*)
+#define DT_TOP                     0x00000000
+#define DT_LEFT                    0x00000000
+#define DT_CENTER                  0x00000001
+#define DT_RIGHT                   0x00000002
+#define DT_VCENTER                 0x00000004
+#define DT_BOTTOM                  0x00000008
+#define DT_WORDBREAK               0x00000010
+#define DT_SINGLELINE              0x00000020
+#define DT_EXPANDTABS              0x00000040
+#define DT_TABSTOP                 0x00000080
+#define DT_NOCLIP                  0x00000100
+#define DT_EXTERNALLEADING         0x00000200
+#define DT_CALCRECT                0x00000400
+#define DT_NOPREFIX                0x00000800
+#define DT_INTERNAL                0x00001000
+
 // User32 Import Functions
 WIN32_IMPORT("MessageBoxA")
 int WINAPI MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
+
+WIN32_IMPORT("MessageBeep")
+BOOL WINAPI MessageBeep(UINT uType);
 
 WIN32_IMPORT("RegisterClassExA")
 ATOM WINAPI RegisterClassExA(const WNDCLASSEXA *lpwcx);
@@ -678,6 +701,12 @@ BOOL WINAPI SetWindowTextA(HWND hWnd, LPCSTR lpString);
 WIN32_IMPORT("GetWindowTextA")
 int WINAPI GetWindowTextA(HWND hWnd, LPSTR lpString, int nMaxCount);
 
+WIN32_IMPORT("GetClientRect")
+BOOL WINAPI GetClientRect(HWND hWnd, LPRECT lpRect);
+
+WIN32_IMPORT("DrawTextA")
+int WINAPI DrawTextA(HDC hdc, LPCSTR lpchText, int cchText, LPRECT lprc, UINT format);
+
 WIN32_IMPORT("InvalidateRect")
 BOOL WINAPI InvalidateRect(HWND hWnd, const RECT *lpRect, BOOL bErase);
 
@@ -699,6 +728,7 @@ HINSTANCE WINAPI ShellExecuteA(HWND hWnd, LPCSTR lpOperation, LPCSTR lpFile, LPC
 #define PostMessage     PostMessageA
 #define SetWindowText   SetWindowTextA
 #define GetWindowText   GetWindowTextA
+#define DrawText        DrawTextA
 #define ShellExecute    ShellExecuteA
 
 #ifdef __cplusplus

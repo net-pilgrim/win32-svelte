@@ -2,7 +2,18 @@ import { kernel, SendMessage } from "../kernel.svelte";
 import { Win32WasmRuntime } from "../wasm_bridge";
 import { getSampleAppWasmBytes } from "../../wasm/sample_app_wasm";
 import { StartWasmApp } from "../../samples/wasm_app";
-import { WM_COMMAND } from "../constants";
+import { StartHwndInspector } from "../../samples/hwnd_inspector";
+import {
+  WM_COMMAND,
+  WM_TIMER,
+  WM_NOTIFY,
+  TCN_SELCHANGE,
+  DT_CENTER,
+  DT_VCENTER,
+  DT_SINGLELINE,
+  DT_CALCRECT,
+  MB_ICONINFORMATION,
+} from "../constants";
 
 async function runWasmTests() {
   console.log("Starting Win32 C WebAssembly Bridge Tests...\n");
@@ -84,7 +95,6 @@ async function runWasmTests() {
 
   // Test 7: Verify launching .wasm file directly via VFS path
   console.log("Test 7: Testing StartWasmApp with direct VFS path...");
-  const initialWinCount = kernel.windows.length;
   await StartWasmApp(320, 150, "C:\\wasm_application\\sample_app.wasm");
   const newWasmWins = kernel.windows.filter(
     (w) => w.className === "WasmCWindowClass" && w.parentHwnd === null
@@ -98,7 +108,112 @@ async function runWasmTests() {
   }
   console.log(`✓ Launched WASM application from VFS path: HWND ${launchedWin.hwnd} at (${launchedWin.x}, ${launchedWin.y})`);
 
-  console.log("\nALL WIN32 WASM BRIDGE TESTS PASSED! ⚡🎉");
+  // Test 8: Verify Step 1 APIs (GetClientRect, FillRect, DrawTextA, MessageBeep)
+  console.log("Test 8: Testing Step 1 Petzold GDI & Layout APIs...");
+  const imports: any = runtime.getImportObject().win32;
+
+  // Test MessageBeep
+  const beepRes = imports.MessageBeep(MB_ICONINFORMATION);
+  if (beepRes !== 1) throw new Error("MessageBeep failed");
+  console.log("✓ MessageBeep bridged cleanly");
+
+  // Allocate 32 bytes in WASM memory for RECT testing
+  const mem = (instance.exports.memory as WebAssembly.Memory).buffer;
+  const testPtr = 1024;
+  const testRectPtr = testPtr + 100;
+
+  // Test GetClientRect
+  const clientRes = imports.GetClientRect(wasmWin.hwnd, testRectPtr);
+  if (clientRes !== 1) throw new Error("GetClientRect failed");
+  const rectView = new DataView(mem);
+  const left = rectView.getInt32(testRectPtr, true);
+  const top = rectView.getInt32(testRectPtr + 4, true);
+  const right = rectView.getInt32(testRectPtr + 8, true);
+  const bottom = rectView.getInt32(testRectPtr + 12, true);
+  if (left !== 0 || top !== 0 || right !== wasmWin.width || bottom !== wasmWin.height) {
+    throw new Error(`GetClientRect invalid: ${left},${top},${right},${bottom}`);
+  }
+  console.log(`✓ GetClientRect returned rect {0, 0, ${right}, ${bottom}} matching window dimensions`);
+
+  // Test DrawTextA with DT_CALCRECT
+  const strPtr = testPtr + 200;
+  runtime.writeCString(strPtr, "Antigravity Win32 WASM Engine", 64);
+  const dtCalcRes = imports.DrawTextA(
+    0, // hdc not needed for CALCRECT
+    strPtr,
+    -1,
+    testRectPtr,
+    DT_CALCRECT
+  );
+  if (dtCalcRes <= 0) throw new Error("DrawTextA CALCRECT failed");
+  const calcBottom = rectView.getInt32(testRectPtr + 12, true);
+  if (calcBottom <= top) throw new Error("DrawTextA did not calculate valid bottom coordinate");
+  console.log(`✓ DrawTextA calculated text bounds height: ${dtCalcRes}px`);
+
+  // Test 9: Verify Step 2 real-time animation timer ticks
+  console.log("Test 9: Testing Step 2 procedural animation timer ticks...");
+  SendMessage(wasmWin.hwnd, WM_TIMER, 1, 0);
+  SendMessage(wasmWin.hwnd, WM_TIMER, 1, 0);
+  SendMessage(wasmWin.hwnd, WM_TIMER, 1, 0);
+  console.log("✓ Dispatched procedural animation WM_TIMER ticks cleanly");
+
+  // Test 10: Verify Step 3 WASM Runtime Introspection & Stats
+  console.log("Test 10: Verifying Step 3 WASM runtime diagnostics & stats...");
+  const stats = runtime.getStats();
+  if (stats.memorySizeBytes < 65536) {
+    throw new Error(`Expected at least 1 memory page (65536 bytes), got ${stats.memorySizeBytes}`);
+  }
+  if (stats.memoryPages < 1) {
+    throw new Error(`Expected at least 1 memory page, got ${stats.memoryPages}`);
+  }
+  if (stats.tableLength < 1) {
+    throw new Error(`Expected indirect table length >= 1, got ${stats.tableLength}`);
+  }
+  const callableTableEntry = stats.tableEntries.find((e) => e.isCallable);
+  if (!callableTableEntry) {
+    throw new Error("No callable exports found in indirect function table");
+  }
+  if (stats.stringLogs.length === 0) {
+    throw new Error("String marshaling log is empty");
+  }
+  if (stats.registeredWndProcIndices.length === 0) {
+    throw new Error("No registered WndProc indices recorded");
+  }
+  console.log(`✓ Linear memory: ${stats.memorySizeBytes} bytes (${stats.memoryPages} pages)`);
+  console.log(`✓ Indirect table: ${stats.tableLength} slots (${callableTableEntry.index} is callable)`);
+  console.log(`✓ String logs: ${stats.stringLogs.length} operations recorded`);
+  console.log(`✓ Registered C WndProc slots: [${stats.registeredWndProcIndices.join(", ")}]`);
+
+  // Test 11: Verify HWND & WASM Inspector tabs
+  console.log("Test 11: Verifying HWND & WASM Inspector diagnostics tab...");
+  const inspectorHwnd = StartHwndInspector(500, 110);
+  if (!inspectorHwnd) throw new Error("Failed to start HWND & WASM Inspector");
+
+  const inspectorChildren = kernel.windows.filter((w) => w.parentHwnd === inspectorHwnd);
+  const tabCtrl = inspectorChildren.find((c) => c.className === "SysTabControl32");
+  const wasmSummary = inspectorChildren.find((c) => c.className === "STATIC");
+  const wasmLogs = inspectorChildren.find((c) => c.className === "EDIT");
+
+  if (!tabCtrl || !wasmSummary || !wasmLogs) {
+    throw new Error("Inspector controls (Tab, Static summary, Edit logs) not found");
+  }
+
+  // Switch to Tab 1 (WASM Diagnostics) via TCN_SELCHANGE notification
+  SendMessage(inspectorHwnd, WM_NOTIFY, tabCtrl.hwnd, {
+    hwndFrom: tabCtrl.hwnd,
+    idFrom: 9000,
+    code: TCN_SELCHANGE,
+    tabIndex: 1,
+  });
+
+  const summaryText = kernel.GetWindowText(wasmSummary.hwnd);
+  if (!summaryText.includes("Active WASM Runtimes") || !summaryText.includes("Linear Memory")) {
+    throw new Error(`Unexpected inspector summary text: "${summaryText}"`);
+  }
+  console.log(`✓ Inspector switched to WASM tab and displayed live memory/table diagnostics`);
+
+  console.log("\nALL WIN32 WASM BRIDGE TESTS (STEPS 1-3) PASSED! ⚡🎉");
+  process.exit(0);
 }
 
 runWasmTests().catch((err) => {

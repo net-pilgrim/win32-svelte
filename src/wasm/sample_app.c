@@ -10,6 +10,14 @@
 static HWND g_hBtnCounter = NULL;
 static int g_counter = 0;
 
+// Procedural real-time animation state
+static int g_ticks = 0;
+static int g_ballX = 60;
+static int g_ballY = 175;
+static int g_ballDX = 4;
+static int g_ballDY = 3;
+static int g_ballRadius = 9;
+
 // Simple integer to string formatter without requiring libc
 static void int_to_str(int val, char *buf) {
     char temp[16];
@@ -98,18 +106,55 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
                 hwnd, (HMENU)IDC_BTN_VIEW_H, NULL, NULL
             );
 
+            // Start 30 FPS animation timer (~33ms ticks)
+            SetTimer(hwnd, 1, 33, NULL);
+
+            return 0;
+        }
+
+        case WM_TIMER: {
+            if (wParam == 1) {
+                g_ticks++;
+
+                // Update animated ball coordinates
+                g_ballX += g_ballDX;
+                g_ballY += g_ballDY;
+
+                // Bounds inside animation arena: x in [25, 325], y in [150, 245]
+                if (g_ballX - g_ballRadius <= 20) {
+                    g_ballX = 20 + g_ballRadius;
+                    g_ballDX = -g_ballDX;
+                } else if (g_ballX + g_ballRadius >= 330) {
+                    g_ballX = 330 - g_ballRadius;
+                    g_ballDX = -g_ballDX;
+                }
+
+                if (g_ballY - g_ballRadius <= 145) {
+                    g_ballY = 145 + g_ballRadius;
+                    g_ballDY = -g_ballDY;
+                } else if (g_ballY + g_ballRadius >= 245) {
+                    g_ballY = 245 - g_ballRadius;
+                    g_ballDY = -g_ballDY;
+                }
+
+                // Invalidate window to trigger WM_PAINT for real-time rendering
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
             return 0;
         }
 
         case WM_COMMAND: {
             WORD id = LOWORD(wParam);
             if (id == IDC_BTN_MSGBOX) {
+                MessageBeep(MB_ICONINFORMATION);
                 MessageBox(
                     hwnd,
                     "Hello from native C99 Win32 code!\n\n"
                     "• Compiled with: zig cc -target wasm32-freestanding\n"
                     "• Header: <windows.h>\n"
-                    "• Runtime: win32-svelte (Svelte 5 + 98.css)\n\n"
+                    "• Runtime: win32-svelte (Svelte 5 + 98.css)\n"
+                    "• Real-time GDI: 30-60 FPS procedural animation\n\n"
                     "Functions, callbacks, and structs are bridged into WASM memory!",
                     "WASM Win32 Native App",
                     MB_OK | MB_ICONINFORMATION
@@ -120,6 +165,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             if (id == IDC_BTN_COUNTER) {
                 g_counter++;
                 update_counter_button(hwnd);
+                MessageBeep(0xFFFFFFFF);
                 return 0;
             }
 
@@ -145,38 +191,79 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
 
-            // Draw a navy blue banner
+            RECT clientRc;
+            GetClientRect(hwnd, &clientRc);
+
+            // 1. Fill animation arena with dark navy brush via FillRect
+            RECT animRc = { 15, 140, 335, 255 };
             HBRUSH hNavyBrush = CreateSolidBrush(RGB(0, 0, 128));
-            SelectObject(hdc, hNavyBrush);
-            Rectangle(hdc, 15, 145, 325, 210);
+            FillRect(hdc, &animRc, hNavyBrush);
             DeleteObject(hNavyBrush);
 
-            // White text inside banner
+            // 2. Draw coordinate axes with custom pen via CreatePen, MoveToEx, LineTo
+            HPEN hGridPen = CreatePen(PS_SOLID, 1, RGB(0, 96, 160));
+            SelectObject(hdc, hGridPen);
+            MoveToEx(hdc, 15, 197, NULL);
+            LineTo(hdc, 335, 197);
+            MoveToEx(hdc, 175, 140, NULL);
+            LineTo(hdc, 175, 255);
+            DeleteObject(hGridPen);
+
+            // 3. Draw animated bouncing ball with yellow brush and black border
+            HBRUSH hBallBrush = CreateSolidBrush(RGB(255, 255, 0));
+            HPEN hBallPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+            SelectObject(hdc, hBallBrush);
+            SelectObject(hdc, hBallPen);
+            Ellipse(hdc, g_ballX - g_ballRadius, g_ballY - g_ballRadius,
+                         g_ballX + g_ballRadius, g_ballY + g_ballRadius);
+            DeleteObject(hBallBrush);
+            DeleteObject(hBallPen);
+
+            // 4. Draw orbital accent ring
+            HPEN hRingPen = CreatePen(PS_SOLID, 1, RGB(0, 255, 128));
+            HBRUSH hNullBrush = CreateSolidBrush(RGB(0, 0, 128));
+            SelectObject(hdc, hRingPen);
+            SelectObject(hdc, hNullBrush);
+            Ellipse(hdc, 275, 150, 325, 200);
+            DeleteObject(hRingPen);
+            DeleteObject(hNullBrush);
+
+            // 5. Draw formatted centered title with DrawText (DT_CENTER | DT_SINGLELINE)
             SetTextColor(hdc, RGB(255, 255, 255));
-            TextOut(hdc, 25, 158, "Native GDI 2D Graphics via WASM", 31);
+            RECT titleRc = { 15, 144, 335, 162 };
+            DrawText(hdc, "⚡ Real-Time Procedural GDI Animation (30 FPS)", -1, &titleRc, DT_CENTER | DT_SINGLELINE);
 
-            char counterMsg[64] = "Current C State Counter: ";
-            char num[16];
-            int_to_str(g_counter, num);
-            int cp = 25;
-            int np = 0;
-            while (num[np] != '\0') {
-                counterMsg[cp++] = num[np++];
-            }
-            counterMsg[cp] = '\0';
-            TextOut(hdc, 25, 180, counterMsg, cp);
+            // 6. Draw dynamic frame tick and coordinate status line via DrawText
+            char status[80] = "Tick: ";
+            char tickStr[16];
+            int_to_str(g_ticks, tickStr);
+            int sp = 6;
+            int tp = 0;
+            while (tickStr[tp] != '\0') status[sp++] = tickStr[tp++];
+            const char *mid = " | Ball: (";
+            int mp = 0;
+            while (mid[mp] != '\0') status[sp++] = mid[mp++];
+            char numX[16], numY[16];
+            int_to_str(g_ballX, numX);
+            int_to_str(g_ballY, numY);
+            int xp = 0;
+            while (numX[xp] != '\0') status[sp++] = numX[xp++];
+            status[sp++] = ',';
+            status[sp++] = ' ';
+            int yp = 0;
+            while (numY[yp] != '\0') status[sp++] = numY[yp++];
+            status[sp++] = ')';
+            status[sp] = '\0';
 
-            // Draw accent circles with green brush
-            HBRUSH hGreenBrush = CreateSolidBrush(RGB(0, 128, 64));
-            SelectObject(hdc, hGreenBrush);
-            Ellipse(hdc, 280, 155, 315, 200);
-            DeleteObject(hGreenBrush);
+            RECT statusRc = { 15, 235, 335, 252 };
+            DrawText(hdc, status, -1, &statusRc, DT_CENTER | DT_SINGLELINE);
 
             EndPaint(hwnd, &ps);
             return 0;
         }
 
         case WM_DESTROY: {
+            KillTimer(hwnd, 1);
             PostQuitMessage(0);
             return 0;
         }
@@ -208,7 +295,7 @@ int WINAPI WinMain(
         "WasmCWindowClass",
         "WASM Win32 Native App (C99)",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-        140, 110, 355, 265,
+        140, 110, 355, 295,
         NULL, NULL, hInstance, NULL
     );
 

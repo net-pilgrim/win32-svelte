@@ -25,15 +25,45 @@ import {
   CreatePen,
   SelectObject,
   InvalidateRect,
+  FillRect,
+  GetWindowCanvas,
   HDC,
 } from "./gdi";
-import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "./types";
+import { MessageBeep } from "./audio";
+import type { HWND, UINT, WPARAM, LPARAM, LRESULT, RECT } from "./types";
 import { StartNotepad } from "../samples/notepad";
 
 export interface WasmBridgeOptions {
   initialX?: number;
   initialY?: number;
 }
+
+export interface WasmStringLogEntry {
+  timestamp: number;
+  api: string;
+  ptr: number;
+  text: string;
+  direction: "read" | "write";
+}
+
+export interface WasmTableEntryInfo {
+  index: number;
+  isCallable: boolean;
+  name?: string;
+}
+
+export interface WasmRuntimeStats {
+  memorySizeBytes: number;
+  memoryPages: number;
+  tableLength: number;
+  tableEntries: WasmTableEntryInfo[];
+  stringLogs: WasmStringLogEntry[];
+  registeredWndProcIndices: number[];
+  activeHdcCount: number;
+  activeGdiObjectCount: number;
+}
+
+export const activeWasmRuntimes = new Set<Win32WasmRuntime>();
 
 export class Win32WasmRuntime {
   private instance: WebAssembly.Instance | null = null;
@@ -46,9 +76,29 @@ export class Win32WasmRuntime {
   private nextGdiHandle = 9000;
   private gdiMap = new Map<number, any>();
 
+  private stringLogs: WasmStringLogEntry[] = [];
+  private registeredWndProcIndices: number[] = [];
+
   constructor() {}
 
-  public readCString(ptr: number): string {
+  public static getActiveRuntimes(): Win32WasmRuntime[] {
+    return Array.from(activeWasmRuntimes);
+  }
+
+  public logString(api: string, ptr: number, text: string, direction: "read" | "write" = "read") {
+    this.stringLogs.push({
+      timestamp: Date.now(),
+      api,
+      ptr,
+      text,
+      direction,
+    });
+    if (this.stringLogs.length > 100) {
+      this.stringLogs.shift();
+    }
+  }
+
+  public readCString(ptr: number, api = "readCString"): string {
     if (!ptr || !this.memory) return "";
     const bytes = new Uint8Array(this.memory.buffer);
     let str = "";
@@ -57,10 +107,11 @@ export class Win32WasmRuntime {
       str += String.fromCharCode(bytes[i]);
       i++;
     }
+    this.logString(api, ptr, str, "read");
     return str;
   }
 
-  public writeCString(ptr: number, str: string, maxCount: number): number {
+  public writeCString(ptr: number, str: string, maxCount: number, api = "writeCString"): number {
     if (!ptr || !this.memory || maxCount <= 0) return 0;
     const bytes = new Uint8Array(this.memory.buffer);
     const toWrite = Math.min(str.length, maxCount - 1);
@@ -68,6 +119,7 @@ export class Win32WasmRuntime {
       bytes[ptr + i] = str.charCodeAt(i) & 0xff;
     }
     bytes[ptr + toWrite] = 0;
+    this.logString(api, ptr, str.substring(0, toWrite), "write");
     return toWrite;
   }
 
@@ -85,8 +137,9 @@ export class Win32WasmRuntime {
           if (!this.memory || !this.table) return 0;
           const view = new DataView(this.memory.buffer);
           const fnIdx = view.getUint32(ptr + 8, true);
+          this.registeredWndProcIndices.push(fnIdx);
           const classNamePtr = view.getUint32(ptr + 40, true);
-          const className = this.readCString(classNamePtr);
+          const className = this.readCString(classNamePtr, "RegisterClassExA:lpszClassName");
 
           const wndProc = (
             hwnd: HWND,
@@ -213,15 +266,34 @@ export class Win32WasmRuntime {
           return 1;
         },
 
+        GetClientRect: (hwnd: number, lpRect: number) => {
+          if (!this.memory || !lpRect) return 0;
+          const canvas = GetWindowCanvas(hwnd);
+          const win = kernel.getWindow(hwnd);
+          const w = canvas ? canvas.width : (win?.width ?? 0);
+          const h = canvas ? canvas.height : (win?.height ?? 0);
+          const view = new DataView(this.memory.buffer);
+          view.setInt32(lpRect, 0, true);
+          view.setInt32(lpRect + 4, 0, true);
+          view.setInt32(lpRect + 8, w, true);
+          view.setInt32(lpRect + 12, h, true);
+          return 1;
+        },
+
         MessageBoxA: (
           hWnd: number,
           lpText: number,
           lpCaption: number,
           uType: number
         ) => {
-          const text = this.readCString(lpText);
-          const caption = this.readCString(lpCaption);
+          const text = this.readCString(lpText, "MessageBoxA:lpText");
+          const caption = this.readCString(lpCaption, "MessageBoxA:lpCaption");
           MessageBox(hWnd === 0 ? null : hWnd, text, caption, uType);
+          return 1;
+        },
+
+        MessageBeep: (uType: number) => {
+          MessageBeep(uType);
           return 1;
         },
 
@@ -374,6 +446,132 @@ export class Win32WasmRuntime {
           this.gdiMap.delete(ho);
           return 1;
         },
+
+        FillRect: (hdcHandle: number, lpRect: number, hBrushHandle: number) => {
+          if (!this.memory || !lpRect) return 0;
+          const view = new DataView(this.memory.buffer);
+          const left = view.getInt32(lpRect, true);
+          const top = view.getInt32(lpRect + 4, true);
+          const right = view.getInt32(lpRect + 8, true);
+          const bottom = view.getInt32(lpRect + 12, true);
+          const rc: RECT = { left, top, right, bottom };
+
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            const brush = this.gdiMap.get(hBrushHandle) ?? {
+              type: "brush" as const,
+              color: this.colorRefToRgb(hBrushHandle),
+            };
+            return FillRect(hdc, rc, brush) ? 1 : 0;
+          }
+          return 1;
+        },
+
+        DrawTextA: (
+          hdcHandle: number,
+          lpString: number,
+          nCount: number,
+          lpRect: number,
+          uFormat: number
+        ) => {
+          if (!this.memory || !lpRect || !lpString) return 0;
+
+          let text = this.readCString(lpString, "DrawTextA");
+          if (nCount > 0 && nCount < text.length) {
+            text = text.substring(0, nCount);
+          }
+
+          const view = new DataView(this.memory.buffer);
+          const left = view.getInt32(lpRect, true);
+          const top = view.getInt32(lpRect + 4, true);
+          const right = view.getInt32(lpRect + 8, true);
+          const bottom = view.getInt32(lpRect + 12, true);
+          const rectWidth = right - left;
+          const rectHeight = bottom - top;
+
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (ctx) {
+            ctx.save();
+            ctx.font = '12px "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, sans-serif';
+            ctx.fillStyle = hdc.textColor;
+          }
+
+          const measureWidth = (str: string) => {
+            if (ctx) return ctx.measureText(str).width;
+            return str.length * 7;
+          };
+
+          const lineHeight = 16;
+          const isSingleLine = !!(uFormat & 0x20); // DT_SINGLELINE
+          const isCenter = !!(uFormat & 0x01); // DT_CENTER
+          const isRight = !!(uFormat & 0x02); // DT_RIGHT
+          const isVCenter = !!(uFormat & 0x04); // DT_VCENTER
+          const isBottom = !!(uFormat & 0x08); // DT_BOTTOM
+          const isWordBreak = !!(uFormat & 0x10); // DT_WORDBREAK
+          const isCalcRect = !!(uFormat & 0x400); // DT_CALCRECT
+
+          let lines: string[] = [];
+          if (isSingleLine) {
+            lines = [text.replace(/[\r\n]+/g, " ")];
+          } else if (isWordBreak) {
+            const words = text.split(/\s+/);
+            let curLine = "";
+            for (const w of words) {
+              const testLine = curLine ? `${curLine} ${w}` : w;
+              if (rectWidth > 0 && measureWidth(testLine) > rectWidth && curLine) {
+                lines.push(curLine);
+                curLine = w;
+              } else {
+                curLine = testLine;
+              }
+            }
+            if (curLine) lines.push(curLine);
+          } else {
+            lines = text.split(/\r?\n/);
+          }
+
+          const totalHeight = lines.length * lineHeight;
+
+          if (isCalcRect) {
+            let maxW = 0;
+            for (const l of lines) {
+              const w = measureWidth(l);
+              if (w > maxW) maxW = w;
+            }
+            view.setInt32(lpRect + 8, left + Math.ceil(maxW), true);
+            view.setInt32(lpRect + 12, top + totalHeight, true);
+            if (ctx) ctx.restore();
+            return totalHeight;
+          }
+
+          if (ctx) {
+            let startY = top;
+            if (isVCenter) {
+              startY = top + Math.max(0, Math.floor((rectHeight - totalHeight) / 2));
+            } else if (isBottom) {
+              startY = bottom - totalHeight;
+            }
+
+            ctx.textBaseline = "top";
+
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              const lineWidth = measureWidth(line);
+              let x = left;
+              if (isCenter) {
+                x = left + Math.floor((rectWidth - lineWidth) / 2);
+              } else if (isRight) {
+                x = right - lineWidth;
+              }
+              ctx.fillText(line, x, startY + i * lineHeight);
+            }
+
+            ctx.restore();
+          }
+
+          return totalHeight;
+        },
       },
     };
   }
@@ -395,7 +593,50 @@ export class Win32WasmRuntime {
     this.memory = instance.exports.memory as WebAssembly.Memory;
     this.table = instance.exports.__indirect_function_table as WebAssembly.Table;
 
+    activeWasmRuntimes.add(this);
+
     return instance;
+  }
+
+  public destroy(): void {
+    activeWasmRuntimes.delete(this);
+    this.hdcMap.clear();
+    this.gdiMap.clear();
+  }
+
+  public getStats(): WasmRuntimeStats {
+    const memorySizeBytes = this.memory ? this.memory.buffer.byteLength : 0;
+    const memoryPages = memorySizeBytes / 65536;
+    const tableLength = this.table ? this.table.length : 0;
+    const tableEntries: WasmTableEntryInfo[] = [];
+
+    if (this.table) {
+      for (let i = 0; i < Math.min(tableLength, 64); i++) {
+        try {
+          const item = this.table.get(i);
+          tableEntries.push({
+            index: i,
+            isCallable: typeof item === "function",
+          });
+        } catch {
+          tableEntries.push({
+            index: i,
+            isCallable: false,
+          });
+        }
+      }
+    }
+
+    return {
+      memorySizeBytes,
+      memoryPages,
+      tableLength,
+      tableEntries,
+      stringLogs: [...this.stringLogs],
+      registeredWndProcIndices: [...this.registeredWndProcIndices],
+      activeHdcCount: this.hdcMap.size,
+      activeGdiObjectCount: this.gdiMap.size,
+    };
   }
 
   public runWinMain(hInstance = 0, lpCmdLine = ""): number {

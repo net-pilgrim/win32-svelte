@@ -233,6 +233,23 @@ export const MF_GRAYED = 0x00000001;
 export const MF_CHECKED = 0x00000008;
 export const MF_UNCHECKED = 0x00000000;
 
+// DrawText Format Flags (DT_*)
+export const DT_TOP = 0x00000000;
+export const DT_LEFT = 0x00000000;
+export const DT_CENTER = 0x00000001;
+export const DT_RIGHT = 0x00000002;
+export const DT_VCENTER = 0x00000004;
+export const DT_BOTTOM = 0x00000008;
+export const DT_WORDBREAK = 0x00000010;
+export const DT_SINGLELINE = 0x00000020;
+export const DT_EXPANDTABS = 0x00000040;
+export const DT_TABSTOP = 0x00000080;
+export const DT_NOCLIP = 0x00000100;
+export const DT_EXTERNALLEADING = 0x00000200;
+export const DT_CALCRECT = 0x00000400;
+export const DT_NOPREFIX = 0x00000800;
+export const DT_INTERNAL = 0x00001000;
+
 // Helpers
 export function LOWORD(l: number): number {
   return l & 0xffff;

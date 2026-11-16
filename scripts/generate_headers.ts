@@ -402,6 +402,9 @@ HGDIOBJ WINAPI SelectObject(HDC hdc, HGDIOBJ h);
 WIN32_IMPORT("DeleteObject")
 BOOL WINAPI DeleteObject(HGDIOBJ ho);
 
+WIN32_IMPORT("FillRect")
+int WINAPI FillRect(HDC hdc, const RECT *lprc, HBRUSH hbr);
+
 #define TextOut TextOutA
 
 #ifdef __cplusplus
@@ -425,6 +428,7 @@ function generateWinuserH(allConstants: Map<string, ConstantItem>): string {
   const staticStyles: string[] = [];
   const dialogStyles: string[] = [];
   const menuFlags: string[] = [];
+  const drawTextFlags: string[] = [];
 
   for (const [name, item] of allConstants.entries()) {
     const defineLine = `#define ${name.padEnd(26)} ${item.value}`;
@@ -450,6 +454,8 @@ function generateWinuserH(allConstants: Map<string, ConstantItem>): string {
       dialogStyles.push(defineLine);
     } else if (name.startsWith("MF_")) {
       menuFlags.push(defineLine);
+    } else if (name.startsWith("DT_")) {
+      drawTextFlags.push(defineLine);
     }
   }
 
@@ -532,9 +538,15 @@ ${dialogStyles.join("\n")}
 // Menu Flags (MF_*)
 ${menuFlags.join("\n")}
 
+// DrawText Format Flags (DT_*)
+${drawTextFlags.join("\n")}
+
 // User32 Import Functions
 WIN32_IMPORT("MessageBoxA")
 int WINAPI MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
+
+WIN32_IMPORT("MessageBeep")
+BOOL WINAPI MessageBeep(UINT uType);
 
 WIN32_IMPORT("RegisterClassExA")
 ATOM WINAPI RegisterClassExA(const WNDCLASSEXA *lpwcx);
@@ -579,6 +591,12 @@ BOOL WINAPI SetWindowTextA(HWND hWnd, LPCSTR lpString);
 WIN32_IMPORT("GetWindowTextA")
 int WINAPI GetWindowTextA(HWND hWnd, LPSTR lpString, int nMaxCount);
 
+WIN32_IMPORT("GetClientRect")
+BOOL WINAPI GetClientRect(HWND hWnd, LPRECT lpRect);
+
+WIN32_IMPORT("DrawTextA")
+int WINAPI DrawTextA(HDC hdc, LPCSTR lpchText, int cchText, LPRECT lprc, UINT format);
+
 WIN32_IMPORT("InvalidateRect")
 BOOL WINAPI InvalidateRect(HWND hWnd, const RECT *lpRect, BOOL bErase);
 
@@ -600,6 +618,7 @@ HINSTANCE WINAPI ShellExecuteA(HWND hWnd, LPCSTR lpOperation, LPCSTR lpFile, LPC
 #define PostMessage     PostMessageA
 #define SetWindowText   SetWindowTextA
 #define GetWindowText   GetWindowTextA
+#define DrawText        DrawTextA
 #define ShellExecute    ShellExecuteA
 
 #ifdef __cplusplus
