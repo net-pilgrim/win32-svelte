@@ -70,6 +70,9 @@ Open your browser at `http://localhost:5173` (or the URL displayed in your termi
 | `npm test` | `tsx src/win32/__tests__/...` | Runs test suites (VFS, Print Spooler, ODBC, WASM Bridge, RC Compiler) |
 | `npm run rc` | `tsx src/rc/cli.ts` | Compiles Win32 `.rc` resource scripts to TypeScript/JSON |
 | `npm run build:wasm` | `tsx src/wasm/embed_wasm.ts` | Compiles C sample app to freestanding `.wasm` with Zig/Clang |
+| `npm run build:example` | `make -C examples/simple_c_app` | Builds standalone C WebAssembly app with Makefile |
+| `npm run build:mfc` | `make -C examples/starter_mfc_app` | Runs test and check for Starter MFC app via Makefile |
+| `npm run build:mfc-wasm` | `make -C examples/mfc_wasm_app` | Compiles freestanding C++ MFC WebAssembly app with Makefile |
 
 ### Deploying to Vercel
 
@@ -194,24 +197,31 @@ Uses Web Audio API oscillators and gain envelopes to approximate retro sound eff
 - `playTada()`: Fanfare brass synth for victories / startup.
 - `MessageBeep(type)`: Simple sound dispatcher.
 
-### 4. Toy MFC Layer (`src/win32/mfc/`)
+### 4. Toy MFC Layer (`src/win32/mfc/` & `examples/starter_mfc_app/`)
 A small TypeScript simulation exploring object-oriented MFC concepts:
 - **`CObject`**: Base class providing simple runtime class information and `isKindOf()` checks.
 - **`CCmdTarget`**: Message map dispatcher routing `WM_COMMAND`, `WM_NOTIFY`, and window messages via `ON_COMMAND`, `ON_BN_CLICKED`, `ON_EN_CHANGE`, and `ON_NOTIFY`.
 - **`CWnd`**: Window wrapper managing `m_hWnd`, `FromHandle()`, and message routing.
-- **`CFrameWnd`**: Top-level single-document interface (SDI) frame window helper.
+- **`CFrameWnd`**: Top-level single-document interface (SDI) frame window helper with menu bar management.
 - **`CDialog`**: Modal dialog prototype with `doModal()`, `onInitDialog()`, `onOK()`, and `onCancel()`.
 - **`CWinApp`**: Application class managing initialization (`initInstance`) and main window binding (`m_pMainWnd`).
 - **`CDC` & `CPaintDC`**: Device context wrappers providing GDI drawing methods (`MoveTo`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`).
 - **Control Wrappers**: Minimal wrappers for `CButton`, `CEdit`, `CStatic`, `CComboBox`, `CProgressCtrl`, `CSliderCtrl`, `CTreeCtrl`, `CListCtrl`.
+- **Starter MFC Project**: A turnkey template project is provided in [`examples/starter_mfc_app/`](examples/starter_mfc_app/).
 
 ### 5. Experimental C WebAssembly Bridge (`include/` & `src/win32/wasm_bridge.ts`)
 Enables running small C snippets compiled to WebAssembly inside the sandbox:
-- **Minimal Header Stubs (`include/`)**: Self-contained stubs for [`windows.h`](include/windows.h), [`windef.h`](include/windef.h), [`winuser.h`](include/winuser.h), [`wingdi.h`](include/wingdi.h), and [`winbase.h`](include/winbase.h).
-- **Freestanding Compilation**: Works with standard Zig (`zig cc`) or Clang targeting `wasm32-freestanding` without requiring libc.
+- **Minimal Header Stubs (`include/`)**: Self-contained stubs for [`windows.h`](include/windows.h), [`windef.h`](include/windef.h), [`winuser.h`](include/winuser.h), [`wingdi.h`](include/wingdi.h), [`winbase.h`](include/winbase.h), and [`shellapi.h`](include/shellapi.h).
+- **Freestanding Compilation**: Works with standard Zig (`zig cc`) or Clang targeting `wasm32-freestanding` without requiring libc. Resulting binaries are ultra-lightweight (~10–15 KB).
+- **Standalone Makefile Project**: Includes a turn-key C project with a `Makefile` in [`examples/simple_c_app/`](examples/simple_c_app/). Build it anytime with `make -C examples/simple_c_app` or `npm run build:example`.
 - **Function Pointer Callbacks**: Window procedures (`WndProc`) are exported via `__indirect_function_table`, allowing the TypeScript dispatcher to invoke C function pointers when events occur.
 - **VFS Execution**: Reads and executes `.wasm` binaries from the virtual filesystem, via Windows Explorer double-click, or via host OS drag-and-drop.
-- A walkthrough of this experiment is available in [howto-wasm.md](howto-wasm.md).
+- A comprehensive walkthrough with multiple coding patterns is available in [howto-wasm.md](howto-wasm.md).
+
+```bash
+# Build the standalone C example with make
+make -C examples/simple_c_app
+```
 
 ### 6. Svelte 5 Presentation Layer (`src/win32/ui/`)
 - **[Desktop.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Desktop.svelte)**: Renders desktop background, draggable icons, taskbar items, and system clock.
@@ -231,6 +241,9 @@ The repository includes several sample applications built to test the prototype:
 | **DOOM 95** | [`src/samples/doom.ts`](src/samples/doom.ts) & [`src/win32/doom_runtime.ts`](src/win32/doom_runtime.ts) | Classic **DOOM (1993)** running as WebAssembly in a dedicated Win32 window at 60 FPS! Translates Win32 keyboard messages (`WM_KEYDOWN`/`WM_KEYUP`) and mouse clicks (`WM_LBUTTONDOWN`) into the game event queue. Seeded in `C:\GAMES\DOOM\DOOM95.EXE`. |
 | **Lua 5.3 Host** | [`src/samples/lua_host.ts`](src/samples/lua_host.ts) & [`src/win32/lua_engine.ts`](src/win32/lua_engine.ts) | An experimental Lua 5.3 runner powered by `fengari-web`. Allows testing small Lua scripts with toy Win32 bindings (`CreateWindow`, `CreateButton`, `MessageBox`, GDI drawing) and double-clicking `.lua` files in Explorer. |
 | **WASM C99 App** | [`src/wasm/sample_app.c`](src/wasm/sample_app.c) & [`src/samples/wasm_app.ts`](src/samples/wasm_app.ts) | A sample C program compiled to freestanding WebAssembly via Zig/Clang to test running a native C `WndProc` against the browser message dispatcher. Located in `C:\wasm_application` inside the virtual filesystem. |
+| **Simple C App (Makefile)** | [`examples/simple_c_app/`](examples/simple_c_app/) | A turnkey, standalone C application with a `Makefile` that compiles directly to freestanding WebAssembly using Zig or Clang. |
+| **Starter MFC App** | [`examples/starter_mfc_app/`](examples/starter_mfc_app/) | A starter template demonstrating object-oriented MFC architecture: `CWinApp`, `CFrameWnd`, `CDialog`, `CPaintDC`, controls, and message maps. |
+| **C++ MFC WASM App** | [`examples/mfc_wasm_app/`](examples/mfc_wasm_app/) | A native C++ MFC application with a `Makefile` that compiles directly to freestanding WebAssembly using Zig C++ or Clang++. |
 | **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | An experiment testing MFC-style architecture in TypeScript: `CWinApp`, `CFrameWnd`, message map routing, `CPaintDC` drawing, and a modal `CDialog`. |
 | **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | A demo explorer interface combining a left-pane `SysTreeView32` with a right-pane `SysListView32` in report mode with multi-column sorting and a status bar. |
 | **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | A recreation of Minesweeper using child button controls, right-click flagging, timer tick messages, and custom 7-segment display digits. |

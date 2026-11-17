@@ -9,12 +9,15 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "tsx src/win32/__tests__/vfs.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/print.test.ts && tsx src/win32/__tests__/odbc.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/wasm.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/lua.test.ts && tsx src/rc/__tests__/rc_compiler.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/start_menu.test.ts",
+    "test": "tsx src/win32/__tests__/vfs.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/print.test.ts && tsx src/win32/__tests__/odbc.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/wasm.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/lua.test.ts && tsx src/rc/__tests__/rc_compiler.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/start_menu.test.ts && tsx -r ./src/test_setup.cjs src/win32/__tests__/mfc.test.ts",
     "test:visual": "playwright test",
     "rc": "tsx src/rc/cli.ts",
     "headers": "tsx scripts/generate_headers.ts",
     "generate:headers": "tsx scripts/generate_headers.ts",
-    "build:wasm": "npm run headers && zig build-exe -target wasm32-freestanding -Iinclude src/wasm/sample_app.c -fno-entry --export=WinMain --export-table -femit-bin=src/wasm/sample_app.wasm && tsx src/wasm/embed_wasm.ts"
+    "build:wasm": "npm run headers && zig build-exe -target wasm32-freestanding -Iinclude src/wasm/sample_app.c -fno-entry --export=WinMain --export-table -femit-bin=src/wasm/sample_app.wasm && tsx src/wasm/embed_wasm.ts",
+    "build:example": "make -C examples/simple_c_app",
+    "build:mfc": "make -C examples/starter_mfc_app",
+    "build:mfc-wasm": "make -C examples/mfc_wasm_app"
   },
   "engines": {
     "node": ">=24.0.0"

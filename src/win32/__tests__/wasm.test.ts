@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import { kernel, SendMessage } from "../kernel.svelte";
 import { Win32WasmRuntime } from "../wasm_bridge";
 import { getSampleAppWasmBytes } from "../../wasm/sample_app_wasm";
@@ -211,6 +212,54 @@ async function runWasmTests() {
     throw new Error(`Unexpected inspector summary text: "${summaryText}"`);
   }
   console.log(`✓ Inspector switched to WASM tab and displayed live memory/table diagnostics`);
+
+  // Test 12: Verifying standalone C example app build (examples/simple_c_app/simple_app.wasm)
+  const exampleWasmPath = "examples/simple_c_app/simple_app.wasm";
+  if (fs.existsSync(exampleWasmPath)) {
+    console.log("Test 12: Verifying standalone C example app (simple_app.wasm)...");
+    const exampleBytes = fs.readFileSync(exampleWasmPath);
+    const exampleRuntime = new Win32WasmRuntime();
+    await exampleRuntime.instantiate(exampleBytes);
+    const code = exampleRuntime.runWinMain();
+    if (code !== 0) throw new Error(`simple_app WinMain returned ${code}`);
+    const exampleWin = kernel.windows.find(
+      (w) => w.className === "SimpleCWasmWindowClass" && w.parentHwnd === null
+    );
+    if (!exampleWin) throw new Error("SimpleCWasmWindowClass window not found");
+    const exampleChildren = kernel.windows.filter((w) => w.parentHwnd === exampleWin.hwnd);
+    const btnClicks = exampleChildren.find((c) => c.title?.startsWith("Clicks:"));
+    if (!btnClicks) throw new Error("Click button in simple_app not found");
+    SendMessage(exampleWin.hwnd, WM_COMMAND, 102, 0);
+    const updatedClicks = kernel.GetWindowText(btnClicks.hwnd);
+    if (updatedClicks !== "Clicks: 1") {
+      throw new Error(`Expected "Clicks: 1", got "${updatedClicks}"`);
+    }
+    console.log(`✓ Standalone simple_c_app verified: HWND ${exampleWin.hwnd}, state updated to "${updatedClicks}"`);
+  }
+
+  // Test 13: Verifying standalone C++ MFC WebAssembly app (examples/mfc_wasm_app/mfc_app.wasm)
+  const mfcWasmPath = "examples/mfc_wasm_app/mfc_app.wasm";
+  if (fs.existsSync(mfcWasmPath)) {
+    console.log("Test 13: Verifying standalone C++ MFC app (mfc_app.wasm)...");
+    const mfcBytes = fs.readFileSync(mfcWasmPath);
+    const mfcRuntime = new Win32WasmRuntime();
+    await mfcRuntime.instantiate(mfcBytes);
+    const code = mfcRuntime.runWinMain();
+    if (code !== 0) throw new Error(`mfc_app WinMain returned ${code}`);
+    const mfcWin = kernel.windows.find(
+      (w) => w.className === "MfcWasmWindowClass" && w.parentHwnd === null
+    );
+    if (!mfcWin) throw new Error("MfcWasmWindowClass window not found");
+    const mfcChildren = kernel.windows.filter((w) => w.parentHwnd === mfcWin.hwnd);
+    const btnClicks = mfcChildren.find((c) => c.title?.startsWith("C++ Clicks:"));
+    if (!btnClicks) throw new Error("Click button in mfc_app not found");
+    SendMessage(mfcWin.hwnd, WM_COMMAND, 1001, 0);
+    const updatedClicks = kernel.GetWindowText(btnClicks.hwnd);
+    if (updatedClicks !== "C++ Clicks: 1") {
+      throw new Error(`Expected "C++ Clicks: 1", got "${updatedClicks}"`);
+    }
+    console.log(`✓ Standalone C++ MFC app verified: HWND ${mfcWin.hwnd}, state updated to "${updatedClicks}"`);
+  }
 
   console.log("\nALL WIN32 WASM BRIDGE TESTS (STEPS 1-3) PASSED! ⚡🎉");
   process.exit(0);

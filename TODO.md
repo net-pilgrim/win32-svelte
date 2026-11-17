@@ -330,6 +330,11 @@ flowchart TD
   - Desktop integration with `WASM C App` desktop icon and Debug HUD quick-launcher.
 - [ ] **Native C Transpilation**:
   - Pipeline to take TypeScript `win32-svelte` applications and emit clean C99 code targetable by GCC or MSVC.
+- [x] **Freestanding C/C++ Header Expansion for MFC**:
+  - `include/afxwin.h`: Freestanding C++ MFC headers (`CObject`, `CCmdTarget`, `CWnd`, `CFrameWnd`, `CPaintDC`, `CWinApp`).
+  - Standalone C++ MFC WebAssembly project in `examples/mfc_wasm_app/` with `Makefile`.
+- [ ] **Freestanding COM Headers**:
+  - `include/unknwn.h` & `include/objbase.h`: Dual C/C++ macro layout (`STDMETHOD`), vtables, GUIDs, and `CoCreateInstance` imports.
 
 ---
 
@@ -362,5 +367,31 @@ flowchart TD
   - Pre-built demo scripts (Hello Win32 & Audio, Dynamic GUI & Buttons, Procedural GDI Art).
   - Reset VM and Clear Console actions with Run (F5) execution.
   - Desktop icon, taskbar Quick Launch button, and Start Menu entries.
+
+---
+
+### 15. Component Object Model (COM) & Simulated DCOM (`ole32.dll` / `oleaut32.dll`)
+- [ ] **Core In-Process COM Engine (`src/win32/com/`)**:
+  - `IUnknown` interface (`QueryInterface`, `AddRef`, `Release`) and HRESULT codes (`S_OK`, `E_NOINTERFACE`, `CLASS_E_CLASSNOTAVAILABLE`).
+  - GUID / CLSID / IID parsing, string formatting, and well-known interface IDs.
+  - `IClassFactory` (`CreateInstance`, `LockServer`).
+  - Kernel APIs: `CoInitializeEx`, `CoUninitialize`, `CoCreateInstance`, `CoRegisterClassObject`, `CoRevokeClassObject`.
+  - In-memory / Registry Class Store (`HKEY_CLASSES_ROOT\CLSID` and ProgID resolution).
+- [ ] **COM Automation & Scripting Bridge (`oleaut32.dll`)**:
+  - `IDispatch` (`GetIDsOfNames`, `Invoke`) with `VARIANT` type system (`VT_I4`, `VT_BSTR`, `VT_BOOL`, `VT_DISPATCH`).
+  - `CreateObject(progId)` helper.
+  - Integration with Lua 5.3 Command Center (`win32.CreateObject`) enabling retro script automation.
+- [ ] **Simulated DCOM (Cross-Tab Clustering & Remote RPC)**:
+  - `CoCreateInstanceEx` with `COSERVERINFO` targeting local, cross-tab (`broadcast://<channel>`), or remote WebSocket endpoints (`ws://<host>:<port>`).
+  - Object Exporter table generating unique OIDs and IPIDs with local stub routing.
+  - Transparent `DComProxy` marshaling invocations into simulated Object RPC frames (`ORPC_CALL`).
+  - Transports:
+    - HTML5 `BroadcastChannelTransport`: Zero-backend multi-tab clustering allowing one browser tab to control an app in another tab.
+    - `WebSocketTransport`: Optional bridge to a remote container/Node daemon.
+  - Distributed keep-alive and ping sets for garbage collection across tabs.
+- [ ] **DCOM Configuration Tool (`DCOMCNFG.EXE`)**:
+  - Windows 98-style Property Sheet (`SysTabControl32`): Applications, Default Properties, Active Connections, Endpoint Monitor.
+  - Live inspector for active stubs, remote proxies, ping status, and RPC traffic.
+
 
 

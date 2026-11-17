@@ -131,9 +131,8 @@ export class Win32WasmRuntime {
   }
 
   public getImportObject(): WebAssembly.Imports {
-    return {
-      win32: {
-        RegisterClassExA: (ptr: number) => {
+    const win32Imports = {
+      RegisterClassExA: (ptr: number) => {
           if (!this.memory || !this.table) return 0;
           const view = new DataView(this.memory.buffer);
           const fnIdx = view.getUint32(ptr + 8, true);
@@ -572,7 +571,11 @@ export class Win32WasmRuntime {
 
           return totalHeight;
         },
-      },
+      };
+
+    return {
+      win32: win32Imports,
+      env: win32Imports,
     };
   }
 
