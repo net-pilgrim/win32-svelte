@@ -160,6 +160,17 @@
         }
       },
       {
+        "id": "doc_com_lua",
+        "label": "com_demo.lua",
+        "icon": "⚡",
+        "action": "lua",
+        "params": {
+          "x": 260,
+          "y": 100,
+          "path": "C:\\lua\\com_demo.lua"
+        }
+      },
+      {
         "id": "doc_doom_readme",
         "label": "DOOM README.TXT",
         "icon": "💀",

@@ -130,7 +130,9 @@ export class NotepadDocumentServer extends DispatchObject {
 
   public GetLineCount(): number {
     if (!this.content) return 0;
-    return this.content.split(/\r?\n/).length;
+    const trimmed = this.content.endsWith("\n") ? this.content.slice(0, -1).replace(/\r$/, "") : this.content;
+    if (!trimmed) return 0;
+    return trimmed.split(/\r?\n/).length;
   }
 
   public Clear(): boolean {
@@ -154,9 +156,9 @@ export class ExplorerVFSServer extends DispatchObject {
     if (hFile === 0) {
       throw new Error(`Failed to open file: ${filePath}`);
     }
-    const buf = await vfs.ReadFile(hFile, 1024 * 1024);
+    const res = await vfs.ReadFile(hFile, 1024 * 1024);
     await vfs.CloseHandle(hFile);
-    return new TextDecoder().decode(buf);
+    return new TextDecoder().decode(res.buffer);
   }
 
   public async WriteFile(filePath: string, content: string): Promise<number> {
@@ -164,10 +166,9 @@ export class ExplorerVFSServer extends DispatchObject {
     if (hFile === 0) {
       throw new Error(`Failed to create file: ${filePath}`);
     }
-    const bytes = new TextEncoder().encode(content);
-    const written = await vfs.WriteFile(hFile, bytes.buffer);
+    const res = await vfs.WriteFile(hFile, content);
     await vfs.CloseHandle(hFile);
-    return written;
+    return res.bytesWritten;
   }
 
   public async DeleteFile(filePath: string): Promise<boolean> {

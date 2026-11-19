@@ -163,8 +163,56 @@ async function runLuaIntegrationTests() {
   }
   console.log("✓ Lua Procedural GDI Art painted with brushes, pens, rectangles, ellipses and text!");
 
+  // Test 7: COM & DCOM Automation
+  console.log("Test 7: Testing Lua Win32 COM & DCOM Automation...");
+  const scriptCom = `
+    local calc = win32.CreateObject("Calc.Engine")
+    if not calc then error("Calc.Engine failed to create") end
+    local addRes = calc:Add(15, 35)
+    local evalRes = calc:Eval("(10 + 20) * 3")
+    print("COM Add: " .. tostring(addRes))
+    print("COM Eval: " .. tostring(evalRes))
+
+    local audio = win32.CreateObject("Audio.Synthesizer")
+    if not audio then error("Audio.Synthesizer failed to create") end
+    audio:PlayDing()
+    print("COM Audio: Ding played")
+
+    local doc = win32.CreateObject("Notepad.Document")
+    if not doc then error("Notepad.Document failed to create") end
+    doc:AppendLine("First Line")
+    doc:AppendLine("Second Line")
+    print("COM Doc Lines: " .. tostring(doc:GetLineCount()))
+
+    win32.CreateRemoteObject("Calc.Engine", "win32-dcom-bus", function(remoteCalc, err)
+      if err then error("DCOM remote create failed: " .. tostring(err)) end
+      remoteCalc:Add(100, 200, function(remoteSum)
+        print("DCOM Remote Sum: " .. tostring(remoteSum))
+      end)
+    end)
+  `;
+  const resCom = runtime.execute(scriptCom);
+  if (!resCom.success) throw new Error(`Script COM failed: ${resCom.error}`);
+
+  await new Promise((r) => setTimeout(r, 100));
+
+  if (!capturedLogs.some((l) => l.includes("COM Add: 50"))) {
+    throw new Error("COM Add result not found in logs");
+  }
+  if (!capturedLogs.some((l) => l.includes("COM Eval: 90"))) {
+    throw new Error("COM Eval result not found in logs");
+  }
+  if (!capturedLogs.some((l) => l.includes("COM Doc Lines: 2"))) {
+    throw new Error("COM Doc line count not found in logs");
+  }
+  if (!capturedLogs.some((l) => l.includes("DCOM Remote Sum: 300"))) {
+    throw new Error("DCOM Remote Sum not found in logs");
+  }
+  console.log("✓ Lua COM & DCOM late-bound IDispatch and ORPC verified!");
+
   runtime.dispose();
   console.log("\nALL WIN32 LUA 5.3 INTEGRATION TESTS PASSED! 🌙⚡🎉");
+  process.exit(0);
 }
 
 runLuaIntegrationTests().catch((err) => {

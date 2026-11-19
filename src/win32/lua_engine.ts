@@ -65,7 +65,7 @@ import {
 import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "./types";
 import { comRuntime } from "./com/runtime";
 import { IID_IDispatch } from "./com/guid";
-import { S_OK, DISPATCH_METHOD, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT } from "./com/types";
+import { S_OK, CLSCTX_REMOTE_SERVER, DISPATCH_METHOD, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT } from "./com/types";
 
 const { lua, lauxlib, lualib } = fengari;
 
@@ -236,8 +236,14 @@ export class Win32LuaRuntime {
         lua.lua_pushcfunction(idxL, (callL: any) => {
           const top = lua.lua_gettop(callL);
           const args: any[] = [];
+          let callbackRef: number | null = null;
+
           for (let i = 2; i <= top; i++) {
-            if (lua.lua_isnumber(callL, i)) {
+            if (i === top && lua.lua_isfunction(callL, i)) {
+              lua.lua_pushvalue(callL, i);
+              callbackRef = lauxlib.luaL_ref(callL, lua.LUA_REGISTRYINDEX);
+              this.registeredCallbacks.push(callbackRef);
+            } else if (lua.lua_isnumber(callL, i)) {
               args.push(lua.lua_tonumber(callL, i));
             } else if (lua.lua_isstring(callL, i)) {
               args.push(fengari.to_jsstring(lua.lua_tolstring(callL, i, null)));
@@ -252,7 +258,7 @@ export class Win32LuaRuntime {
             let result: any;
             if (typeof comObj.Invoke === "function") {
               const invRes = comObj.Invoke(key, null, 0, DISPATCH_METHOD | DISPATCH_PROPERTYGET, args);
-              if (invRes.hr === S_OK) {
+              if (invRes && invRes.hr === S_OK) {
                 result = invRes.pVarResult;
               } else if (typeof comObj[key] === "function") {
                 result = comObj[key](...args);
@@ -265,8 +271,61 @@ export class Win32LuaRuntime {
               result = comObj[key];
             }
 
+            // Handle Promise results from async COM / DCOM methods
+            if (result && typeof result.then === "function") {
+              if (callbackRef !== null) {
+                const cb = callbackRef;
+                result
+                  .then((asyncVal: any) => {
+                    if (!this.L) return;
+                    lua.lua_rawgeti(this.L, lua.LUA_REGISTRYINDEX, cb);
+                    if (typeof asyncVal === "number") {
+                      if (Number.isInteger(asyncVal)) {
+                        lua.lua_pushinteger(this.L, asyncVal);
+                      } else {
+                        lua.lua_pushnumber(this.L, asyncVal);
+                      }
+                    } else if (typeof asyncVal === "string") {
+                      lua.lua_pushstring(this.L, fengari.to_luastring(asyncVal));
+                    } else if (typeof asyncVal === "boolean") {
+                      lua.lua_pushboolean(this.L, asyncVal ? 1 : 0);
+                    } else if (asyncVal === null || asyncVal === undefined) {
+                      lua.lua_pushnil(this.L);
+                    } else if (Array.isArray(asyncVal)) {
+                      lua.lua_createtable(this.L, asyncVal.length, 0);
+                      asyncVal.forEach((item, idx) => {
+                        lua.lua_pushstring(this.L, fengari.to_luastring(String(item)));
+                        lua.lua_rawseti(this.L, -2, idx + 1);
+                      });
+                    } else {
+                      pushComObjectToLua(this.L, asyncVal);
+                    }
+                    const callRes = lua.lua_pcall(this.L, 1, 0, 0);
+                    if (callRes !== 0) {
+                      const err = fengari.to_jsstring(lua.lua_tolstring(this.L, -1, null));
+                      this.log("stderr", `Async callback error: ${err}`);
+                    }
+                    lauxlib.luaL_unref(this.L, lua.LUA_REGISTRYINDEX, cb);
+                  })
+                  .catch((err: any) => {
+                    this.log("stderr", `Async method error: ${err?.message || err}`);
+                    lauxlib.luaL_unref(this.L, lua.LUA_REGISTRYINDEX, cb);
+                  });
+              }
+              lua.lua_pushnil(callL);
+              return 1;
+            }
+
+            if (callbackRef !== null) {
+              lauxlib.luaL_unref(callL, lua.LUA_REGISTRYINDEX, callbackRef);
+            }
+
             if (typeof result === "number") {
-              lua.lua_pushnumber(callL, result);
+              if (Number.isInteger(result)) {
+                lua.lua_pushinteger(callL, result);
+              } else {
+                lua.lua_pushnumber(callL, result);
+              }
             } else if (typeof result === "string") {
               lua.lua_pushstring(callL, fengari.to_luastring(result));
             } else if (typeof result === "boolean") {
@@ -280,6 +339,9 @@ export class Win32LuaRuntime {
             }
             return 1;
           } catch (err: any) {
+            if (callbackRef !== null) {
+              lauxlib.luaL_unref(callL, lua.LUA_REGISTRYINDEX, callbackRef);
+            }
             lua.lua_pushnil(callL);
             lua.lua_pushstring(callL, fengari.to_luastring(err?.message || String(err)));
             return 2;
@@ -304,6 +366,64 @@ export class Win32LuaRuntime {
       }
       pushComObjectToLua(L, res.ppv);
       return 1;
+    });
+
+    // win32.CreateRemoteObject(progId, [serverName], callback)
+    setFunction("CreateRemoteObject", (L: any) => {
+      const progId = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      let serverName = "broadcast://win32-dcom-bus";
+      let cbIdx = 2;
+
+      if (lua.lua_isstring(L, 2)) {
+        serverName = fengari.to_jsstring(lua.lua_tolstring(L, 2, null));
+        if (!serverName.includes("://")) {
+          serverName = `broadcast://${serverName}`;
+        }
+        cbIdx = 3;
+      }
+
+      let cbRef = -1;
+      if (lua.lua_isfunction(L, cbIdx)) {
+        lua.lua_pushvalue(L, cbIdx);
+        cbRef = lauxlib.luaL_ref(L, lua.LUA_REGISTRYINDEX);
+        this.registeredCallbacks.push(cbRef);
+      }
+
+      const pResults = [{ pIID: IID_IDispatch, pItf: null, hr: -1 }];
+      comRuntime
+        .CoCreateInstanceEx(progId, null, CLSCTX_REMOTE_SERVER, { pwszName: serverName }, 1, pResults)
+        .then((res) => {
+          const proxy = pResults[0].pItf || res.ppv;
+          if (cbRef !== -1) {
+            if (res.hr === S_OK && proxy) {
+              lua.lua_rawgeti(this.L, lua.LUA_REGISTRYINDEX, cbRef);
+              pushComObjectToLua(this.L, proxy);
+              lua.lua_pushnil(this.L);
+              const pcallRes = lua.lua_pcall(this.L, 2, 0, 0);
+              if (pcallRes !== 0) {
+                const err = fengari.to_jsstring(lua.lua_tolstring(this.L, -1, null));
+                this.log("stderr", `CreateRemoteObject callback error: ${err}`);
+              }
+            } else {
+              lua.lua_rawgeti(this.L, lua.LUA_REGISTRYINDEX, cbRef);
+              lua.lua_pushnil(this.L);
+              lua.lua_pushstring(this.L, fengari.to_luastring(`DCOM activation failed (hr=0x${(res.hr >>> 0).toString(16)})`));
+              lua.lua_pcall(this.L, 2, 0, 0);
+            }
+            lauxlib.luaL_unref(this.L, lua.LUA_REGISTRYINDEX, cbRef);
+          }
+        })
+        .catch((err) => {
+          if (cbRef !== -1) {
+            lua.lua_rawgeti(this.L, lua.LUA_REGISTRYINDEX, cbRef);
+            lua.lua_pushnil(this.L);
+            lua.lua_pushstring(this.L, fengari.to_luastring(err?.message || String(err)));
+            lua.lua_pcall(this.L, 2, 0, 0);
+            lauxlib.luaL_unref(this.L, lua.LUA_REGISTRYINDEX, cbRef);
+          }
+        });
+
+      return 0;
     });
 
     // win32.PlaySound(name)

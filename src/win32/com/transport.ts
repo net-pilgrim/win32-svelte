@@ -1,4 +1,4 @@
-import { S_OK, HRESULT } from "./types";
+import { S_OK, type HRESULT } from "./types";
 
 export type DComMessageType =
   | "ORPC_CALL"

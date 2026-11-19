@@ -123,6 +123,7 @@ async function runStartMenuTests() {
   console.log("✓ De-beveling rules, CSS variables, and flat defaults verified");
 
   console.log("\nALL START MENU TESTS PASSED! 🪟⚡🎉\n");
+  process.exit(0);
 }
 
 runStartMenuTests().catch((err) => {

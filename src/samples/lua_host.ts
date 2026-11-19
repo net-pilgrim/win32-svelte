@@ -41,6 +41,7 @@ const IDC_BTN_CLEAR = 1003;
 const IDC_BTN_SAMPLE1 = 1004;
 const IDC_BTN_SAMPLE2 = 1005;
 const IDC_BTN_SAMPLE3 = 1006;
+const IDC_BTN_SAMPLE4 = 1007;
 
 const IDM_FILE_NEW = 2001;
 const IDM_FILE_OPEN = 2002;
@@ -50,6 +51,11 @@ const IDM_RUN_EXECUTE = 2005;
 const IDM_RUN_RESET = 2006;
 const IDM_RUN_CLEAR = 2007;
 const IDM_HELP_ABOUT = 2008;
+
+const IDM_SAMPLE_HELLO = 2011;
+const IDM_SAMPLE_GUI = 2012;
+const IDM_SAMPLE_GDI = 2013;
+const IDM_SAMPLE_COM = 2014;
 
 const SAMPLE_HELLO = `-- ========================================================
 -- Sample 1: Hello Win32 & Audio
@@ -140,6 +146,71 @@ win32.ShowWindow(win, win32.SW_SHOW)
 win32.PlaySound("Chime")
 `;
 
+const SAMPLE_COM = `-- ========================================================
+-- Sample 4: Win32 COM & Distributed COM (DCOM) Automation
+-- ========================================================
+print("========================================")
+print("Win32 COM / DCOM Automation Demo")
+print("========================================")
+
+-- 1. In-process COM: Calc.Engine ({3B8A8820-2E24-11D1-A2A9-00A0C9062910})
+print("\\n[1] Creating in-process COM: Calc.Engine...")
+local calc = win32.CreateObject("Calc.Engine")
+if calc then
+    local a, b = 45, 15
+    print(string.format("  • Calc.Add(%d, %d) = %s", a, b, tostring(calc:Add(a, b))))
+    print(string.format("  • Calc.Subtract(%d, %d) = %s", a, b, tostring(calc:Subtract(a, b))))
+    print(string.format("  • Calc.Multiply(%d, %d) = %s", a, b, tostring(calc:Multiply(a, b))))
+    print(string.format("  • Calc.Divide(%d, %d) = %s", a, b, tostring(calc:Divide(a, b))))
+    print(string.format("  • Calc.Eval('(12 + 8) * 5') = %s", tostring(calc:Eval("(12 + 8) * 5"))))
+else
+    print("  ✗ Failed to create Calc.Engine")
+end
+
+-- 2. In-process COM: Audio.Synthesizer ({7C9B9930-2E24-11D1-A2A9-00A0C9062920})
+print("\\n[2] Creating in-process COM: Audio.Synthesizer...")
+local audio = win32.CreateObject("Audio.Synthesizer")
+if audio then
+    print("  • Triggering procedural Windows 98 Tada sound effect...")
+    audio:PlayTada()
+    print("  ✓ Sound played via COM IDispatch invocation!")
+else
+    print("  ✗ Failed to create Audio.Synthesizer")
+end
+
+-- 3. In-process COM: Notepad.Document ({9D0C0040-2E24-11D1-A2A9-00A0C9062930})
+print("\\n[3] Creating in-process COM: Notepad.Document...")
+local doc = win32.CreateObject("Notepad.Document")
+if doc then
+    doc:AppendLine("--- COM Text Document Buffer ---")
+    doc:AppendLine("Item 1: Win32 Automation via IDispatch")
+    doc:AppendLine("Item 2: Svelte 5 + 98.css Native Windows")
+    doc:AppendLine("Item 3: Distributed COM Cross-Tab RPC")
+    print("  • Document line count: " .. tostring(doc:GetLineCount()))
+    print("  • Document content:\\n" .. doc:GetText())
+else
+    print("  ✗ Failed to create Notepad.Document")
+end
+
+-- 4. Distributed COM (DCOM): Cross-Tab / Remote Object Activation
+print("\\n[4] Connecting to Distributed COM (DCOM) Bus...")
+print("  • Bus Endpoint: broadcast://win32-dcom-bus")
+win32.CreateRemoteObject("Calc.Engine", "win32-dcom-bus", function(remoteCalc, err)
+    if err then
+        print("  ✗ DCOM Error: " .. tostring(err))
+        return
+    end
+    print("  ✓ DCOM Connection established! Remote Object Exporter OID resolved.")
+
+    -- Remote method invocation via DComProxy ORPC
+    remoteCalc:Add(250, 750, function(result)
+        print("  ★ DCOM ORPC Result: 250 + 750 = " .. tostring(result))
+        win32.PlaySound("Chime")
+        print("\\nALL COM & DCOM DEMOS COMPLETED SUCCESSFULLY! ⚡🎉")
+    end)
+end)
+`;
+
 interface LuaHostContext {
   runtime: Win32LuaRuntime;
   hEditScript: HWND;
@@ -150,6 +221,7 @@ interface LuaHostContext {
   hBtnSample1: HWND;
   hBtnSample2: HWND;
   hBtnSample3: HWND;
+  hBtnSample4: HWND;
   consoleLines: string[];
 }
 
@@ -179,45 +251,52 @@ function LuaHostWndProc(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM):
 
       // Top Toolbar Buttons
       const hBtnRun = CreateWindowEx(
-        0, "BUTTON", "▶ Run (F5)",
+        0, "BUTTON", "▶ Run",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        8, 6, 85, 24,
+        6, 6, 68, 24,
         hwnd, IDC_BTN_RUN
       );
 
       const hBtnReset = CreateWindowEx(
-        0, "BUTTON", "🔄 Reset VM",
+        0, "BUTTON", "🔄 Reset",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        98, 6, 85, 24,
+        78, 6, 68, 24,
         hwnd, IDC_BTN_RESET
       );
 
       const hBtnClear = CreateWindowEx(
         0, "BUTTON", "🧹 Clear",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        188, 6, 65, 24,
+        150, 6, 60, 24,
         hwnd, IDC_BTN_CLEAR
       );
 
       const hBtnSample1 = CreateWindowEx(
         0, "BUTTON", "Hello",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        270, 6, 60, 24,
+        214, 6, 50, 24,
         hwnd, IDC_BTN_SAMPLE1
       );
 
       const hBtnSample2 = CreateWindowEx(
-        0, "BUTTON", "GUI Demo",
+        0, "BUTTON", "GUI",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        335, 6, 75, 24,
+        268, 6, 46, 24,
         hwnd, IDC_BTN_SAMPLE2
       );
 
       const hBtnSample3 = CreateWindowEx(
-        0, "BUTTON", "GDI Art",
+        0, "BUTTON", "GDI",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        415, 6, 65, 24,
+        318, 6, 46, 24,
         hwnd, IDC_BTN_SAMPLE3
+      );
+
+      const hBtnSample4 = CreateWindowEx(
+        0, "BUTTON", "COM/DCOM",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        368, 6, 88, 24,
+        hwnd, IDC_BTN_SAMPLE4
       );
 
       // Script Source Code Editor
@@ -247,6 +326,7 @@ function LuaHostWndProc(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM):
         hBtnSample1,
         hBtnSample2,
         hBtnSample3,
+        hBtnSample4,
         consoleLines: [initialLog],
       };
 
@@ -271,6 +351,13 @@ function LuaHostWndProc(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM):
       AppendMenu(hRunMenu, MF_STRING, IDM_RUN_RESET, "Reset &VM");
       AppendMenu(hRunMenu, MF_STRING, IDM_RUN_CLEAR, "&Clear Console");
       AppendMenu(hMenuBar, MF_STRING, hRunMenu, "&Run");
+
+      const hSamplesMenu = CreatePopupMenu();
+      AppendMenu(hSamplesMenu, MF_STRING, IDM_SAMPLE_HELLO, "1. &Hello Win32 & Audio");
+      AppendMenu(hSamplesMenu, MF_STRING, IDM_SAMPLE_GUI, "2. &Dynamic Win32 GUI");
+      AppendMenu(hSamplesMenu, MF_STRING, IDM_SAMPLE_GDI, "3. &Procedural GDI Art");
+      AppendMenu(hSamplesMenu, MF_STRING, IDM_SAMPLE_COM, "4. &COM / DCOM Automation");
+      AppendMenu(hMenuBar, MF_STRING, hSamplesMenu, "&Samples");
 
       const hHelpMenu = CreatePopupMenu();
       AppendMenu(hHelpMenu, MF_STRING, IDM_HELP_ABOUT, "&About Lua 5.3...");
@@ -307,20 +394,30 @@ function LuaHostWndProc(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM):
           return 0;
         }
 
-        case IDC_BTN_SAMPLE1: {
+        case IDC_BTN_SAMPLE1:
+        case IDM_SAMPLE_HELLO: {
           SetWindowText(ctx.hEditScript, SAMPLE_HELLO);
           runCurrentScript(ctx);
           return 0;
         }
 
-        case IDC_BTN_SAMPLE2: {
+        case IDC_BTN_SAMPLE2:
+        case IDM_SAMPLE_GUI: {
           SetWindowText(ctx.hEditScript, SAMPLE_GUI);
           runCurrentScript(ctx);
           return 0;
         }
 
-        case IDC_BTN_SAMPLE3: {
+        case IDC_BTN_SAMPLE3:
+        case IDM_SAMPLE_GDI: {
           SetWindowText(ctx.hEditScript, SAMPLE_GDI);
+          runCurrentScript(ctx);
+          return 0;
+        }
+
+        case IDC_BTN_SAMPLE4:
+        case IDM_SAMPLE_COM: {
+          SetWindowText(ctx.hEditScript, SAMPLE_COM);
           runCurrentScript(ctx);
           return 0;
         }

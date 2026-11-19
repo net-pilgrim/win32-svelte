@@ -384,6 +384,33 @@ export class Win32VFS {
         'local win = win32.CreateWindow("LuaGdiClass", "Lua GDI Procedural Art", 240, 130, 330, 230)\n' +
         'win32.ShowWindow(win, win32.SW_SHOW)\n' +
         'win32.PlaySound("Chime")\n',
+      "lua/com_demo.lua":
+        'print("========================================")\n' +
+        'print("Win32 COM / DCOM Automation Demo")\n' +
+        'print("========================================")\n' +
+        'local calc = win32.CreateObject("Calc.Engine")\n' +
+        'if calc then\n' +
+        '    print("In-process COM: Calc.Add(45, 15) = " .. tostring(calc:Add(45, 15)))\n' +
+        '    print("In-process COM: Calc.Eval((12+8)*5) = " .. tostring(calc:Eval("(12 + 8) * 5")))\n' +
+        'end\n' +
+        'local audio = win32.CreateObject("Audio.Synthesizer")\n' +
+        'if audio then audio:PlayTada(); print("In-process COM: Played Tada sound") end\n' +
+        'local doc = win32.CreateObject("Notepad.Document")\n' +
+        'if doc then\n' +
+        '    doc:AppendLine("Item 1: Win32 COM Automation")\n' +
+        '    doc:AppendLine("Item 2: Svelte 5 Native Desktop")\n' +
+        '    print("Notepad.Document text:\\n" .. doc:GetText())\n' +
+        'end\n' +
+        'print("Connecting to DCOM Bus: broadcast://win32-dcom-bus...")\n' +
+        'win32.CreateRemoteObject("Calc.Engine", "win32-dcom-bus", function(remoteCalc, err)\n' +
+        '    if err then print("DCOM Error: " .. tostring(err)); return end\n' +
+        '    print("DCOM Connection established via BroadcastChannel!")\n' +
+        '    remoteCalc:Add(250, 750, function(result)\n' +
+        '        print("★ DCOM Remote Result: 250 + 750 = " .. tostring(result))\n' +
+        '        win32.PlaySound("Chime")\n' +
+        '        print("ALL COM & DCOM DEMOS PASSED! ⚡🎉")\n' +
+        '    end)\n' +
+        'end)\n',
       "GAMES/DOOM/DOOM95.EXE": "[DOOM95.EXE Win32 / WASM Binary Executable]",
       "GAMES/DOOM/DOOM1.WAD": "[DOOM1.WAD Shareware Game Data]",
       "GAMES/DOOM/README.TXT": "DOOM 95 for win32-svelte\r\n\r\n" +
