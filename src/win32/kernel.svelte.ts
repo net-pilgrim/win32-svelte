@@ -1351,6 +1351,9 @@ setPrintKernelBridge({
 // Win32 ODBC Subsystem (odbc32.dll) & Supabase Driver
 export * from "./odbc";
 
+// Win32 Windows Registry Subsystem (advapi32.dll / winreg.h)
+export * from "./registry";
+
 
 
 

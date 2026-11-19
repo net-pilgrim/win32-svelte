@@ -77,6 +77,9 @@ export function createActionHandlers(
     },
     odbc: (p) => StartOdbcAdmin(p.x, p.y),
     isql: (p) => StartISQL(p.x, p.y),
+    regedit: (p) => {
+      import("../../samples/regedit").then(({ StartRegEdit }) => StartRegEdit(p.x, p.y));
+    },
     control_gallery: (p) => StartControlGallery(p.x, p.y),
     inspector: () => StartHwndInspector(),
     toggle_sound: () => onToggleSound(),

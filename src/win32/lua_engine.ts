@@ -61,7 +61,18 @@ import {
   SW_MAXIMIZE,
   SW_RESTORE,
   LOWORD,
+  HKEY_CLASSES_ROOT,
+  HKEY_CURRENT_USER,
+  HKEY_LOCAL_MACHINE,
+  HKEY_USERS,
+  HKEY_CURRENT_CONFIG,
+  REG_SZ,
+  REG_DWORD,
+  REG_BINARY,
+  REG_MULTI_SZ,
+  ERROR_SUCCESS,
 } from "./constants";
+import { registry } from "./registry";
 import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "./types";
 import { comRuntime } from "./com/runtime";
 import { IID_IDispatch } from "./com/guid";
@@ -181,6 +192,18 @@ export class Win32LuaRuntime {
     setConstant("SW_MAXIMIZE", SW_MAXIMIZE);
     setConstant("SW_RESTORE", SW_RESTORE);
 
+    // Registry Constants
+    setConstant("HKEY_CLASSES_ROOT", HKEY_CLASSES_ROOT);
+    setConstant("HKEY_CURRENT_USER", HKEY_CURRENT_USER);
+    setConstant("HKEY_LOCAL_MACHINE", HKEY_LOCAL_MACHINE);
+    setConstant("HKEY_USERS", HKEY_USERS);
+    setConstant("HKEY_CURRENT_CONFIG", HKEY_CURRENT_CONFIG);
+
+    setConstant("REG_SZ", REG_SZ);
+    setConstant("REG_DWORD", REG_DWORD);
+    setConstant("REG_BINARY", REG_BINARY);
+    setConstant("REG_MULTI_SZ", REG_MULTI_SZ);
+
     // Register C helper functions inside 'win32'
     const setFunction = (name: string, fn: (L: any) => number) => {
       lua.lua_pushstring(L, fengari.to_luastring(name));
@@ -241,8 +264,9 @@ export class Win32LuaRuntime {
           for (let i = 2; i <= top; i++) {
             if (i === top && lua.lua_isfunction(callL, i)) {
               lua.lua_pushvalue(callL, i);
-              callbackRef = lauxlib.luaL_ref(callL, lua.LUA_REGISTRYINDEX);
-              this.registeredCallbacks.push(callbackRef);
+              const ref = lauxlib.luaL_ref(callL, lua.LUA_REGISTRYINDEX);
+              callbackRef = ref;
+              this.registeredCallbacks.push(ref);
             } else if (lua.lua_isnumber(callL, i)) {
               args.push(lua.lua_tonumber(callL, i));
             } else if (lua.lua_isstring(callL, i)) {
@@ -424,6 +448,235 @@ export class Win32LuaRuntime {
         });
 
       return 0;
+    });
+
+    // --- Windows Registry (advapi32.dll) APIs ---
+
+    // win32.RegOpenKey(hKey, subKey)
+    setFunction("RegOpenKey", (L: any) => {
+      let hKey: any;
+      if (lua.lua_isnumber(L, 1)) hKey = lua.lua_tointeger(L, 1);
+      else if (lua.lua_isstring(L, 1)) hKey = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      else hKey = HKEY_CURRENT_USER;
+
+      const subKey = lua.lua_isstring(L, 2) ? fengari.to_jsstring(lua.lua_tolstring(L, 2, null)) : "";
+      const phk = { val: 0 };
+      const status = registry.RegOpenKeyEx(hKey, subKey, 0, 0, phk);
+      if (status === ERROR_SUCCESS) {
+        lua.lua_pushinteger(L, phk.val);
+        return 1;
+      }
+      lua.lua_pushnil(L);
+      lua.lua_pushinteger(L, status);
+      return 2;
+    });
+
+    // win32.RegCreateKey(hKey, subKey)
+    setFunction("RegCreateKey", (L: any) => {
+      let hKey: any;
+      if (lua.lua_isnumber(L, 1)) hKey = lua.lua_tointeger(L, 1);
+      else if (lua.lua_isstring(L, 1)) hKey = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      else hKey = HKEY_CURRENT_USER;
+
+      const subKey = lua.lua_isstring(L, 2) ? fengari.to_jsstring(lua.lua_tolstring(L, 2, null)) : "";
+      const phk = { val: 0 };
+      const status = registry.RegCreateKeyEx(hKey, subKey, 0, "", 0, 0, null, phk);
+      if (status === ERROR_SUCCESS) {
+        lua.lua_pushinteger(L, phk.val);
+        return 1;
+      }
+      lua.lua_pushnil(L);
+      lua.lua_pushinteger(L, status);
+      return 2;
+    });
+
+    // win32.RegCloseKey(hKey)
+    setFunction("RegCloseKey", (L: any) => {
+      const hKey = lua.lua_tointeger(L, 1);
+      const status = registry.RegCloseKey(hKey);
+      lua.lua_pushinteger(L, status);
+      return 1;
+    });
+
+    // win32.RegQueryValue(hKey, [subKey], valueName)
+    setFunction("RegQueryValue", (L: any) => {
+      const top = lua.lua_gettop(L);
+      let hKey: any;
+      if (lua.lua_isnumber(L, 1)) hKey = lua.lua_tointeger(L, 1);
+      else if (lua.lua_isstring(L, 1)) hKey = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      else hKey = HKEY_CURRENT_USER;
+
+      let valName = "";
+      let tempClose = 0;
+
+      if (top >= 3) {
+        // win32.RegQueryValue(hKey, subKey, valName)
+        const subKey = fengari.to_jsstring(lua.lua_tolstring(L, 2, null));
+        valName = lua.lua_isstring(L, 3) ? fengari.to_jsstring(lua.lua_tolstring(L, 3, null)) : "";
+        const phk = { val: 0 };
+        const opRes = registry.RegOpenKeyEx(hKey, subKey, 0, 0, phk);
+        if (opRes !== ERROR_SUCCESS) {
+          lua.lua_pushnil(L);
+          lua.lua_pushinteger(L, opRes);
+          return 2;
+        }
+        hKey = phk.val;
+        tempClose = phk.val;
+      } else {
+        valName = lua.lua_isstring(L, 2) ? fengari.to_jsstring(lua.lua_tolstring(L, 2, null)) : "";
+      }
+
+      const pType = { val: 0 };
+      const pData = { val: null as any };
+      const status = registry.RegQueryValueEx(hKey, valName, 0, pType, pData);
+      if (tempClose) registry.RegCloseKey(tempClose);
+
+      if (status === ERROR_SUCCESS) {
+        if (typeof pData.val === "number") {
+          if (Number.isInteger(pData.val)) lua.lua_pushinteger(L, pData.val);
+          else lua.lua_pushnumber(L, pData.val);
+        } else if (typeof pData.val === "string") {
+          lua.lua_pushstring(L, fengari.to_luastring(pData.val));
+        } else if (pData.val instanceof Uint8Array) {
+          lua.lua_createtable(L, pData.val.length, 0);
+          pData.val.forEach((byte, idx) => {
+            lua.lua_pushinteger(L, byte);
+            lua.lua_rawseti(L, -2, idx + 1);
+          });
+        } else {
+          lua.lua_pushnil(L);
+        }
+        lua.lua_pushinteger(L, pType.val);
+        return 2;
+      }
+      lua.lua_pushnil(L);
+      lua.lua_pushinteger(L, status);
+      return 2;
+    });
+
+    // win32.RegSetValue(hKey, valueName, data, [type])
+    // OR win32.RegSetValue(hKey, subKey, valueName, data, [type])
+    setFunction("RegSetValue", (L: any) => {
+      const top = lua.lua_gettop(L);
+      let hKey: any;
+      if (lua.lua_isnumber(L, 1)) hKey = lua.lua_tointeger(L, 1);
+      else if (lua.lua_isstring(L, 1)) hKey = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      else hKey = HKEY_CURRENT_USER;
+
+      let valName = "";
+      let dataIdx = 3;
+      let typeIdx = 4;
+      let tempClose = 0;
+
+      if (top >= 4 && (typeof hKey === "string" || hKey < 0x1000) && lua.lua_isstring(L, 2) && lua.lua_isstring(L, 3)) {
+        // win32.RegSetValue(hKey, subKey, valueName, data, [type])
+        const subKey = fengari.to_jsstring(lua.lua_tolstring(L, 2, null));
+        valName = fengari.to_jsstring(lua.lua_tolstring(L, 3, null));
+        dataIdx = 4;
+        typeIdx = 5;
+        const phk = { val: 0 };
+        const opRes = registry.RegCreateKeyEx(hKey, subKey, 0, "", 0, 0, null, phk);
+        if (opRes !== ERROR_SUCCESS) {
+          lua.lua_pushinteger(L, opRes);
+          return 1;
+        }
+        hKey = phk.val;
+        tempClose = phk.val;
+      } else {
+        valName = lua.lua_isstring(L, 2) ? fengari.to_jsstring(lua.lua_tolstring(L, 2, null)) : "";
+      }
+
+      let type = REG_SZ;
+      if (lua.lua_isnumber(L, typeIdx)) type = lua.lua_tointeger(L, typeIdx);
+
+      let data: any = "";
+      if (lua.lua_isnumber(L, dataIdx)) {
+        data = lua.lua_tonumber(L, dataIdx);
+        if (type === REG_SZ) type = REG_DWORD;
+      } else if (lua.lua_isstring(L, dataIdx)) {
+        data = fengari.to_jsstring(lua.lua_tolstring(L, dataIdx, null));
+      }
+
+      const status = registry.RegSetValueEx(hKey, valName, 0, type, data);
+      if (tempClose) registry.RegCloseKey(tempClose);
+
+      lua.lua_pushinteger(L, status);
+      return 1;
+    });
+
+    // win32.RegDeleteValue(hKey, valueName)
+    setFunction("RegDeleteValue", (L: any) => {
+      const hKey = lua.lua_isnumber(L, 1) ? lua.lua_tointeger(L, 1) : fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      const valName = lua.lua_isstring(L, 2) ? fengari.to_jsstring(lua.lua_tolstring(L, 2, null)) : "";
+      const status = registry.RegDeleteValue(hKey, valName);
+      lua.lua_pushinteger(L, status);
+      return 1;
+    });
+
+    // win32.RegDeleteKey(hKey, subKey)
+    setFunction("RegDeleteKey", (L: any) => {
+      const hKey = lua.lua_isnumber(L, 1) ? lua.lua_tointeger(L, 1) : fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      const subKey = lua.lua_isstring(L, 2) ? fengari.to_jsstring(lua.lua_tolstring(L, 2, null)) : "";
+      const status = registry.RegDeleteKey(hKey, subKey);
+      lua.lua_pushinteger(L, status);
+      return 1;
+    });
+
+    // win32.RegEnumKey(hKey, index)
+    setFunction("RegEnumKey", (L: any) => {
+      const hKey = lua.lua_isnumber(L, 1) ? lua.lua_tointeger(L, 1) : fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      const idx = lua.lua_tointeger(L, 2);
+      const pName = { val: "" };
+      const status = registry.RegEnumKeyEx(hKey, idx, pName);
+      if (status === ERROR_SUCCESS) {
+        lua.lua_pushstring(L, fengari.to_luastring(pName.val));
+        return 1;
+      }
+      lua.lua_pushnil(L);
+      return 1;
+    });
+
+    // win32.RegEnumValue(hKey, index)
+    setFunction("RegEnumValue", (L: any) => {
+      const hKey = lua.lua_isnumber(L, 1) ? lua.lua_tointeger(L, 1) : fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      const idx = lua.lua_tointeger(L, 2);
+      const pName = { val: "" };
+      const pType = { val: 0 };
+      const pData = { val: null as any };
+      const status = registry.RegEnumValue(hKey, idx, pName, pType, pData);
+      if (status === ERROR_SUCCESS) {
+        lua.lua_pushstring(L, fengari.to_luastring(pName.val));
+        if (typeof pData.val === "number") {
+          if (Number.isInteger(pData.val)) lua.lua_pushinteger(L, pData.val);
+          else lua.lua_pushnumber(L, pData.val);
+        } else if (typeof pData.val === "string") {
+          lua.lua_pushstring(L, fengari.to_luastring(pData.val));
+        } else {
+          lua.lua_pushnil(L);
+        }
+        lua.lua_pushinteger(L, pType.val);
+        return 3;
+      }
+      lua.lua_pushnil(L);
+      return 1;
+    });
+
+    // win32.RegExport([hive])
+    setFunction("RegExport", (L: any) => {
+      let hive: any = undefined;
+      if (lua.lua_isstring(L, 1)) hive = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      else if (lua.lua_isnumber(L, 1)) hive = lua.lua_tointeger(L, 1);
+      const exp = registry.RegExport(hive);
+      lua.lua_pushstring(L, fengari.to_luastring(exp));
+      return 1;
+    });
+
+    // win32.RegImport(regContent)
+    setFunction("RegImport", (L: any) => {
+      const content = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      const res = registry.RegImport(content);
+      lua.lua_pushinteger(L, res.importedValues);
+      return 1;
     });
 
     // win32.PlaySound(name)

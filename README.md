@@ -67,7 +67,7 @@ Open your browser at `http://localhost:5173` (or the URL displayed in your termi
 | `npm run build` | `vite build` | Compiles the prototype to static assets in `dist/` |
 | `npm run preview` | `vite preview` | Previews the built static assets locally |
 | `npm run check` | `svelte-check ... && tsc ...` | Typechecks Svelte components and TypeScript code |
-| `npm test` | `tsx src/win32/__tests__/...` | Runs test suites (VFS, Print Spooler, ODBC, WASM Bridge, RC Compiler) |
+| `npm test` | `tsx src/win32/__tests__/...` | Runs test suites (VFS, Print Spooler, Registry, ODBC, WASM Bridge, RC Compiler) |
 | `npm run rc` | `tsx src/rc/cli.ts` | Compiles Win32 `.rc` resource scripts to TypeScript/JSON |
 | `npm run build:wasm` | `tsx src/wasm/embed_wasm.ts` | Compiles C sample app to freestanding `.wasm` with Zig/Clang |
 | `npm run build:example` | `make -C examples/simple_c_app` | Builds standalone C WebAssembly app with Makefile |
@@ -134,6 +134,7 @@ flowchart TD
     subgraph KernelSubsystem["Simulated Kernel & Subsystems"]
         KernelCore["Kernel Core<br/>(HWND Registry, Class Table, Z-Index)"]
         MsgPump["Message Dispatcher<br/>(SendMessage, PostMessage, DispatchMessage)"]
+        Registry["Windows Registry (advapi32)<br/>(localStorage, HKEY Hives, .REG)"]
         ComCtl32["Common Controls (comctl32)<br/>(TreeView, ListView, TabControl, StatusBar)"]
         GDI["GDI 2D Engine<br/>(HDC, BeginPaint, LineTo, Rectangle, Canvas)"]
         Audio["Synthetic Audio<br/>(Web Audio Synthesizer: Chord, Ding, Tada)"]
@@ -197,7 +198,15 @@ Uses Web Audio API oscillators and gain envelopes to approximate retro sound eff
 - `playTada()`: Fanfare brass synth for victories / startup.
 - `MessageBeep(type)`: Simple sound dispatcher.
 
-### 4. Toy MFC Layer (`src/win32/mfc/` & `examples/starter_mfc_app/`)
+### 4. Client-Side Windows Registry (`src/win32/registry.ts` & `advapi32.dll`)
+A synchronous client-side implementation of the Windows Registry backed by browser `localStorage` (`win32_registry_v1`) with transparent in-memory fallback for SSR and headless Node.js environments:
+- **Root Hives**: `HKEY_CLASSES_ROOT`, `HKEY_CURRENT_USER`, `HKEY_LOCAL_MACHINE`, `HKEY_USERS`, `HKEY_CURRENT_CONFIG`, `HKEY_PERFORMANCE_DATA`, `HKEY_DYN_DATA`.
+- **Value Types**: `REG_SZ`, `REG_EXPAND_SZ`, `REG_BINARY`, `REG_DWORD`, `REG_MULTI_SZ`, `REG_QWORD`, `REG_NONE`.
+- **Synchronous advapi32 APIs**: `RegOpenKeyEx`, `RegCreateKeyEx`, `RegCloseKey`, `RegQueryValueEx`, `RegSetValueEx`, `RegDeleteValue`, `RegDeleteKey`, `RegEnumKeyEx`, `RegEnumValue`, `RegSaveKey`, `RegRestoreKey`.
+- **.REG Export & Import**: Full serialization and parsing of ASCII `.reg` scripts (`Windows Registry Editor Version 5.00` and `REGEDIT4`).
+- **Lua 5.3 Bindings**: Exposed via `win32.Reg*` and `HKEY_*` / `REG_*` constants for scripting.
+
+### 5. Toy MFC Layer (`src/win32/mfc/` & `examples/starter_mfc_app/`)
 A small TypeScript simulation exploring object-oriented MFC concepts:
 - **`CObject`**: Base class providing simple runtime class information and `isKindOf()` checks.
 - **`CCmdTarget`**: Message map dispatcher routing `WM_COMMAND`, `WM_NOTIFY`, and window messages via `ON_COMMAND`, `ON_BN_CLICKED`, `ON_EN_CHANGE`, and `ON_NOTIFY`.
@@ -209,7 +218,7 @@ A small TypeScript simulation exploring object-oriented MFC concepts:
 - **Control Wrappers**: Minimal wrappers for `CButton`, `CEdit`, `CStatic`, `CComboBox`, `CProgressCtrl`, `CSliderCtrl`, `CTreeCtrl`, `CListCtrl`.
 - **Starter MFC Project**: A turnkey template project is provided in [`examples/starter_mfc_app/`](examples/starter_mfc_app/).
 
-### 5. Experimental C WebAssembly Bridge (`include/` & `src/win32/wasm_bridge.ts`)
+### 6. Experimental C WebAssembly Bridge (`include/` & `src/win32/wasm_bridge.ts`)
 Enables running small C snippets compiled to WebAssembly inside the sandbox:
 - **Minimal Header Stubs (`include/`)**: Self-contained stubs for [`windows.h`](include/windows.h), [`windef.h`](include/windef.h), [`winuser.h`](include/winuser.h), [`wingdi.h`](include/wingdi.h), [`winbase.h`](include/winbase.h), and [`shellapi.h`](include/shellapi.h).
 - **Freestanding Compilation**: Works with standard Zig (`zig cc`) or Clang targeting `wasm32-freestanding` without requiring libc. Resulting binaries are ultra-lightweight (~10–15 KB).
@@ -223,7 +232,7 @@ Enables running small C snippets compiled to WebAssembly inside the sandbox:
 make -C examples/simple_c_app
 ```
 
-### 6. Svelte 5 Presentation Layer (`src/win32/ui/`)
+### 7. Svelte 5 Presentation Layer (`src/win32/ui/`)
 - **[Desktop.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Desktop.svelte)**: Renders desktop background, draggable icons, taskbar items, and system clock.
 - **[Window.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Window.svelte)**: Renders window frames, title bar controls, handles dragging/resizing, and mounts the `<canvas>` for GDI windows.
 - **[Control.svelte](file:///home/dsv/work/win32-svelte/src/win32/ui/Control.svelte)**: Maps child `HWND`s to DOM elements based on window style bitmasks (`BS_AUTOCHECKBOX`, `BS_AUTORADIOBUTTON`, `ES_MULTILINE`, etc.).
@@ -246,6 +255,7 @@ The repository includes several sample applications built to test the prototype:
 | **C++ MFC WASM App** | [`examples/mfc_wasm_app/`](examples/mfc_wasm_app/) | A native C++ MFC application with a `Makefile` that compiles directly to freestanding WebAssembly using Zig C++ or Clang++. |
 | **MFC Scribble** | [`src/samples/mfc_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/mfc_demo.ts) | An experiment testing MFC-style architecture in TypeScript: `CWinApp`, `CFrameWnd`, message map routing, `CPaintDC` drawing, and a modal `CDialog`. |
 | **Windows Explorer** | [`src/samples/explorer.ts`](file:///home/dsv/work/win32-svelte/src/samples/explorer.ts) | A demo explorer interface combining a left-pane `SysTreeView32` with a right-pane `SysListView32` in report mode with multi-column sorting and a status bar. |
+| **Registry Editor** | [`src/samples/regedit.ts`](file:///home/dsv/work/win32-svelte/src/samples/regedit.ts) | Windows 98-style `REGEDIT.EXE` with dual-pane split (`SysTreeView32` hive hierarchy on the left, `SysListView32` value list on the right), status bar key path, and `.reg` file import/export. Pinned in Start Menu under *Accessories -> System Tools*. |
 | **Minesweeper** | [`src/samples/minesweeper.ts`](file:///home/dsv/work/win32-svelte/src/samples/minesweeper.ts) | A recreation of Minesweeper using child button controls, right-click flagging, timer tick messages, and custom 7-segment display digits. |
 | **GDI Paint** | [`src/samples/paint_demo.ts`](file:///home/dsv/work/win32-svelte/src/samples/paint_demo.ts) | Freehand drawing demo exercising GDI geometry primitives (`Rectangle`, `Ellipse`, `LineTo`) on an HTML5 canvas. |
 | **Calculator** | [`src/samples/calculator.ts`](file:///home/dsv/work/win32-svelte/src/samples/calculator.ts) | Simple calculator using button controls sending `WM_COMMAND` to update an `EDIT` display. |

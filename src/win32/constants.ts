@@ -484,6 +484,60 @@ export const COINIT_MULTITHREADED = 0x0;
 export const COINIT_DISABLE_OLE1DDE = 0x4;
 export const COINIT_SPEED_OVER_MEMORY = 0x8;
 
+// ==========================================
+// Windows Registry (advapi32.dll / winreg.h)
+// ==========================================
+
+// Standard Root Hives (HKEY)
+export const HKEY_CLASSES_ROOT = 0x80000000 | 0;
+export const HKEY_CURRENT_USER = 0x80000001 | 0;
+export const HKEY_LOCAL_MACHINE = 0x80000002 | 0;
+export const HKEY_USERS = 0x80000003 | 0;
+export const HKEY_PERFORMANCE_DATA = 0x80000004 | 0;
+export const HKEY_CURRENT_CONFIG = 0x80000005 | 0;
+export const HKEY_DYN_DATA = 0x80000006 | 0;
+
+// Registry Value Types (REG_*)
+export const REG_NONE = 0;
+export const REG_SZ = 1;
+export const REG_EXPAND_SZ = 2;
+export const REG_BINARY = 3;
+export const REG_DWORD = 4;
+export const REG_DWORD_LITTLE_ENDIAN = 4;
+export const REG_DWORD_BIG_ENDIAN = 5;
+export const REG_LINK = 6;
+export const REG_MULTI_SZ = 7;
+export const REG_RESOURCE_LIST = 8;
+export const REG_FULL_RESOURCE_DESCRIPTOR = 9;
+export const REG_RESOURCE_REQUIREMENTS_LIST = 10;
+export const REG_QWORD = 11;
+export const REG_QWORD_LITTLE_ENDIAN = 11;
+
+// Registry Access Rights (samDesired)
+export const KEY_QUERY_VALUE = 0x0001;
+export const KEY_SET_VALUE = 0x0002;
+export const KEY_CREATE_SUB_KEY = 0x0004;
+export const KEY_ENUMERATE_SUB_KEYS = 0x0008;
+export const KEY_NOTIFY = 0x0010;
+export const KEY_CREATE_LINK = 0x0020;
+export const KEY_READ = 0x20019;
+export const KEY_WRITE = 0x20006;
+export const KEY_EXECUTE = 0x20019;
+export const KEY_ALL_ACCESS = 0xF003F;
+
+// Registry Disposition (lpdwDisposition)
+export const REG_CREATED_NEW_KEY = 0x00000001;
+export const REG_OPENED_EXISTING_KEY = 0x00000002;
+
+// Registry System Error Codes
+export const ERROR_SUCCESS = 0;
+export const ERROR_FILE_NOT_FOUND = 2;
+export const ERROR_ACCESS_DENIED = 5;
+export const ERROR_INVALID_HANDLE = 6;
+export const ERROR_INVALID_PARAMETER = 87;
+export const ERROR_MORE_DATA = 234;
+export const ERROR_NO_MORE_ITEMS = 259;
+
 
 
 

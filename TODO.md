@@ -45,15 +45,26 @@ flowchart TD
 
 
 ### 2. Client-Side Windows Registry (`localStorage` & `advapi32.dll`)
-- [ ] **Synchronous Registry Store via `localStorage`**:
+- [x] **Synchronous Registry Store via `localStorage`**:
   - Because `localStorage` is synchronous, key-value lookups match the blocking semantics of `RegQueryValueEx` and `RegSetValueEx` without needing `async/await`!
-  - Namespace keys by registry hive:
-    - `HKCU\Control Panel\Desktop` $\rightarrow$ wallpaper, color schemes, sound effects.
-    - `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer` $\rightarrow$ desktop icon positions, recent files.
-    - `HKLM\Software` $\rightarrow$ installed application registrations.
-- [ ] **Registry API Implementation**:
-  - `RegOpenKeyEx`, `RegCloseKey`, `RegQueryValueEx`, `RegSetValueEx`, `RegDeleteValue`.
-  - `RegSaveKey` / `RegRestoreKey`: Import/Export `.reg` files in classic ASCII Windows registry format.
+  - Pre-seeded root hives and namespaces:
+    - `HKEY_CLASSES_ROOT` (HKCR) $\rightarrow$ file associations (`.txt`, `.lua`, `.reg`).
+    - `HKEY_CURRENT_USER` (HKCU) $\rightarrow$ desktop state, Explorer preferences, wallpaper, sound schemes.
+    - `HKEY_LOCAL_MACHINE` (HKLM) $\rightarrow$ hardware & installed software registrations (`Microsoft\Windows\CurrentVersion`).
+    - `HKEY_USERS` & `HKEY_CURRENT_CONFIG`.
+  - Transparent in-memory fallback for SSR and headless Node.js test runners.
+- [x] **Registry API Implementation (`advapi32.dll` / `winreg.h`)**:
+  - `RegOpenKeyEx`, `RegCreateKeyEx`, `RegCloseKey`, `RegQueryValueEx`, `RegSetValueEx`, `RegDeleteValue`, `RegDeleteKey`, `RegEnumKeyEx`, `RegEnumValue`.
+  - `RegSaveKey` / `RegRestoreKey` and `RegExport` / `RegImport`: Import/Export `.reg` files in classic ASCII Windows registry format (`Windows Registry Editor Version 5.00` / `REGEDIT4`).
+- [x] **Lua 5.3 Scripting & Automation**:
+  - Full Lua bindings: `win32.RegOpenKey`, `win32.RegCreateKey`, `win32.RegCloseKey`, `win32.RegQueryValue`, `win32.RegSetValue`, `win32.RegDeleteValue`, `win32.RegDeleteKey`, `win32.RegEnumKey`, `win32.RegEnumValue`, `win32.RegExport`, `win32.RegImport`.
+- [x] **Retro Registry Editor (`REGEDIT.EXE`)**:
+  - Windows 98-style dual-pane GUI application (`src/samples/regedit.ts`):
+    - Left hierarchical tree (`SysTreeView32`) of hives and nested subkeys with folder icons and expand/collapse.
+    - Right list view (`SysListView32`) displaying Name, Type, and Data columns.
+    - Status bar indicating active key path.
+    - Menu bar with Registry (Import/Export .reg), Edit, View, and Help.
+    - Integrated into Start Menu under Accessories $\rightarrow$ System Tools.
 
 ### 3. Client-Side Printing & PDF Export (Zero-Backend)
 - [x] **GDI Client-Side Spooler (`winspool.drv` & `gdi32.dll`)**:

@@ -80,6 +80,7 @@ async function runStartMenuTests() {
     "rc",
     "odbc",
     "isql",
+    "regedit",
     "control_gallery",
     "inspector",
     "toggle_sound",
