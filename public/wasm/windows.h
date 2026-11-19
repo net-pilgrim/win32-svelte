@@ -21,6 +21,8 @@ extern "C" {
 #include "shellapi.h"
 #include "winspool.h"
 #include "sql.h"
+#include "unknwn.h"
+#include "objbase.h"
 
 // WinMain entry point prototype
 int WINAPI WinMain(

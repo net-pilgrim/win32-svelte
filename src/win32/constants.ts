@@ -437,6 +437,54 @@ export const SQL_NO_NULLS = 0;
 export const SQL_NULLABLE = 1;
 export const SQL_NULLABLE_UNKNOWN = 2;
 
+// ==========================================
+// COM / DCOM & OLE Automation
+// ==========================================
+
+// Standard HRESULT Constants
+export const S_OK = 0x00000000;
+export const S_FALSE = 0x00000001;
+export const E_UNEXPECTED = 0x8000ffff | 0;
+export const E_NOTIMPL = 0x80004001 | 0;
+export const E_OUTOFMEMORY = 0x8007000e | 0;
+export const E_INVALIDARG = 0x80070057 | 0;
+export const E_NOINTERFACE = 0x80004002 | 0;
+export const E_POINTER = 0x80004003 | 0;
+export const E_HANDLE = 0x80070006 | 0;
+export const E_ABORT = 0x80004004 | 0;
+export const E_FAIL = 0x80004005 | 0;
+export const E_ACCESSDENIED = 0x80070005 | 0;
+
+export const CLASS_E_NOAGGREGATION = 0x80040110 | 0;
+export const CLASS_E_CLASSNOTAVAILABLE = 0x80040111 | 0;
+export const REGDB_E_CLASSNOTREG = 0x80040154 | 0;
+export const CO_E_NOTINITIALIZED = 0x800401f0 | 0;
+export const CO_E_ALREADYINITIALIZED = 0x800401f1 | 0;
+export const RPC_E_SERVERUNAVAILABLE = 0x80010108 | 0;
+
+// Class Context (CLSCTX)
+export const CLSCTX_INPROC_SERVER = 0x1;
+export const CLSCTX_INPROC_HANDLER = 0x2;
+export const CLSCTX_LOCAL_SERVER = 0x4;
+export const CLSCTX_INPROC = 0x3;
+export const CLSCTX_REMOTE_SERVER = 0x10;
+export const CLSCTX_SERVER = 0x15;
+export const CLSCTX_ALL = 0x17;
+
+// Registration Flags (REGCLS)
+export const REGCLS_SINGLEUSE = 0;
+export const REGCLS_MULTIPLEUSE = 1;
+export const REGCLS_MULTI_SEPARATE = 2;
+export const REGCLS_SUSPENDED = 4;
+export const REGCLS_SURROGATE = 8;
+
+// Concurrency Model (COINIT)
+export const COINIT_APARTMENTTHREADED = 0x2;
+export const COINIT_MULTITHREADED = 0x0;
+export const COINIT_DISABLE_OLE1DDE = 0x4;
+export const COINIT_SPEED_OVER_MEMORY = 0x8;
+
+
 
 
 

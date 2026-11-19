@@ -63,6 +63,9 @@ import {
   LOWORD,
 } from "./constants";
 import type { HWND, UINT, WPARAM, LPARAM, LRESULT } from "./types";
+import { comRuntime } from "./com/runtime";
+import { IID_IDispatch } from "./com/guid";
+import { S_OK, DISPATCH_METHOD, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT } from "./com/types";
 
 const { lua, lauxlib, lualib } = fengari;
 
@@ -216,6 +219,90 @@ export class Win32LuaRuntime {
 
       MessageBox(hwnd, text, caption, uType);
       lua.lua_pushinteger(L, 1); // IDOK
+      return 1;
+    });
+
+    const pushComObjectToLua = (subL: any, comObj: any) => {
+      lua.lua_newtable(subL);
+      const objTableIdx = lua.lua_gettop(subL);
+
+      lua.lua_newtable(subL);
+      const mtIdx = lua.lua_gettop(subL);
+
+      lua.lua_pushstring(subL, fengari.to_luastring("__index"));
+      lua.lua_pushcfunction(subL, (idxL: any) => {
+        const key = fengari.to_jsstring(lua.lua_tolstring(idxL, 2, null));
+
+        lua.lua_pushcfunction(idxL, (callL: any) => {
+          const top = lua.lua_gettop(callL);
+          const args: any[] = [];
+          for (let i = 2; i <= top; i++) {
+            if (lua.lua_isnumber(callL, i)) {
+              args.push(lua.lua_tonumber(callL, i));
+            } else if (lua.lua_isstring(callL, i)) {
+              args.push(fengari.to_jsstring(lua.lua_tolstring(callL, i, null)));
+            } else if (lua.lua_isboolean(callL, i)) {
+              args.push(!!lua.lua_toboolean(callL, i));
+            } else if (lua.lua_isnil(callL, i)) {
+              args.push(null);
+            }
+          }
+
+          try {
+            let result: any;
+            if (typeof comObj.Invoke === "function") {
+              const invRes = comObj.Invoke(key, null, 0, DISPATCH_METHOD | DISPATCH_PROPERTYGET, args);
+              if (invRes.hr === S_OK) {
+                result = invRes.pVarResult;
+              } else if (typeof comObj[key] === "function") {
+                result = comObj[key](...args);
+              } else {
+                result = comObj[key];
+              }
+            } else if (typeof comObj[key] === "function") {
+              result = comObj[key](...args);
+            } else {
+              result = comObj[key];
+            }
+
+            if (typeof result === "number") {
+              lua.lua_pushnumber(callL, result);
+            } else if (typeof result === "string") {
+              lua.lua_pushstring(callL, fengari.to_luastring(result));
+            } else if (typeof result === "boolean") {
+              lua.lua_pushboolean(callL, result ? 1 : 0);
+            } else if (result === null || result === undefined) {
+              lua.lua_pushnil(callL);
+            } else if (typeof result === "object") {
+              pushComObjectToLua(callL, result);
+            } else {
+              lua.lua_pushnil(callL);
+            }
+            return 1;
+          } catch (err: any) {
+            lua.lua_pushnil(callL);
+            lua.lua_pushstring(callL, fengari.to_luastring(err?.message || String(err)));
+            return 2;
+          }
+        });
+
+        return 1;
+      });
+      lua.lua_settable(subL, mtIdx);
+
+      lua.lua_setmetatable(subL, objTableIdx);
+    };
+
+    // win32.CreateObject(progId)
+    setFunction("CreateObject", (L: any) => {
+      const progId = fengari.to_jsstring(lua.lua_tolstring(L, 1, null));
+      const res = comRuntime.CoCreateInstance(progId, null, 0x17, IID_IDispatch);
+      if (res.hr !== S_OK || !res.ppv) {
+        lua.lua_pushnil(L);
+        lua.lua_pushstring(L, fengari.to_luastring(`Failed to create COM object '${progId}' (HRESULT 0x${(res.hr >>> 0).toString(16)})`));
+        return 2;
+      }
+      pushComObjectToLua(L, res.ppv);
       return 1;
     });
 

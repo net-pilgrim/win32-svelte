@@ -32,6 +32,9 @@ import {
 import { MessageBeep } from "./audio";
 import type { HWND, UINT, WPARAM, LPARAM, LRESULT, RECT } from "./types";
 import { StartNotepad } from "../samples/notepad";
+import { comRuntime } from "./com/runtime";
+import { S_OK, E_POINTER, E_NOINTERFACE, CLSCTX_ALL } from "./com/types";
+import { IID_IUnknown } from "./com/guid";
 
 export interface WasmBridgeOptions {
   initialX?: number;
@@ -75,6 +78,10 @@ export class Win32WasmRuntime {
 
   private nextGdiHandle = 9000;
   private gdiMap = new Map<number, any>();
+
+  private nextComHandle = 7000;
+  private comObjectMap = new Map<number, any>();
+  private heapBumpPtr = 0x80000;
 
   private stringLogs: WasmStringLogEntry[] = [];
   private registeredWndProcIndices: number[] = [];
@@ -128,6 +135,104 @@ export class Win32WasmRuntime {
     const g = (colorRef >> 8) & 0xff;
     const b = (colorRef >> 16) & 0xff;
     return `rgb(${r},${g},${b})`;
+  }
+
+  public readGuidFromMemory(ptr: number): string {
+    if (!this.memory || !ptr) return "";
+    const u8 = new Uint8Array(this.memory.buffer);
+    if (u8[ptr] === 0x7b /* '{' */ || (u8[ptr] >= 0x41 && u8[ptr] <= 0x7a)) {
+      const str = this.readCString(ptr);
+      if (str.startsWith("{") || str.includes(".")) {
+        return str;
+      }
+    }
+    const view = new DataView(this.memory.buffer);
+    const d1 = view.getUint32(ptr, true).toString(16).toUpperCase().padStart(8, "0");
+    const d2 = view.getUint16(ptr + 4, true).toString(16).toUpperCase().padStart(4, "0");
+    const d3 = view.getUint16(ptr + 6, true).toString(16).toUpperCase().padStart(4, "0");
+    let d4 = "";
+    for (let i = 0; i < 8; i++) {
+      d4 += view.getUint8(ptr + 8 + i).toString(16).toUpperCase().padStart(2, "0");
+    }
+    return `{${d1}-${d2}-${d3}-${d4.substring(0, 4)}-${d4.substring(4)}}`;
+  }
+
+  private allocateMemory(size: number): number {
+    if (!this.memory) return 0;
+    const alignedSize = (size + 3) & ~3;
+    const ptr = this.heapBumpPtr;
+    this.heapBumpPtr += alignedSize;
+    if (this.heapBumpPtr > this.memory.buffer.byteLength) {
+      const neededPages = Math.ceil((this.heapBumpPtr - this.memory.buffer.byteLength) / 65536);
+      this.memory.grow(neededPages);
+    }
+    return ptr;
+  }
+
+  public allocateWasmComProxy(instance: any): number {
+    if (!this.memory || !this.table) return 0;
+    const handle = ++this.nextComHandle;
+    this.comObjectMap.set(handle, instance);
+
+    const baseTableIdx = this.table.length;
+    this.table.grow(3);
+
+    // Slot 0: QueryInterface(This, riid, ppvObject)
+    this.table.set(baseTableIdx, (thisPtr: number, riidPtr: number, ppvObjectPtr: number) => {
+      if (!this.memory || !ppvObjectPtr) return E_POINTER;
+      const view = new DataView(this.memory.buffer);
+      const h = view.getUint32(thisPtr + 4, true);
+      const target = this.comObjectMap.get(h);
+      if (!target) return E_POINTER;
+
+      const riidStr = this.readGuidFromMemory(riidPtr);
+      const qiRes = target.QueryInterface(riidStr);
+      if (qiRes.hr === S_OK && qiRes.ppv) {
+        const newProxyPtr = this.allocateWasmComProxy(qiRes.ppv);
+        view.setUint32(ppvObjectPtr, newProxyPtr, true);
+        return S_OK;
+      }
+      view.setUint32(ppvObjectPtr, 0, true);
+      return E_NOINTERFACE;
+    });
+
+    // Slot 1: AddRef(This)
+    this.table.set(baseTableIdx + 1, (thisPtr: number) => {
+      if (!this.memory) return 0;
+      const view = new DataView(this.memory.buffer);
+      const h = view.getUint32(thisPtr + 4, true);
+      const target = this.comObjectMap.get(h);
+      if (!target) return 0;
+      return typeof target.AddRef === "function" ? target.AddRef() : 1;
+    });
+
+    // Slot 2: Release(This)
+    this.table.set(baseTableIdx + 2, (thisPtr: number) => {
+      if (!this.memory) return 0;
+      const view = new DataView(this.memory.buffer);
+      const h = view.getUint32(thisPtr + 4, true);
+      const target = this.comObjectMap.get(h);
+      if (!target) return 0;
+      const count = typeof target.Release === "function" ? target.Release() : 0;
+      if (count <= 0) {
+        this.comObjectMap.delete(h);
+      }
+      return count;
+    });
+
+    // Allocate 12 bytes for vtable: 3 function pointers (indices in __indirect_function_table)
+    const pVtbl = this.allocateMemory(12);
+    const view = new DataView(this.memory.buffer);
+    view.setUint32(pVtbl + 0, baseTableIdx, true);
+    view.setUint32(pVtbl + 4, baseTableIdx + 1, true);
+    view.setUint32(pVtbl + 8, baseTableIdx + 2, true);
+
+    // Allocate 8 bytes for object instance: [pVtbl (4 bytes), handle (4 bytes)]
+    const pObj = this.allocateMemory(8);
+    view.setUint32(pObj + 0, pVtbl, true);
+    view.setUint32(pObj + 4, handle, true);
+
+    return pObj;
   }
 
   public getImportObject(): WebAssembly.Imports {
@@ -571,6 +676,76 @@ export class Win32WasmRuntime {
 
           return totalHeight;
         },
+
+        // --- COM / DCOM APIs ---
+        CoInitialize: (_pvReserved: number) => {
+          return comRuntime.CoInitialize();
+        },
+
+        CoInitializeEx: (_pvReserved: number, dwCoInit: number) => {
+          return comRuntime.CoInitializeEx(null, dwCoInit);
+        },
+
+        CoUninitialize: () => {
+          comRuntime.CoUninitialize();
+        },
+
+        CoCreateInstance: (
+          rclsidPtr: number,
+          _pUnkOuter: number,
+          dwClsContext: number,
+          riidPtr: number,
+          ppvPtr: number
+        ) => {
+          if (!this.memory || !ppvPtr) return E_POINTER;
+          const clsidStr = this.readGuidFromMemory(rclsidPtr);
+          const riidStr = this.readGuidFromMemory(riidPtr) || IID_IUnknown;
+
+          const res = comRuntime.CoCreateInstance(clsidStr, null, dwClsContext || CLSCTX_ALL, riidStr);
+          if (res.hr !== S_OK || !res.ppv) {
+            const view = new DataView(this.memory.buffer);
+            view.setUint32(ppvPtr, 0, true);
+            return res.hr;
+          }
+
+          const proxyPtr = this.allocateWasmComProxy(res.ppv);
+          const view = new DataView(this.memory.buffer);
+          view.setUint32(ppvPtr, proxyPtr, true);
+          return S_OK;
+        },
+
+        CoCreateInstanceEx: (
+          rclsidPtr: number,
+          punkOuter: number,
+          dwClsCtx: number,
+          _pServerInfoPtr: number,
+          cmq: number,
+          pResultsPtr: number
+        ) => {
+          if (!this.memory || !pResultsPtr) return E_POINTER;
+          const view = new DataView(this.memory.buffer);
+          let allOk = true;
+
+          for (let i = 0; i < cmq; i++) {
+            const offset = pResultsPtr + i * 12;
+            const pIIDPtr = view.getUint32(offset, true);
+            const riidStr = this.readGuidFromMemory(pIIDPtr) || IID_IUnknown;
+            const clsidStr = this.readGuidFromMemory(rclsidPtr);
+
+            const res = comRuntime.CoCreateInstance(clsidStr, null, dwClsCtx || CLSCTX_ALL, riidStr);
+            if (res.hr === S_OK && res.ppv) {
+              const proxyPtr = this.allocateWasmComProxy(res.ppv);
+              view.setUint32(offset + 4, proxyPtr, true);
+              view.setInt32(offset + 8, S_OK, true);
+            } else {
+              view.setUint32(offset + 4, 0, true);
+              view.setInt32(offset + 8, res.hr, true);
+              allOk = false;
+            }
+          }
+
+          return allOk ? S_OK : 1; // S_FALSE if some failed
+        },
       };
 
     return {
@@ -605,6 +780,7 @@ export class Win32WasmRuntime {
     activeWasmRuntimes.delete(this);
     this.hdcMap.clear();
     this.gdiMap.clear();
+    this.comObjectMap.clear();
   }
 
   public getStats(): WasmRuntimeStats {
