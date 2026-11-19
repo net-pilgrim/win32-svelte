@@ -10,6 +10,9 @@
     StartMinesweeper(110, 40);
     StartPaintDemo(350, 40);
     StartWasmApp(260, 90);
+    import("./samples/regedit").then(({ StartRegEdit }) => {
+      StartRegEdit(200, 70);
+    });
   });
 </script>
 

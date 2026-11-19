@@ -142,6 +142,14 @@
       action: () => launchDoom(100, 50),
     },
     {
+      id: "regedit",
+      title: "Registry Editor",
+      icon: "🗃️",
+      x: 196,
+      y: 16,
+      action: () => launchRegEdit(200, 80),
+    },
+    {
       id: "recycle",
       title: "Recycle Bin",
       icon: "🗑️",
@@ -217,6 +225,12 @@
     });
   }
 
+  function launchRegEdit(x = 200, y = 80) {
+    import("../../samples/regedit").then(({ StartRegEdit }) => {
+      StartRegEdit(x, y);
+    });
+  }
+
   function minimizeAll() {
     const allMin = topWindows.every((w) => w.minimized);
     for (const win of topWindows) {
@@ -286,6 +300,9 @@
       </button>
       <button class="quick-btn" title="DOOM 95" onclick={() => launchDoom(100, 50)}>
         💀
+      </button>
+      <button class="quick-btn" title="Registry Editor" onclick={() => launchRegEdit(200, 80)}>
+        🗃️
       </button>
       <button class="quick-btn" title="Notepad" onclick={() => StartNotepad(320, 70)}>
         📝
