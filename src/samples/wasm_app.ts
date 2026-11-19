@@ -28,14 +28,18 @@ export async function StartWasmApp(
   wasmInstanceCount++;
   runtime.runWinMain(wasmInstanceCount);
 
-  // If initial coordinates were provided, update the created top-level window
-  if (x !== undefined && y !== undefined) {
-    const newWindows = kernel.windows.filter(
-      (w) => !prevWindows.has(w.hwnd) && w.parentHwnd === null
-    );
-    for (const win of newWindows) {
-      win.x = x;
-      win.y = y;
+  // Cascade offset for multiple instances so windows don't completely occlude each other
+  const cascadeOffset = ((wasmInstanceCount - 1) % 8) * 24;
+  const newWindows = kernel.windows.filter(
+    (w) => !prevWindows.has(w.hwnd) && w.parentHwnd === null
+  );
+  for (const win of newWindows) {
+    if (x !== undefined && y !== undefined) {
+      win.x = x + (wasmInstanceCount > 1 ? cascadeOffset : 0);
+      win.y = y + (wasmInstanceCount > 1 ? cascadeOffset : 0);
+    } else if (cascadeOffset > 0) {
+      win.x += cascadeOffset;
+      win.y += cascadeOffset;
     }
   }
 }

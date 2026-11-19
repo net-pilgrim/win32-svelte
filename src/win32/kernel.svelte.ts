@@ -123,9 +123,10 @@ class Win32Kernel {
   private classes = new Map<string, WNDCLASSEX>();
   private messageQueue: MSG[] = [];
   private messageQueueWaiters: Array<(msg: MSG | null) => void> = [];
-  private timers = new Map<number, { timerId: number; hwnd: HWND; interval: number; intervalId: any }>();
+  private timers = new Map<string, { timerId: number; hwnd: HWND; interval: number; intervalId: any }>();
   private nextTimerId = 1;
   private nextHmenu = 500;
+  private isFlushingQueue = false;
 
   // Svelte 5 reactive state
   public windows = $state<WindowRecord[]>([]);
@@ -837,6 +838,23 @@ class Win32Kernel {
     // Send WM_DESTROY
     this.SendMessage(hwnd, WM_DESTROY, 0, 0);
 
+    // Clean up any timers registered for this window
+    for (const [key, item] of this.timers.entries()) {
+      if (item.hwnd === hwnd) {
+        clearInterval(item.intervalId);
+        this.timers.delete(key);
+      }
+    }
+
+    // Clean up pending messages in queue for this window
+    this.messageQueue = this.messageQueue.filter((m) => m.hwnd !== hwnd);
+
+    // Clean up associated menu if attached
+    if (win.hMenu) {
+      this.DestroyMenu(win.hMenu);
+      win.hMenu = null;
+    }
+
     // Remove window
     const idx = this.windows.findIndex((w) => w.hwnd === hwnd);
     if (idx !== -1) {
@@ -864,6 +882,21 @@ class Win32Kernel {
     return win.wndProc(hwnd, uMsg, wParam, lParam);
   }
 
+  private scheduleQueueFlush() {
+    if (this.isFlushingQueue) return;
+    this.isFlushingQueue = true;
+    queueMicrotask(() => {
+      this.isFlushingQueue = false;
+      while (this.messageQueue.length > 0 && this.messageQueueWaiters.length === 0) {
+        const msg = this.messageQueue.shift()!;
+        if (msg.message === WM_QUIT) {
+          continue;
+        }
+        this.DispatchMessage(msg);
+      }
+    });
+  }
+
   public PostMessage(
     hwnd: HWND,
     message: UINT,
@@ -884,6 +917,7 @@ class Win32Kernel {
       waiter(msg);
     } else {
       this.messageQueue.push(msg);
+      this.scheduleQueueFlush();
     }
 
     return true;
@@ -993,7 +1027,19 @@ class Win32Kernel {
     lpTimerFunc: any = null
   ): number {
     const id = nIDEvent || this.nextTimerId++;
+    const key = `${hwnd}:${id}`;
+
+    const existing = this.timers.get(key);
+    if (existing) {
+      clearInterval(existing.intervalId);
+    }
+
     const intervalId = setInterval(() => {
+      if (hwnd !== 0 && !this.getWindow(hwnd)) {
+        clearInterval(intervalId);
+        this.timers.delete(key);
+        return;
+      }
       if (typeof lpTimerFunc === "function") {
         lpTimerFunc(hwnd, WM_TIMER, id, Date.now());
       } else {
@@ -1001,15 +1047,16 @@ class Win32Kernel {
       }
     }, uElapse);
 
-    this.timers.set(id, { timerId: id, hwnd, interval: uElapse, intervalId });
+    this.timers.set(key, { timerId: id, hwnd, interval: uElapse, intervalId });
     return id;
   }
 
   public KillTimer(hwnd: HWND, uIDEvent: number): boolean {
-    const item = this.timers.get(uIDEvent);
-    if (item && item.hwnd === hwnd) {
+    const key = `${hwnd}:${uIDEvent}`;
+    const item = this.timers.get(key);
+    if (item) {
       clearInterval(item.intervalId);
-      this.timers.delete(uIDEvent);
+      this.timers.delete(key);
       return true;
     }
     return false;
@@ -1048,6 +1095,21 @@ class Win32Kernel {
 
   public GetMenuRecord(hMenu: HMENU): MenuRecord | undefined {
     return this.menus.find((m) => m.hMenu === hMenu);
+  }
+
+  public DestroyMenu(hMenu: HMENU): boolean {
+    const rec = this.GetMenuRecord(hMenu);
+    if (!rec) return false;
+    for (const item of rec.items) {
+      if (item.hSubMenu) {
+        this.DestroyMenu(item.hSubMenu);
+      }
+    }
+    const idx = this.menus.findIndex((m) => m.hMenu === hMenu);
+    if (idx !== -1) {
+      this.menus.splice(idx, 1);
+    }
+    return true;
   }
 
   public AppendMenu(
@@ -1224,6 +1286,7 @@ export const MessageBox = (hwnd: HWND | null, text: string, caption: string, typ
 export { MessageBeep, audio } from "./audio";
 export const CreateMenu = () => kernel.CreateMenu();
 export const CreatePopupMenu = () => kernel.CreatePopupMenu();
+export const DestroyMenu = (hMenu: HMENU) => kernel.DestroyMenu(hMenu);
 export const AppendMenu = (
   hMenu: HMENU,
   uFlags: number,

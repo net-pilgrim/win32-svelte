@@ -30,7 +30,8 @@ import {
   HDC,
 } from "./gdi";
 import { MessageBeep } from "./audio";
-import type { HWND, UINT, WPARAM, LPARAM, LRESULT, RECT } from "./types";
+import type { HWND, UINT, WPARAM, LPARAM, LRESULT, RECT, WndProc } from "./types";
+import { WM_DESTROY } from "./constants";
 import { StartNotepad } from "../samples/notepad";
 import { comRuntime } from "./com/runtime";
 import { S_OK, E_POINTER, E_NOINTERFACE, CLSCTX_ALL } from "./com/types";
@@ -83,6 +84,7 @@ export class Win32WasmRuntime {
   private comObjectMap = new Map<number, any>();
   private heapBumpPtr = 0x80000;
 
+  private registeredClasses = new Map<string, WndProc>();
   private stringLogs: WasmStringLogEntry[] = [];
   private registeredWndProcIndices: number[] = [];
 
@@ -253,17 +255,24 @@ export class Win32WasmRuntime {
           ): LRESULT => {
             if (!this.table) return 0;
             const targetFn = this.table.get(fnIdx);
+            let res: any = 0;
             if (typeof targetFn === "function") {
-              const res = targetFn(
+              res = targetFn(
                 hwnd,
                 uMsg,
                 typeof wParam === "number" ? wParam : 0,
                 typeof lParam === "number" ? lParam : 0
               );
-              return typeof res === "number" ? res : 0;
+            } else {
+              res = DefWindowProc(hwnd, uMsg, wParam, lParam);
             }
-            return DefWindowProc(hwnd, uMsg, wParam, lParam);
+            if (uMsg === WM_DESTROY) {
+              this.destroy();
+            }
+            return typeof res === "number" ? res : 0;
           };
+
+          this.registeredClasses.set(className.toUpperCase(), wndProc);
 
           kernel.RegisterClassEx({
             className,
@@ -288,6 +297,7 @@ export class Win32WasmRuntime {
         ) => {
           const className = this.readCString(lpClassName);
           const windowName = this.readCString(lpWindowName);
+          const localWndProc = this.registeredClasses.get(className.toUpperCase());
 
           const hwnd = kernel.CreateWindowEx(
             dwExStyle,
@@ -299,7 +309,10 @@ export class Win32WasmRuntime {
             nWidth,
             nHeight,
             hWndParent === 0 ? null : hWndParent,
-            hMenu === 0 ? null : hMenu
+            hMenu === 0 ? null : hMenu,
+            null,
+            null,
+            localWndProc
           );
 
           // For top-level C windows, attach canvas support for GDI drawing
@@ -781,6 +794,7 @@ export class Win32WasmRuntime {
     this.hdcMap.clear();
     this.gdiMap.clear();
     this.comObjectMap.clear();
+    this.registeredClasses.clear();
   }
 
   public getStats(): WasmRuntimeStats {
