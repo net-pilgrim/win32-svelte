@@ -132,6 +132,8 @@ static inline int wasm_lstrlenW(const unsigned short *s) {
 #endif
 
 // Pseudo-random number generator
+#ifndef _RAND_DEFINED
+#define _RAND_DEFINED
 static unsigned long _wasm_next_rand = 1;
 static inline int wasm_rand(void) {
     _wasm_next_rand = _wasm_next_rand * 1103515245 + 12345;
@@ -145,6 +147,7 @@ static inline void wasm_srand(unsigned int seed) {
 #endif
 #ifndef srand
 #define srand wasm_srand
+#endif
 #endif
 
 // ============================================================================
@@ -224,6 +227,14 @@ typedef LPWNDCLASSA LPWNDCLASS;
 #define IDC_HAND            MAKEINTRESOURCE(32649)
 #define IDC_APPSTARTING     MAKEINTRESOURCE(32650)
 #define IDC_HELP            MAKEINTRESOURCE(32651)
+#endif
+
+#ifndef MK_LBUTTON
+#define MK_LBUTTON          0x0001
+#define MK_RBUTTON          0x0002
+#define MK_SHIFT            0x0004
+#define MK_CONTROL          0x0008
+#define MK_MBUTTON          0x0010
 #endif
 
 // Default window coordinates
@@ -324,6 +335,137 @@ typedef LPTEXTMETRICA LPTEXTMETRIC;
 #endif
 
 // ============================================================================
+// GDI Device Capabilities, Mapping Modes & Advanced Drawing (Chap 05)
+// ============================================================================
+
+#ifndef DRIVERVERSION
+#define DRIVERVERSION       0
+#define TECHNOLOGY          2
+#define HORZSIZE            4
+#define VERTSIZE            6
+#define HORZRES             8
+#define VERTRES             10
+#define BITSPIXEL           12
+#define PLANES              14
+#define NUMBRUSHES          16
+#define NUMPENS             18
+#define NUMMARKERS          20
+#define NUMFONTS            22
+#define NUMCOLORS           24
+#define PDEVICESIZE         26
+#define CURVECAPS           28
+#define LINECAPS            30
+#define POLYGONALCAPS       32
+#define TEXTCAPS            34
+#define CLIPCAPS            36
+#define RASTERCAPS          38
+#define ASPECTX             40
+#define ASPECTY             42
+#define ASPECTXY            44
+#define LOGPIXELSX          88
+#define LOGPIXELSY          90
+#define SIZEPALETTE         104
+#define NUMRESERVED         106
+#define COLORRES            108
+#endif
+
+#ifndef MM_TEXT
+#define MM_TEXT             1
+#define MM_LOMETRIC         2
+#define MM_HIMETRIC         3
+#define MM_LOENGLISH        4
+#define MM_HIENGLISH        5
+#define MM_TWIPS            6
+#define MM_ISOTROPIC        7
+#define MM_ANISOTROPIC      8
+#endif
+
+#ifndef RGN_AND
+#define RGN_AND             1
+#define RGN_OR              2
+#define RGN_XOR             3
+#define RGN_DIFF            4
+#define RGN_COPY            5
+#endif
+
+#ifndef ALTERNATE
+#define ALTERNATE           1
+#define WINDING             2
+#endif
+
+WIN32_IMPORT("GetDeviceCaps")
+int WINAPI GetDeviceCaps(HDC hdc, int nIndex);
+
+WIN32_IMPORT("SetMapMode")
+int WINAPI SetMapMode(HDC hdc, int iMode);
+
+WIN32_IMPORT("GetMapMode")
+int WINAPI GetMapMode(HDC hdc);
+
+WIN32_IMPORT("SetWindowExtEx")
+BOOL WINAPI SetWindowExtEx(HDC hdc, int x, int y, LPSIZE lpsz);
+
+WIN32_IMPORT("SetViewportExtEx")
+BOOL WINAPI SetViewportExtEx(HDC hdc, int x, int y, LPSIZE lpsz);
+
+WIN32_IMPORT("SetWindowOrgEx")
+BOOL WINAPI SetWindowOrgEx(HDC hdc, int x, int y, LPPOINT lppt);
+
+WIN32_IMPORT("SetViewportOrgEx")
+BOOL WINAPI SetViewportOrgEx(HDC hdc, int x, int y, LPPOINT lppt);
+
+WIN32_IMPORT("DPtoLP")
+BOOL WINAPI DPtoLP(HDC hdc, LPPOINT lppt, int c);
+
+WIN32_IMPORT("LPtoDP")
+BOOL WINAPI LPtoDP(HDC hdc, LPPOINT lppt, int c);
+
+WIN32_IMPORT("PolyBezier")
+BOOL WINAPI PolyBezier(HDC hdc, const POINT *apt, DWORD cpt);
+
+WIN32_IMPORT("Polyline")
+BOOL WINAPI Polyline(HDC hdc, const POINT *apt, int cpt);
+
+WIN32_IMPORT("Polygon")
+BOOL WINAPI Polygon(HDC hdc, const POINT *apt, int cpt);
+
+WIN32_IMPORT("PolyPolygon")
+BOOL WINAPI PolyPolygon(HDC hdc, const POINT *apt, const INT *asz, int csz);
+
+WIN32_IMPORT("RoundRect")
+BOOL WINAPI RoundRect(HDC hdc, int left, int top, int right, int bottom, int width, int height);
+
+WIN32_IMPORT("Arc")
+BOOL WINAPI Arc(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4);
+
+WIN32_IMPORT("Chord")
+BOOL WINAPI Chord(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4);
+
+WIN32_IMPORT("Pie")
+BOOL WINAPI Pie(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4);
+
+WIN32_IMPORT("SetPolyFillMode")
+int WINAPI SetPolyFillMode(HDC hdc, int mode);
+
+WIN32_IMPORT("CreateRectRgn")
+HRGN WINAPI CreateRectRgn(int x1, int y1, int x2, int y2);
+
+WIN32_IMPORT("CreateEllipticRgn")
+HRGN WINAPI CreateEllipticRgn(int x1, int y1, int x2, int y2);
+
+WIN32_IMPORT("CombineRgn")
+int WINAPI CombineRgn(HRGN hrgnDest, HRGN hrgnSrc1, HRGN hrgnSrc2, int fnCombineMode);
+
+WIN32_IMPORT("SelectClipRgn")
+int WINAPI SelectClipRgn(HDC hdc, HRGN hrgn);
+
+WIN32_IMPORT("SaveDC")
+int WINAPI SaveDC(HDC hdc);
+
+WIN32_IMPORT("RestoreDC")
+BOOL WINAPI RestoreDC(HDC hdc, int nSavedDC);
+
+// ============================================================================
 // Scrollbars (Chap 04 - SysMets2 & SysMets3)
 // ============================================================================
 
@@ -422,8 +564,39 @@ HCURSOR WINAPI LoadCursorA(HINSTANCE hInstance, LPCSTR lpCursorName);
 #define LoadCursor LoadCursorA
 #endif
 
+WIN32_IMPORT("SetCursor")
+HCURSOR WINAPI SetCursor(HCURSOR hCursor);
+
+WIN32_IMPORT("ShowCursor")
+int WINAPI ShowCursor(BOOL bShow);
+
 WIN32_IMPORT("GetStockObject")
 HGDIOBJ WINAPI GetStockObject(int i);
+
+#ifndef PM_REMOVE
+#define PM_NOREMOVE         0x0000
+#define PM_REMOVE           0x0001
+#define PM_NOYIELD          0x0002
+#endif
+
+WIN32_IMPORT("PeekMessageA")
+BOOL WINAPI PeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg);
+
+#ifndef PeekMessage
+#define PeekMessage PeekMessageA
+#endif
+
+static inline BOOL wasm_SetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom) {
+    if (!lprc) return 0;
+    lprc->left = xLeft;
+    lprc->top = yTop;
+    lprc->right = xRight;
+    lprc->bottom = yBottom;
+    return 1;
+}
+#ifndef SetRect
+#define SetRect wasm_SetRect
+#endif
 
 WIN32_IMPORT("GetMessageA")
 BOOL WINAPI GetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax);

@@ -415,6 +415,19 @@ export class Win32WasmRuntime {
           return 0;
         },
 
+        PeekMessageA: (
+          _lpMsg: number,
+          _hWnd: number,
+          _wMsgFilterMin: number,
+          _wMsgFilterMax: number,
+          _wRemoveMsg: number
+        ) => {
+          return 0;
+        },
+
+        SetCursor: (_hCursor: number) => 1,
+        ShowCursor: (_bShow: number) => 1,
+
         TranslateMessage: (_lpMsg: number) => 0,
 
         DispatchMessageA: (_lpMsg: number) => 0,
@@ -736,6 +749,213 @@ export class Win32WasmRuntime {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
           return MoveToEx(hdc, x, y) ? 1 : 0;
+        },
+
+        GetDeviceCaps: (_hdcHandle: number, nIndex: number): number => {
+          switch (nIndex) {
+            case 8: // HORZRES
+              return typeof window !== "undefined" ? window.innerWidth : 1024;
+            case 10: // VERTRES
+              return typeof window !== "undefined" ? window.innerHeight : 768;
+            case 12: // BITSPIXEL
+              return 32;
+            case 14: // PLANES
+              return 1;
+            case 24: // NUMCOLORS
+              return -1; // True color
+            case 40: // ASPECTX
+            case 42: // ASPECTY
+              return 36;
+            case 44: // ASPECTXY
+              return 51;
+            case 88: // LOGPIXELSX
+            case 90: // LOGPIXELSY
+              return 96;
+            default:
+              return 1;
+          }
+        },
+
+        SetMapMode: (_hdcHandle: number, _iMode: number) => 1,
+        GetMapMode: (_hdcHandle: number) => 1,
+        SetWindowExtEx: (_hdcHandle: number, _x: number, _y: number, _lpsz: number) => 1,
+        SetViewportExtEx: (_hdcHandle: number, _x: number, _y: number, _lpsz: number) => 1,
+        SetWindowOrgEx: (_hdcHandle: number, _x: number, _y: number, _lppt: number) => 1,
+        SetViewportOrgEx: (_hdcHandle: number, _x: number, _y: number, _lppt: number) => 1,
+        DPtoLP: (_hdcHandle: number, _lppt: number, _c: number) => 1,
+        LPtoDP: (_hdcHandle: number, _lppt: number, _c: number) => 1,
+
+        Polyline: (hdcHandle: number, apt: number, cpt: number) => {
+          if (!this.memory || cpt <= 1) return 0;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+
+          const view = new DataView(this.memory.buffer);
+          ctx.beginPath();
+          const startX = view.getInt32(apt, true);
+          const startY = view.getInt32(apt + 4, true);
+          ctx.moveTo(startX, startY);
+
+          for (let i = 1; i < cpt; i++) {
+            const x = view.getInt32(apt + i * 8, true);
+            const y = view.getInt32(apt + i * 8 + 4, true);
+            ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = hdc.penColor;
+          ctx.lineWidth = hdc.penWidth;
+          ctx.stroke();
+          return 1;
+        },
+
+        Polygon: (hdcHandle: number, apt: number, cpt: number) => {
+          if (!this.memory || cpt < 3) return 0;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+
+          const view = new DataView(this.memory.buffer);
+          ctx.beginPath();
+          const startX = view.getInt32(apt, true);
+          const startY = view.getInt32(apt + 4, true);
+          ctx.moveTo(startX, startY);
+
+          for (let i = 1; i < cpt; i++) {
+            const x = view.getInt32(apt + i * 8, true);
+            const y = view.getInt32(apt + i * 8 + 4, true);
+            ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          if (hdc.brushColor !== "transparent") {
+            ctx.fillStyle = hdc.brushColor;
+            ctx.fill();
+          }
+          ctx.strokeStyle = hdc.penColor;
+          ctx.lineWidth = hdc.penWidth;
+          ctx.stroke();
+          return 1;
+        },
+
+        PolyPolygon: (hdcHandle: number, apt: number, asz: number, csz: number) => {
+          if (!this.memory || csz <= 0) return 0;
+          const view = new DataView(this.memory.buffer);
+          let currentPt = apt;
+          for (let i = 0; i < csz; i++) {
+            const count = view.getInt32(asz + i * 4, true);
+            this.getImportObject(); // stub check
+            currentPt += count * 8;
+          }
+          return 1;
+        },
+
+        PolyBezier: (hdcHandle: number, apt: number, cpt: number) => {
+          if (!this.memory || cpt < 4) return 0;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+
+          const view = new DataView(this.memory.buffer);
+          ctx.beginPath();
+          const startX = view.getInt32(apt, true);
+          const startY = view.getInt32(apt + 4, true);
+          ctx.moveTo(startX, startY);
+
+          for (let i = 1; i < cpt; i += 3) {
+            const cp1x = view.getInt32(apt + i * 8, true);
+            const cp1y = view.getInt32(apt + i * 8 + 4, true);
+            const cp2x = view.getInt32(apt + (i + 1) * 8, true);
+            const cp2y = view.getInt32(apt + (i + 1) * 8 + 4, true);
+            const endx = view.getInt32(apt + (i + 2) * 8, true);
+            const endy = view.getInt32(apt + (i + 2) * 8 + 4, true);
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endx, endy);
+          }
+          ctx.strokeStyle = hdc.penColor;
+          ctx.lineWidth = hdc.penWidth;
+          ctx.stroke();
+          return 1;
+        },
+
+        RoundRect: (
+          hdcHandle: number,
+          left: number,
+          top: number,
+          right: number,
+          bottom: number,
+          width: number,
+          height: number
+        ) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+
+          const w = right - left;
+          const h = bottom - top;
+          const r = Math.min(width, height) / 2;
+
+          ctx.beginPath();
+          ctx.roundRect ? ctx.roundRect(left, top, w, h, r) : ctx.rect(left, top, w, h);
+          if (hdc.brushColor !== "transparent") {
+            ctx.fillStyle = hdc.brushColor;
+            ctx.fill();
+          }
+          ctx.strokeStyle = hdc.penColor;
+          ctx.lineWidth = hdc.penWidth;
+          ctx.stroke();
+          return 1;
+        },
+
+        Arc: (
+          hdcHandle: number,
+          x1: number,
+          y1: number,
+          x2: number,
+          y2: number,
+          _x3: number,
+          _y3: number,
+          _x4: number,
+          _y4: number
+        ) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+
+          const cx = (x1 + x2) / 2;
+          const cy = (y1 + y2) / 2;
+          const rx = Math.abs(x2 - x1) / 2;
+          const ry = Math.abs(y2 - y1) / 2;
+
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = hdc.penColor;
+          ctx.lineWidth = hdc.penWidth;
+          ctx.stroke();
+          return 1;
+        },
+
+        Chord: (hdcHandle: number, x1: number, y1: number, x2: number, y2: number) => {
+          return Ellipse(this.hdcMap.get(hdcHandle)!, x1, y1, x2, y2) ? 1 : 0;
+        },
+
+        Pie: (hdcHandle: number, x1: number, y1: number, x2: number, y2: number) => {
+          return Ellipse(this.hdcMap.get(hdcHandle)!, x1, y1, x2, y2) ? 1 : 0;
+        },
+
+        SetPolyFillMode: (_hdcHandle: number, _mode: number) => 1,
+        CreateRectRgn: (_x1: number, _y1: number, _x2: number, _y2: number) => ++this.nextGdiHandle,
+        CreateEllipticRgn: (_x1: number, _y1: number, _x2: number, _y2: number) => ++this.nextGdiHandle,
+        CombineRgn: (_hrgnDest: number, _hrgnSrc1: number, _hrgnSrc2: number, _fnCombineMode: number) => 1,
+        SelectClipRgn: (_hdcHandle: number, _hrgn: number) => 1,
+
+        SaveDC: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          hdc?.ctx.save();
+          return 1;
+        },
+
+        RestoreDC: (hdcHandle: number, _nSavedDC: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          hdc?.ctx.restore();
+          return 1;
         },
 
         LineTo: (hdcHandle: number, x: number, y: number) => {

@@ -33,9 +33,20 @@ CHAP03_BIN := $(BUILD_DIR)/Chap03/HelloWin.wasm
 # --- Chapter 04 ---
 CHAP04_BINS := $(BUILD_DIR)/Chap04/SysMets1/SysMets1.wasm $(BUILD_DIR)/Chap04/SysMets2/SysMets2.wasm $(BUILD_DIR)/Chap04/SysMets3/SysMets3.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04
+# --- Chapter 05 ---
+CHAP05_BINS := \
+	$(BUILD_DIR)/Chap05/AltWind/AltWind.wasm \
+	$(BUILD_DIR)/Chap05/Bezier/Bezier.wasm \
+	$(BUILD_DIR)/Chap05/Clover/Clover.wasm \
+	$(BUILD_DIR)/Chap05/DevCaps1/DevCaps1.wasm \
+	$(BUILD_DIR)/Chap05/LineDemo/LineDemo.wasm \
+	$(BUILD_DIR)/Chap05/RandRect/RandRect.wasm \
+	$(BUILD_DIR)/Chap05/SineWave/SineWave.wasm \
+	$(BUILD_DIR)/Chap05/WhatSize/WhatSize.wasm
 
-all: chap01 chap02 chap03 chap04
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05
+
+all: chap01 chap02 chap03 chap04 chap05
 
 scan:
 	python3 scan_chapters.py
@@ -50,6 +61,7 @@ chap01: $(BUILD_DIR)/Chap01/HelloMsg/HelloMsg.wasm
 chap02: $(BUILD_DIR)/Chap02/ScrnSize/ScrnSize.wasm
 chap03: $(BUILD_DIR)/Chap03/HelloWin/HelloWin.wasm
 chap04: $(CHAP04_BINS)
+chap05: $(CHAP05_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)
