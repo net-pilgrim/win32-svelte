@@ -128,6 +128,8 @@ typedef unsigned long uintptr_t;
 typedef int *LPINT, *PINT;
 #endif
 
+#ifndef _WASM_STRING_OPS_DEFINED
+#define _WASM_STRING_OPS_DEFINED 1
 static inline void *wasm_memset(void *dest, int c, size_t n) {
     unsigned char *d = (unsigned char *)dest;
     while (n--) *d++ = (unsigned char)c;
@@ -153,6 +155,13 @@ static inline char *wasm_strcpy(char *dest, const char *src) {
     return dest;
 }
 
+static inline char *wasm_strcat(char *dest, const char *src) {
+    char *d = dest;
+    while (*d) d++;
+    while ((*d++ = *src++));
+    return dest;
+}
+
 static inline int wasm_strcmp(const char *s1, const char *s2) {
     while (*s1 && (*s1 == *s2)) {
         s1++;
@@ -160,6 +169,7 @@ static inline int wasm_strcmp(const char *s1, const char *s2) {
     }
     return *(const unsigned char *)s1 - *(const unsigned char *)s2;
 }
+#endif
 
 #ifndef memset
 #define memset wasm_memset
@@ -172,6 +182,9 @@ static inline int wasm_strcmp(const char *s1, const char *s2) {
 #endif
 #ifndef strcpy
 #define strcpy wasm_strcpy
+#endif
+#ifndef strcat
+#define strcat wasm_strcat
 #endif
 #ifndef strcmp
 #define strcmp wasm_strcmp
@@ -845,6 +858,11 @@ BOOL WINAPI GetScrollRange(HWND hWnd, int nBar, LPINT lpMinPos, LPINT lpMaxPos);
 // Win32 wsprintf implementation
 #include "stdio.h"
 #include "stdarg.h"
+#include "string.h"
+
+#ifndef LPDWORD
+typedef DWORD *LPDWORD;
+#endif
 static inline int wasm_wsprintfA(char *buffer, const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -1085,6 +1103,346 @@ BOOL WINAPI OffsetViewportOrgEx(HDC hdc, int dx, int dy, LPPOINT lppt);
 
 WIN32_IMPORT("GetSysColor")
 DWORD WINAPI GetSysColor(int nIndex);
+
+// --- Chapter 09: Child Window Controls (Button, Edit, ListBox, Static, ScrollBar) ---
+
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
+
+#ifndef GetDialogBaseUnits
+WIN32_IMPORT("GetDialogBaseUnits")
+long WINAPI GetDialogBaseUnits(void);
+#endif
+
+// CREATESTRUCT
+#ifndef LPCREATESTRUCT
+typedef struct tagCREATESTRUCTA {
+    LPVOID      lpCreateParams;
+    HINSTANCE   hInstance;
+    HMENU       hMenu;
+    HWND        hwndParent;
+    int         cy;
+    int         cx;
+    int         y;
+    int         x;
+    LONG        style;
+    LPCSTR      lpszName;
+    LPCSTR      lpszClass;
+    DWORD       dwExStyle;
+} CREATESTRUCTA, *LPCREATESTRUCTA;
+typedef CREATESTRUCTA CREATESTRUCT;
+typedef LPCREATESTRUCTA LPCREATESTRUCT;
+#endif
+
+// Owner-draw
+#ifndef WM_DRAWITEM
+#define WM_DRAWITEM         0x002B
+#define WM_MEASUREITEM      0x002C
+#endif
+
+#ifndef ODT_BUTTON
+#define ODT_MENU            1
+#define ODT_LISTBOX         2
+#define ODT_COMBOBOX        3
+#define ODT_BUTTON          4
+#define ODT_STATIC          5
+
+#define ODA_DRAWENTIRE      0x0001
+#define ODA_SELECT          0x0002
+#define ODA_FOCUS           0x0004
+
+#define ODS_SELECTED        0x0001
+#define ODS_GRAYED          0x0002
+#define ODS_DISABLED        0x0004
+#define ODS_CHECKED         0x0008
+#define ODS_FOCUS           0x0010
+#define ODS_DEFAULT         0x0020
+#endif
+
+#ifndef DRAWITEMSTRUCT
+typedef struct tagDRAWITEMSTRUCT {
+    UINT        CtlType;
+    UINT        CtlID;
+    UINT        itemID;
+    UINT        itemAction;
+    UINT        itemState;
+    HWND        hwndItem;
+    HDC         hDC;
+    RECT        rcItem;
+    ULONG_PTR   itemData;
+} DRAWITEMSTRUCT, *PDRAWITEMSTRUCT, *LPDRAWITEMSTRUCT;
+#endif
+
+// ScrollBar Control Styles
+#ifndef SBS_VERT
+#define SBS_HORZ                    0x0000
+#define SBS_VERT                    0x0001
+#define SBS_TOPALIGN                0x0002
+#define SBS_LEFTALIGN               0x0002
+#define SBS_BOTTOMALIGN             0x0004
+#define SBS_RIGHTALIGN              0x0004
+#define SBS_SIZEBOXTOPLEFTALIGN     0x0002
+#define SBS_SIZEBOXBOTTOMRIGHTALIGN 0x0004
+#define SBS_SIZEBOX                 0x0008
+#define SBS_SIZEGRIP                0x0010
+#endif
+
+// Class Longs & Control Colors
+#ifndef GCL_HBRBACKGROUND
+#define GCL_MENUNAME        (-8)
+#define GCL_HBRBACKGROUND   (-10)
+#define GCL_HCURSOR         (-12)
+#define GCL_HICON           (-14)
+#define GCL_HMODULE         (-16)
+#define GCL_CBWNDEXTRA      (-18)
+#define GCL_CBCLSEXTRA      (-20)
+#define GCL_WNDPROC         (-24)
+#define GCL_STYLE           (-26)
+#define GCW_ATOM            (-32)
+#endif
+
+#ifndef WM_CTLCOLORMSGBOX
+#define WM_CTLCOLORMSGBOX       0x0132
+#define WM_CTLCOLOREDIT         0x0133
+#define WM_CTLCOLORLISTBOX      0x0134
+#define WM_CTLCOLORBTN          0x0135
+#define WM_CTLCOLORDLG          0x0136
+#define WM_CTLCOLORSCROLLBAR    0x0137
+#define WM_CTLCOLORSTATIC       0x0138
+#define WM_SYSCOLORCHANGE       0x0015
+#endif
+
+// ListBox Styles & Messages
+#ifndef LBS_NOTIFY
+#define LBS_NOTIFY            0x0001L
+#define LBS_SORT              0x0002L
+#define LBS_NOREDRAW          0x0004L
+#define LBS_MULTIPLESEL       0x0008L
+#define LBS_OWNERDRAWFIXED    0x0010L
+#define LBS_OWNERDRAWVARIABLE 0x0020L
+#define LBS_HASSTRINGS        0x0040L
+#define LBS_USETABSTOPS       0x0080L
+#define LBS_NOINTEGRALHEIGHT  0x0100L
+#define LBS_MULTICOLUMN       0x0200L
+#define LBS_WANTKEYBOARDINPUT 0x0400L
+#define LBS_EXTENDEDSEL       0x0800L
+#define LBS_DISABLENOSCROLL   0x1000L
+#define LBS_NODATA            0x2000L
+#define LBS_NOSEL             0x4000L
+#define LBS_COMBOBOX          0x8000L
+#define LBS_STANDARD          (LBS_NOTIFY | LBS_SORT | WS_VSCROLL | WS_BORDER)
+#endif
+
+#ifndef LB_ADDSTRING
+#define LB_ADDSTRING            0x0180
+#define LB_INSERTSTRING         0x0181
+#define LB_DELETESTRING         0x0182
+#define LB_SELITEMRANGEEX       0x0183
+#define LB_RESETCONTENT         0x0184
+#define LB_SETSEL               0x0185
+#define LB_SETCURSEL            0x0186
+#define LB_GETSEL               0x0187
+#define LB_GETCURSEL            0x0188
+#define LB_GETTEXT              0x0189
+#define LB_GETTEXTLEN           0x018A
+#define LB_GETCOUNT             0x018B
+#define LB_SELECTSTRING         0x018C
+#define LB_DIR                  0x018D
+#define LB_GETTOPINDEX          0x018E
+#define LB_FINDSTRING           0x018F
+#define LB_GETSELCOUNT          0x0190
+#define LB_GETSELITEMS          0x0191
+#define LB_SETTABSTOPS          0x0192
+#define LB_GETHORIZONTALEXTENT  0x0193
+#define LB_SETHORIZONTALEXTENT  0x0194
+#define LB_SETCOLUMNWIDTH       0x0195
+#define LB_ADDFILE              0x0196
+#define LB_SETTOPINDEX          0x0197
+#define LB_GETITEMRECT          0x0198
+#define LB_GETITEMDATA          0x0199
+#define LB_SETITEMDATA          0x019A
+#define LB_SELITEMRANGE         0x019B
+#define LB_SETANCHORINDEX       0x019C
+#define LB_GETANCHORINDEX       0x019D
+#define LB_SETCARETINDEX        0x019E
+#define LB_GETCARETINDEX        0x019F
+#define LB_SETITEMHEIGHT        0x01A0
+#define LB_GETITEMHEIGHT        0x01A1
+#define LB_FINDSTRINGEXACT      0x01A2
+#define LB_OKAY                 0
+#define LB_ERR                  (-1)
+#define LB_ERRSPACE             (-2)
+
+#define LBN_ERRSPACE            (-1)
+#define LBN_SELCHANGE           1
+#define LBN_DBLCLK              2
+#define LBN_SELCANCEL           3
+#define LBN_SETFOCUS            4
+#define LBN_KILLFOCUS           5
+#endif
+
+#ifndef DDL_READWRITE
+#define DDL_READWRITE       0x0000
+#define DDL_READONLY        0x0001
+#define DDL_HIDDEN          0x0002
+#define DDL_SYSTEM          0x0004
+#define DDL_DIRECTORY       0x0010
+#define DDL_ARCHIVE         0x0020
+#define DDL_DRIVES          0x4000
+#define DDL_EXCLUSIVE       0x8000
+#endif
+
+// Edit Control Notifications & Styles
+#ifndef EN_ERRSPACE
+#define EN_SETFOCUS         0x0100
+#define EN_KILLFOCUS        0x0200
+#define EN_CHANGE           0x0300
+#define EN_UPDATE           0x0400
+#define EN_ERRSPACE         0x0500
+#define EN_MAXTEXT          0x0501
+#define EN_HSCROLL          0x0601
+#define EN_VSCROLL          0x0602
+#endif
+
+#ifndef MB_ICONSTOP
+#define MB_ICONSTOP         0x00000010L
+#endif
+
+#ifndef CopyMemory
+#define CopyMemory(Destination,Source,Length) memcpy((Destination),(Source),(Length))
+#endif
+
+WIN32_IMPORT("ValidateRect")
+BOOL WINAPI ValidateRect(HWND hWnd, const RECT *lpRect);
+
+WIN32_IMPORT("SetClassLongA")
+DWORD WINAPI SetClassLongA(HWND hWnd, int nIndex, LONG dwNewLong);
+#ifndef SetClassLong
+#define SetClassLong SetClassLongA
+#endif
+
+WIN32_IMPORT("GetKeyState")
+SHORT WINAPI GetKeyState(int nVirtKey);
+
+WIN32_IMPORT("CallWindowProcA")
+LRESULT WINAPI CallWindowProcA(WNDPROC lpPrevWndFunc, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+#ifndef CallWindowProc
+#define CallWindowProc CallWindowProcA
+#endif
+
+WIN32_IMPORT("GetWindowRect")
+BOOL WINAPI GetWindowRect(HWND hWnd, LPRECT lpRect);
+
+WIN32_IMPORT("FrameRect")
+int WINAPI FrameRect(HDC hDC, const RECT *lprc, HBRUSH hbr);
+
+WIN32_IMPORT("SetBkColor")
+COLORREF WINAPI SetBkColor(HDC hdc, COLORREF color);
+
+WIN32_IMPORT("GetEnvironmentStringsA")
+LPSTR WINAPI GetEnvironmentStringsA(void);
+
+WIN32_IMPORT("FreeEnvironmentStringsA")
+BOOL WINAPI FreeEnvironmentStringsA(LPSTR);
+
+#ifndef GetEnvironmentStrings
+#define GetEnvironmentStrings GetEnvironmentStringsA
+#endif
+#ifndef FreeEnvironmentStrings
+#define FreeEnvironmentStrings FreeEnvironmentStringsA
+#endif
+
+WIN32_IMPORT("GetEnvironmentVariableA")
+DWORD WINAPI GetEnvironmentVariableA(LPCSTR lpName, LPSTR lpBuffer, DWORD nSize);
+
+#ifndef GetEnvironmentVariable
+#define GetEnvironmentVariable GetEnvironmentVariableA
+#endif
+
+WIN32_IMPORT("GetCurrentDirectoryA")
+DWORD WINAPI GetCurrentDirectoryA(DWORD nBufferLength, LPSTR lpBuffer);
+
+#ifndef GetCurrentDirectory
+#define GetCurrentDirectory GetCurrentDirectoryA
+#endif
+
+// Win32 File I/O & String Helpers
+#ifndef INVALID_HANDLE_VALUE
+#define INVALID_HANDLE_VALUE ((HANDLE)(LONG_PTR)-1)
+#endif
+
+#ifndef GENERIC_READ
+#define GENERIC_READ            (0x80000000L)
+#define GENERIC_WRITE           (0x40000000L)
+#define GENERIC_EXECUTE         (0x20000000L)
+#define GENERIC_ALL             (0x10000000L)
+
+#define FILE_SHARE_READ         0x00000001
+#define FILE_SHARE_WRITE        0x00000002
+#define FILE_SHARE_DELETE       0x00000004
+
+#define CREATE_NEW          1
+#define CREATE_ALWAYS       2
+#define OPEN_EXISTING       3
+#define OPEN_ALWAYS         4
+#define TRUNCATE_EXISTING   5
+#endif
+
+WIN32_IMPORT("CreateFileA")
+HANDLE WINAPI CreateFileA(
+    LPCSTR lpFileName,
+    DWORD dwDesiredAccess,
+    DWORD dwShareMode,
+    LPVOID lpSecurityAttributes,
+    DWORD dwCreationDisposition,
+    DWORD dwFlagsAndAttributes,
+    HANDLE hTemplateFile
+);
+
+#ifndef CreateFile
+#define CreateFile CreateFileA
+#endif
+
+WIN32_IMPORT("ReadFile")
+BOOL WINAPI ReadFile(
+    HANDLE hFile,
+    LPVOID lpBuffer,
+    DWORD nNumberOfBytesToRead,
+    LPDWORD lpNumberOfBytesRead,
+    LPVOID lpOverlapped
+);
+
+WIN32_IMPORT("CloseHandle")
+BOOL WINAPI CloseHandle(HANDLE hObject);
+
+WIN32_IMPORT("SetCurrentDirectoryA")
+BOOL WINAPI SetCurrentDirectoryA(LPCSTR lpPathName);
+
+#ifndef SetCurrentDirectory
+#define SetCurrentDirectory SetCurrentDirectoryA
+#endif
+
+#ifndef lstrcpyA
+#define lstrcpyA strcpy
+#endif
+#ifndef lstrcpy
+#define lstrcpy lstrcpyA
+#endif
+
+#ifndef lstrcatA
+#define lstrcatA strcat
+#endif
+#ifndef lstrcat
+#define lstrcat lstrcatA
+#endif
+
+#ifndef lstrlenA
+#define lstrlenA strlen
+#endif
+#ifndef lstrlen
+#define lstrlen lstrlenA
+#endif
 
 #ifdef __cplusplus
 }

@@ -71,9 +71,18 @@ CHAP08_BINS := \
 	$(BUILD_DIR)/Chap08/DigClock/DigClock.wasm \
 	$(BUILD_DIR)/Chap08/WhatClr/WhatClr.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08
+# --- Chapter 09 ---
+CHAP09_BINS := \
+	$(BUILD_DIR)/Chap09/BtnLook/BtnLook.wasm \
+	$(BUILD_DIR)/Chap09/Colors1/Colors1.wasm \
+	$(BUILD_DIR)/Chap09/Environ/Environ.wasm \
+	$(BUILD_DIR)/Chap09/OwnDraw/OwnDraw.wasm \
+	$(BUILD_DIR)/Chap09/PopPad1/PopPad1.wasm \
+	$(BUILD_DIR)/Chap09/head/head.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09
 
 scan:
 	python3 scan_chapters.py
@@ -92,6 +101,7 @@ chap05: $(CHAP05_BINS)
 chap06: $(CHAP06_BINS)
 chap07: $(CHAP07_BINS)
 chap08: $(CHAP08_BINS)
+chap09: $(CHAP09_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

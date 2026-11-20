@@ -1641,6 +1641,146 @@ export class Win32WasmRuntime {
 
         OffsetWindowOrgEx: (_hdcHandle: number, _dx: number, _dy: number, _lppt: number) => 1,
         OffsetViewportOrgEx: (_hdcHandle: number, _dx: number, _dy: number, _lppt: number) => 1,
+
+        // --- Chapter 09: Child Window Controls, Files & Environment ---
+        GetDialogBaseUnits: () => (16 << 16) | 8,
+
+        ValidateRect: (_hWnd: number, _lpRect: number) => 1,
+
+        SetClassLongA: (_hWnd: number, _nIndex: number, dwNewLong: number) => dwNewLong,
+        SetClassLong: (hWnd: number, nIndex: number, dwNewLong: number) =>
+          (win32Imports as any).SetClassLongA(hWnd, nIndex, dwNewLong),
+
+        GetKeyState: (_nVirtKey: number) => 0,
+
+        CallWindowProcA: (
+          lpPrevWndFunc: number,
+          hWnd: number,
+          Msg: number,
+          wParam: number,
+          lParam: number
+        ) => {
+          if (lpPrevWndFunc && this.table) {
+            const targetFn = this.table.get(lpPrevWndFunc);
+            if (typeof targetFn === "function") {
+              return targetFn(hWnd, Msg, wParam, lParam);
+            }
+          }
+          return DefWindowProc(hWnd, Msg, wParam, lParam);
+        },
+        CallWindowProc: (
+          lpPrevWndFunc: number,
+          hWnd: number,
+          Msg: number,
+          wParam: number,
+          lParam: number
+        ) => (win32Imports as any).CallWindowProcA(lpPrevWndFunc, hWnd, Msg, wParam, lParam),
+
+        GetWindowRect: (hWnd: number, lpRect: number) => {
+          if (!this.memory || !lpRect) return 0;
+          const win = kernel.getWindow(hWnd);
+          const x = win ? win.x : 0;
+          const y = win ? win.y : 0;
+          const w = win ? win.width : 500;
+          const h = win ? win.height : 350;
+          const view = new DataView(this.memory.buffer);
+          view.setInt32(lpRect, x, true);
+          view.setInt32(lpRect + 4, y, true);
+          view.setInt32(lpRect + 8, x + w, true);
+          view.setInt32(lpRect + 12, y + h, true);
+          return 1;
+        },
+
+        FrameRect: (hdcHandle: number, lprc: number, _hbr: number) => {
+          if (!this.memory || !lprc) return 0;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+          const view = new DataView(this.memory.buffer);
+          const left = view.getInt32(lprc, true);
+          const top = view.getInt32(lprc + 4, true);
+          const right = view.getInt32(lprc + 8, true);
+          const bottom = view.getInt32(lprc + 12, true);
+          ctx.strokeRect(left, top, right - left, bottom - top);
+          return 1;
+        },
+
+        SetBkColor: (hdcHandle: number, color: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            SetBkColor(hdc, this.colorRefToRgb(color));
+          }
+          return color;
+        },
+
+        GetEnvironmentStringsA: () => {
+          const envStr = "PATH=C:\\WINDOWS\\SYSTEM32\0SYSTEMROOT=C:\\WINDOWS\0USERNAME=Administrator\0\0";
+          const bytes = new TextEncoder().encode(envStr);
+          const ptr = this.allocateMemory(bytes.length);
+          if (this.memory) {
+            const u8 = new Uint8Array(this.memory.buffer);
+            u8.set(bytes, ptr);
+          }
+          return ptr;
+        },
+        GetEnvironmentStrings: () => (win32Imports as any).GetEnvironmentStringsA(),
+
+        FreeEnvironmentStringsA: (_p: number) => 1,
+        FreeEnvironmentStrings: (p: number) => (win32Imports as any).FreeEnvironmentStringsA(p),
+
+        GetEnvironmentVariableA: (lpName: number, lpBuffer: number, nSize: number) => {
+          const name = this.readCString(lpName);
+          let val = "C:\\WINDOWS";
+          if (name.toUpperCase() === "PATH") val = "C:\\WINDOWS\\SYSTEM32";
+          else if (name.toUpperCase() === "USERNAME") val = "Administrator";
+          return this.writeCString(lpBuffer, val, nSize);
+        },
+        GetEnvironmentVariable: (lpName: number, lpBuffer: number, nSize: number) =>
+          (win32Imports as any).GetEnvironmentVariableA(lpName, lpBuffer, nSize),
+
+        GetCurrentDirectoryA: (nBufferLength: number, lpBuffer: number) => {
+          return this.writeCString(lpBuffer, "C:\\", nBufferLength);
+        },
+        GetCurrentDirectory: (nBufferLength: number, lpBuffer: number) =>
+          (win32Imports as any).GetCurrentDirectoryA(nBufferLength, lpBuffer),
+
+        SetCurrentDirectoryA: (_lpPathName: number) => 1,
+        SetCurrentDirectory: (lpPathName: number) => (win32Imports as any).SetCurrentDirectoryA(lpPathName),
+
+        CreateFileA: (
+          lpFileName: number,
+          _dwDesiredAccess: number,
+          _dwShareMode: number,
+          _lpSecurityAttributes: number,
+          _dwCreationDisposition: number,
+          _dwFlagsAndAttributes: number,
+          _hTemplateFile: number
+        ) => {
+          const fileName = this.readCString(lpFileName);
+          if (fileName.includes("nonexistent") || fileName.includes("fail")) {
+            return -1; // INVALID_HANDLE_VALUE
+          }
+          return ++this.nextGdiHandle;
+        },
+        CreateFile: (...args: any[]) => (win32Imports as any).CreateFileA(...args),
+
+        ReadFile: (
+          _hFile: number,
+          lpBuffer: number,
+          nNumberOfBytesToRead: number,
+          lpNumberOfBytesRead: number,
+          _lpOverlapped: number
+        ) => {
+          const mockContent = "Programming Windows by Charles Petzold (5th Edition)\nSample File Output\n";
+          const written = this.writeCString(lpBuffer, mockContent, nNumberOfBytesToRead);
+          if (this.memory && lpNumberOfBytesRead) {
+            const view = new DataView(this.memory.buffer);
+            view.setUint32(lpNumberOfBytesRead, written, true);
+          }
+          return 1;
+        },
+
+        CloseHandle: (_hObject: number) => 1,
       };
 
     return {
