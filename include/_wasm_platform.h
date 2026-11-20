@@ -986,6 +986,106 @@ BOOL WINAPI SystemParametersInfoA(UINT uiAction, UINT uiParam, PVOID pvParam, UI
 #define SystemParametersInfo SystemParametersInfoA
 #endif
 
+// --- Chapter 08: Timers, Date/Time & Display DCs ---
+
+#ifndef SYSTEMTIME
+typedef struct _SYSTEMTIME {
+    WORD wYear;
+    WORD wMonth;
+    WORD wDayOfWeek;
+    WORD wDay;
+    WORD wHour;
+    WORD wMinute;
+    WORD wSecond;
+    WORD wMilliseconds;
+} SYSTEMTIME, *PSYSTEMTIME, *LPSYSTEMTIME;
+#endif
+
+#ifndef TIMERPROC
+typedef void (CALLBACK *TIMERPROC)(HWND, UINT, UINT_PTR, DWORD);
+#endif
+
+#ifndef LCID
+typedef DWORD LCID;
+typedef DWORD LCTYPE;
+#endif
+
+#ifndef LOCALE_USER_DEFAULT
+#define LOCALE_USER_DEFAULT 0x0400
+#define LOCALE_ITIME        0x00000023
+#define LOCALE_ITLZERO      0x00000025
+#endif
+
+#ifndef COLOR_SCROLLBAR
+#define COLOR_SCROLLBAR         0
+#define COLOR_BACKGROUND        1
+#define COLOR_ACTIVECAPTION     2
+#define COLOR_INACTIVECAPTION   3
+#define COLOR_MENU              4
+#define COLOR_WINDOW            5
+#define COLOR_WINDOWFRAME       6
+#define COLOR_MENUTEXT          7
+#define COLOR_WINDOWTEXT        8
+#define COLOR_CAPTIONTEXT       9
+#define COLOR_ACTIVEBORDER      10
+#define COLOR_INACTIVEBORDER    11
+#define COLOR_APPWORKSPACE      12
+#define COLOR_HIGHLIGHT         13
+#define COLOR_HIGHLIGHTTEXT     14
+#define COLOR_BTNFACE           15
+#define COLOR_BTNSHADOW         16
+#define COLOR_GRAYTEXT          17
+#define COLOR_BTNTEXT           18
+#define COLOR_INACTIVECAPTIONTEXT 19
+#define COLOR_BTNHIGHLIGHT      20
+#define COLOR_3DDKSHADOW        21
+#define COLOR_3DLIGHT           22
+#define COLOR_INFOTEXT          23
+#define COLOR_INFOBK            24
+#endif
+
+WIN32_IMPORT("GetLocalTime")
+void WINAPI GetLocalTime(LPSYSTEMTIME lpSystemTime);
+
+WIN32_IMPORT("GetSystemTime")
+void WINAPI GetSystemTime(LPSYSTEMTIME lpSystemTime);
+
+WIN32_IMPORT("GetLocaleInfoA")
+int WINAPI GetLocaleInfoA(LCID Locale, LCTYPE LCType, LPSTR lpLCData, int cchData);
+
+#ifndef GetLocaleInfo
+#define GetLocaleInfo GetLocaleInfoA
+#endif
+
+WIN32_IMPORT("CreateICA")
+HDC WINAPI CreateICA(LPCSTR pszDriver, LPCSTR pszDevice, LPCSTR pszPort, const void *pdm);
+
+#ifndef CreateIC
+#define CreateIC CreateICA
+#endif
+
+WIN32_IMPORT("CreateDCA")
+HDC WINAPI CreateDCA(LPCSTR pwszDriver, LPCSTR pwszDevice, LPCSTR pwszPort, const void *pdm);
+
+#ifndef CreateDC
+#define CreateDC CreateDCA
+#endif
+
+WIN32_IMPORT("DeleteDC")
+BOOL WINAPI DeleteDC(HDC hdc);
+
+WIN32_IMPORT("GetPixel")
+COLORREF WINAPI GetPixel(HDC hdc, int x, int y);
+
+WIN32_IMPORT("OffsetWindowOrgEx")
+BOOL WINAPI OffsetWindowOrgEx(HDC hdc, int dx, int dy, LPPOINT lppt);
+
+WIN32_IMPORT("OffsetViewportOrgEx")
+BOOL WINAPI OffsetViewportOrgEx(HDC hdc, int dx, int dy, LPPOINT lppt);
+
+WIN32_IMPORT("GetSysColor")
+DWORD WINAPI GetSysColor(int nIndex);
+
 #ifdef __cplusplus
 }
 #endif

@@ -608,8 +608,16 @@ export class Win32WasmRuntime {
           hWnd: number,
           nIDEvent: number,
           uElapse: number,
-          _lpTimerFunc: number
+          lpTimerFunc: number
         ) => {
+          if (lpTimerFunc && this.table) {
+            const callback = this.table.get(lpTimerFunc);
+            if (typeof callback === "function") {
+              return SetTimer(hWnd, nIDEvent, uElapse, (h: number, msg: number, id: number, time: number) => {
+                callback(h, msg, id, time);
+              });
+            }
+          }
           return SetTimer(hWnd, nIDEvent, uElapse);
         },
 
@@ -1532,6 +1540,107 @@ export class Win32WasmRuntime {
           pvParam: number,
           fWinIni: number
         ) => (win32Imports as any).SystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni),
+
+        // --- Chapter 08: Timers, Date/Time & Display DCs ---
+        GetLocalTime: (lpSystemTime: number) => {
+          if (!this.memory || !lpSystemTime) return;
+          const now = new Date();
+          const view = new DataView(this.memory.buffer);
+          view.setUint16(lpSystemTime, now.getFullYear(), true);
+          view.setUint16(lpSystemTime + 2, now.getMonth() + 1, true);
+          view.setUint16(lpSystemTime + 4, now.getDay(), true);
+          view.setUint16(lpSystemTime + 6, now.getDate(), true);
+          view.setUint16(lpSystemTime + 8, now.getHours(), true);
+          view.setUint16(lpSystemTime + 10, now.getMinutes(), true);
+          view.setUint16(lpSystemTime + 12, now.getSeconds(), true);
+          view.setUint16(lpSystemTime + 14, now.getMilliseconds(), true);
+        },
+
+        GetSystemTime: (lpSystemTime: number) => {
+          if (!this.memory || !lpSystemTime) return;
+          const now = new Date();
+          const view = new DataView(this.memory.buffer);
+          view.setUint16(lpSystemTime, now.getUTCFullYear(), true);
+          view.setUint16(lpSystemTime + 2, now.getUTCMonth() + 1, true);
+          view.setUint16(lpSystemTime + 4, now.getUTCDay(), true);
+          view.setUint16(lpSystemTime + 6, now.getUTCDate(), true);
+          view.setUint16(lpSystemTime + 8, now.getUTCHours(), true);
+          view.setUint16(lpSystemTime + 10, now.getUTCMinutes(), true);
+          view.setUint16(lpSystemTime + 12, now.getUTCSeconds(), true);
+          view.setUint16(lpSystemTime + 14, now.getUTCMilliseconds(), true);
+        },
+
+        GetLocaleInfoA: (
+          _Locale: number,
+          LCType: number,
+          lpLCData: number,
+          cchData: number
+        ) => {
+          let str = "";
+          if (LCType === 0x23) { // LOCALE_ITIME
+            str = "1";
+          } else if (LCType === 0x25) { // LOCALE_ITLZERO
+            str = "1";
+          } else {
+            str = "0";
+          }
+          return this.writeCString(lpLCData, str, cchData);
+        },
+        GetLocaleInfo: (_Locale: number, LCType: number, lpLCData: number, cchData: number) =>
+          (win32Imports as any).GetLocaleInfoA(_Locale, LCType, lpLCData, cchData),
+
+        CreateICA: () => {
+          return ++this.nextHdcHandle;
+        },
+        CreateIC: () => (win32Imports as any).CreateICA(),
+
+        CreateDCA: () => {
+          return ++this.nextHdcHandle;
+        },
+        CreateDC: () => (win32Imports as any).CreateDCA(),
+
+        DeleteDC: (hdcHandle: number) => {
+          this.hdcMap.delete(hdcHandle);
+          return 1;
+        },
+
+        GetPixel: (hdcHandle: number, x: number, y: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (ctx) {
+            try {
+              const pixel = ctx.getImageData(x, y, 1, 1).data;
+              return (pixel[0] & 0xff) | ((pixel[1] & 0xff) << 8) | ((pixel[2] & 0xff) << 16);
+            } catch {
+              return 0;
+            }
+          }
+          return 0x00ffffff; // default white
+        },
+
+        GetSysColor: (nIndex: number) => {
+          switch (nIndex) {
+            case 5: // COLOR_WINDOW
+              return 0x00ffffff; // white
+            case 8: // COLOR_WINDOWTEXT
+              return 0x00000000; // black
+            case 15: // COLOR_BTNFACE
+              return 0x00c0c0c0; // silver
+            case 16: // COLOR_BTNSHADOW
+              return 0x00808080; // gray
+            case 20: // COLOR_BTNHIGHLIGHT
+              return 0x00ffffff; // white
+            case 13: // COLOR_HIGHLIGHT
+              return 0x00800000; // dark blue
+            case 14: // COLOR_HIGHLIGHTTEXT
+              return 0x00ffffff; // white
+            default:
+              return 0x00c0c0c0;
+          }
+        },
+
+        OffsetWindowOrgEx: (_hdcHandle: number, _dx: number, _dy: number, _lppt: number) => 1,
+        OffsetViewportOrgEx: (_hdcHandle: number, _dx: number, _dy: number, _lppt: number) => 1,
       };
 
     return {

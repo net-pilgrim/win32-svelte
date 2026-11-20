@@ -63,9 +63,17 @@ CHAP07_BINS := \
 	$(BUILD_DIR)/Chap07/Connect/Connect.wasm \
 	$(BUILD_DIR)/Chap07/SysMets/SysMets.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07
+# --- Chapter 08 ---
+CHAP08_BINS := \
+	$(BUILD_DIR)/Chap08/Beeper1/Beeper1.wasm \
+	$(BUILD_DIR)/Chap08/Beeper2/Beeper2.wasm \
+	$(BUILD_DIR)/Chap08/Clock/Clock.wasm \
+	$(BUILD_DIR)/Chap08/DigClock/DigClock.wasm \
+	$(BUILD_DIR)/Chap08/WhatClr/WhatClr.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08
 
 scan:
 	python3 scan_chapters.py
@@ -83,6 +91,7 @@ chap04: $(CHAP04_BINS)
 chap05: $(CHAP05_BINS)
 chap06: $(CHAP06_BINS)
 chap07: $(CHAP07_BINS)
+chap08: $(CHAP08_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)
