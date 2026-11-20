@@ -18,6 +18,7 @@ dist-ssr
 .vercel
 playwright-report
 test-results
+harness/build
 
 # Archive packages (generated in CI as artifacts)
 *.zip

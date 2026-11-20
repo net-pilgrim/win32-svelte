@@ -18,6 +18,10 @@ extern "C" {
 #define CALLBACK
 #endif
 
+#ifndef CDECL
+#define CDECL
+#endif
+
 #ifndef CONST
 #define CONST const
 #endif
@@ -57,13 +61,33 @@ typedef unsigned short      USHORT;
 typedef char                CHAR;
 typedef unsigned short      WCHAR;
 
-typedef CHAR               *LPSTR;
-typedef CONST CHAR         *LPCSTR;
-typedef WCHAR              *LPWSTR;
-typedef CONST WCHAR        *LPCWSTR;
+// String pointer types
+typedef CHAR               *PSTR, *LPSTR, *NPSTR;
+typedef CONST CHAR         *PCSTR, *LPCSTR;
+typedef WCHAR              *PWSTR, *LPWSTR, *NPWSTR;
+typedef CONST WCHAR        *PCWSTR, *LPCWSTR;
 
-typedef LPSTR               LPTSTR;
-typedef LPCSTR              LPCTSTR;
+#ifdef UNICODE
+typedef WCHAR               TCHAR;
+typedef LPWSTR              PTSTR, LPTSTR;
+typedef LPCWSTR             PCTSTR, LPCTSTR;
+#define __TEXT(quote)       L##quote
+#else
+typedef CHAR                TCHAR;
+typedef LPSTR               PTSTR, LPTSTR;
+typedef LPCSTR              PCTSTR, LPCTSTR;
+#define __TEXT(quote)       quote
+#endif
+
+#ifndef TEXT
+#define TEXT(quote)         __TEXT(quote)
+#endif
+#ifndef _TEXT
+#define _TEXT(quote)        __TEXT(quote)
+#endif
+#ifndef _T
+#define _T(quote)           __TEXT(quote)
+#endif
 
 typedef void               *LPVOID;
 typedef CONST void         *LPCVOID;

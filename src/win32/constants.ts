@@ -538,6 +538,124 @@ export const ERROR_INVALID_PARAMETER = 87;
 export const ERROR_MORE_DATA = 234;
 export const ERROR_NO_MORE_ITEMS = 259;
 
+// ==========================================
+// System Metrics (GetSystemMetrics / SM_*)
+// ==========================================
+export const SM_CXSCREEN = 0;
+export const SM_CYSCREEN = 1;
+export const SM_CXVSCROLL = 2;
+export const SM_CYHSCROLL = 3;
+export const SM_CYCAPTION = 4;
+export const SM_CXBORDER = 5;
+export const SM_CYBORDER = 6;
+export const SM_CXDLGFRAME = 7;
+export const SM_CXFIXEDFRAME = 7;
+export const SM_CYDLGFRAME = 8;
+export const SM_CYFIXEDFRAME = 8;
+export const SM_CYVTHUMB = 9;
+export const SM_CXHTHUMB = 10;
+export const SM_CXICON = 11;
+export const SM_CYICON = 12;
+export const SM_CXCURSOR = 13;
+export const SM_CYCURSOR = 14;
+export const SM_CYMENU = 15;
+export const SM_CXFULLSCREEN = 16;
+export const SM_CYFULLSCREEN = 17;
+export const SM_CYKANJIWINDOW = 18;
+export const SM_MOUSEPRESENT = 19;
+export const SM_CYVSCROLL = 20;
+export const SM_CXHSCROLL = 21;
+export const SM_DEBUG = 22;
+export const SM_SWAPBUTTON = 23;
+export const SM_CXMIN = 28;
+export const SM_CYMIN = 29;
+export const SM_CXSIZE = 30;
+export const SM_CYSIZE = 31;
+export const SM_CXFRAME = 32;
+export const SM_CXSIZEFRAME = 32;
+export const SM_CYFRAME = 33;
+export const SM_CYSIZEFRAME = 33;
+export const SM_CXMINTRACK = 34;
+export const SM_CYMINTRACK = 35;
+export const SM_CXDOUBLECLK = 36;
+export const SM_CYDOUBLECLK = 37;
+export const SM_CXICONSPACING = 38;
+export const SM_CYICONSPACING = 39;
+export const SM_MENUDROPALIGNMENT = 40;
+export const SM_PENWINDOWS = 41;
+export const SM_DBCSENABLED = 42;
+export const SM_CMOUSEBUTTONS = 43;
+export const SM_SECURE = 44;
+export const SM_CXEDGE = 45;
+export const SM_CYEDGE = 46;
+export const SM_CXMINSPACING = 47;
+export const SM_CYMINSPACING = 48;
+export const SM_CXSMICON = 49;
+export const SM_CYSMICON = 50;
+export const SM_CYSMCAPTION = 51;
+export const SM_CXSMSIZE = 52;
+export const SM_CYSMSIZE = 53;
+export const SM_CXMENUSIZE = 54;
+export const SM_CYMENUSIZE = 55;
+export const SM_ARRANGE = 56;
+export const SM_CXMINIMIZED = 57;
+export const SM_CYMINIMIZED = 58;
+export const SM_CXMAXTRACK = 59;
+export const SM_CYMAXTRACK = 60;
+export const SM_CXMAXIMIZED = 61;
+export const SM_CYMAXIMIZED = 62;
+export const SM_NETWORK = 63;
+export const SM_CLEANBOOT = 67;
+export const SM_CXDRAG = 68;
+export const SM_CYDRAG = 69;
+export const SM_SHOWSOUNDS = 70;
+export const SM_CXMENUCHECK = 71;
+export const SM_CYMENUCHECK = 72;
+export const SM_SLOWMACHINE = 73;
+export const SM_MIDEASTENABLED = 74;
+export const SM_MOUSEWHEELPRESENT = 75;
+export const SM_XVIRTUALSCREEN = 76;
+export const SM_YVIRTUALSCREEN = 77;
+export const SM_CXVIRTUALSCREEN = 78;
+export const SM_CYVIRTUALSCREEN = 79;
+export const SM_CMONITORS = 80;
+export const SM_SAMEDISPLAYFORMAT = 81;
+export const SM_CMETRICS = 83;
+
+// ==========================================
+// Class Styles (CS_*)
+// ==========================================
+export const CS_VREDRAW = 0x0001;
+export const CS_HREDRAW = 0x0002;
+export const CS_DBLCLKS = 0x0008;
+export const CS_OWNDC = 0x0020;
+export const CS_CLASSDC = 0x0040;
+export const CS_PARENTDC = 0x0080;
+export const CS_NOCLOSE = 0x0200;
+export const CS_SAVEBITS = 0x0800;
+export const CS_BYTEALIGNCLIENT = 0x1000;
+export const CS_BYTEALIGNWINDOW = 0x2000;
+export const CS_GLOBALCLASS = 0x4000;
+
+// Window Coordinate Defaults
+export const CW_USEDEFAULT = -2147483648;
+
+// ==========================================
+// Multimedia Audio / PlaySound Flags (SND_*)
+// ==========================================
+export const SND_SYNC = 0x00000000;
+export const SND_ASYNC = 0x00000001;
+export const SND_NODEFAULT = 0x00000002;
+export const SND_MEMORY = 0x00000004;
+export const SND_LOOP = 0x00000008;
+export const SND_NOSTOP = 0x00000010;
+export const SND_NOWAIT = 0x00002000;
+export const SND_ALIAS = 0x00010000;
+export const SND_FILENAME = 0x00020000;
+export const SND_RESOURCE = 0x00040004;
+export const SND_PURGE = 0x00000040;
+export const SND_APPLICATION = 0x00000080;
+
 
 
 

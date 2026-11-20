@@ -1,11 +1,22 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Desktop from "./win32/ui/Desktop.svelte";
+  import { kernel, vfs } from "./win32/kernel.svelte";
+  import { Win32WasmRuntime } from "./win32/wasm_bridge";
   import { StartMinesweeper } from "./samples/minesweeper";
   import { StartPaintDemo } from "./samples/paint_demo";
   import { StartWasmApp } from "./samples/wasm_app";
 
   onMount(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__WIN32__ = {
+        kernel,
+        vfs,
+        Win32WasmRuntime,
+        StartWasmApp,
+      };
+    }
+
     // Launch default windows on startup
     StartMinesweeper(110, 40);
     StartPaintDemo(350, 40);

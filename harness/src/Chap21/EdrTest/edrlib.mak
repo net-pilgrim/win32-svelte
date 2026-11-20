@@ -1,0 +1,1 @@
+EdrLib.mak

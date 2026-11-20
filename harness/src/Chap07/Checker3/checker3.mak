@@ -1,0 +1,1 @@
+Checker3.mak

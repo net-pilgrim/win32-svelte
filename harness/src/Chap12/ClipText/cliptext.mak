@@ -1,0 +1,1 @@
+ClipText.mak

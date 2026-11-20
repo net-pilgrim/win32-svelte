@@ -112,6 +112,10 @@ extern "C" {
 #define CALLBACK
 #endif
 
+#ifndef CDECL
+#define CDECL
+#endif
+
 #ifndef CONST
 #define CONST const
 #endif
@@ -151,13 +155,33 @@ typedef unsigned short      USHORT;
 typedef char                CHAR;
 typedef unsigned short      WCHAR;
 
-typedef CHAR               *LPSTR;
-typedef CONST CHAR         *LPCSTR;
-typedef WCHAR              *LPWSTR;
-typedef CONST WCHAR        *LPCWSTR;
+// String pointer types
+typedef CHAR               *PSTR, *LPSTR, *NPSTR;
+typedef CONST CHAR         *PCSTR, *LPCSTR;
+typedef WCHAR              *PWSTR, *LPWSTR, *NPWSTR;
+typedef CONST WCHAR        *PCWSTR, *LPCWSTR;
 
-typedef LPSTR               LPTSTR;
-typedef LPCSTR              LPCTSTR;
+#ifdef UNICODE
+typedef WCHAR               TCHAR;
+typedef LPWSTR              PTSTR, LPTSTR;
+typedef LPCWSTR             PCTSTR, LPCTSTR;
+#define __TEXT(quote)       L##quote
+#else
+typedef CHAR                TCHAR;
+typedef LPSTR               PTSTR, LPTSTR;
+typedef LPCSTR              PCTSTR, LPCTSTR;
+#define __TEXT(quote)       quote
+#endif
+
+#ifndef TEXT
+#define TEXT(quote)         __TEXT(quote)
+#endif
+#ifndef _TEXT
+#define _TEXT(quote)        __TEXT(quote)
+#endif
+#ifndef _T
+#define _T(quote)           __TEXT(quote)
+#endif
 
 typedef void               *LPVOID;
 typedef CONST void         *LPCVOID;
@@ -218,6 +242,14 @@ typedef struct tagSIZE {
 #define MAKELPARAM(l, h)    ((LPARAM)(DWORD)MAKELONG(l, h))
 #define MAKELRESULT(l, h)   ((LRESULT)(DWORD)MAKELONG(l, h))
 #define MAKELONG(a, b)      ((LONG)(((WORD)(((DWORD_PTR)(a)) & 0xffff)) | ((DWORD)((WORD)(((DWORD_PTR)(b)) & 0xffff))) << 16))
+
+#define MAKEINTRESOURCEA(i) ((LPSTR)((ULONG_PTR)((WORD)(i))))
+#define MAKEINTRESOURCEW(i) ((LPWSTR)((ULONG_PTR)((WORD)(i))))
+#ifdef UNICODE
+#define MAKEINTRESOURCE     MAKEINTRESOURCEW
+#else
+#define MAKEINTRESOURCE     MAKEINTRESOURCEA
+#endif
 
 #ifdef __cplusplus
 }
@@ -405,6 +437,9 @@ BOOL WINAPI DeleteObject(HGDIOBJ ho);
 WIN32_IMPORT("FillRect")
 int WINAPI FillRect(HDC hdc, const RECT *lprc, HBRUSH hbr);
 
+WIN32_IMPORT("GetStockObject")
+HGDIOBJ WINAPI GetStockObject(int i);
+
 #define TextOut TextOutA
 
 #ifdef __cplusplus
@@ -419,6 +454,7 @@ int WINAPI FillRect(HDC hdc, const RECT *lprc, HBRUSH hbr);
 function generateWinuserH(allConstants: Map<string, ConstantItem>): string {
   const messages: string[] = [];
   const hitTests: string[] = [];
+  const classStyles: string[] = [];
   const winStyles: string[] = [];
   const extStyles: string[] = [];
   const showCommands: string[] = [];
@@ -429,6 +465,7 @@ function generateWinuserH(allConstants: Map<string, ConstantItem>): string {
   const dialogStyles: string[] = [];
   const menuFlags: string[] = [];
   const drawTextFlags: string[] = [];
+  const sysMetrics: string[] = [];
 
   for (const [name, item] of allConstants.entries()) {
     const defineLine = `#define ${name.padEnd(26)} ${item.value}`;
@@ -436,6 +473,8 @@ function generateWinuserH(allConstants: Map<string, ConstantItem>): string {
       messages.push(defineLine);
     } else if (name.startsWith("HT")) {
       hitTests.push(defineLine);
+    } else if (name.startsWith("CS_")) {
+      classStyles.push(defineLine);
     } else if (name.startsWith("WS_EX_")) {
       extStyles.push(defineLine);
     } else if (name.startsWith("WS_")) {
@@ -456,6 +495,8 @@ function generateWinuserH(allConstants: Map<string, ConstantItem>): string {
       menuFlags.push(defineLine);
     } else if (name.startsWith("DT_")) {
       drawTextFlags.push(defineLine);
+    } else if (name.startsWith("SM_")) {
+      sysMetrics.push(defineLine);
     }
   }
 
@@ -477,7 +518,25 @@ extern "C" {
 // Window Procedure callback
 typedef LRESULT (CALLBACK *WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
-// Window Class structure
+// Window Class structures
+typedef struct tagWNDCLASSA {
+    UINT        style;
+    WNDPROC     lpfnWndProc;
+    int         cbClsExtra;
+    int         cbWndExtra;
+    HINSTANCE   hInstance;
+    HICON       hIcon;
+    HCURSOR     hCursor;
+    HBRUSH      hbrBackground;
+    LPCSTR      lpszMenuName;
+    LPCSTR      lpszClassName;
+} WNDCLASSA, *PWNDCLASSA, *NPWNDCLASSA, *LPWNDCLASSA;
+
+typedef WNDCLASSA WNDCLASS;
+typedef PWNDCLASSA PWNDCLASS;
+typedef NPWNDCLASSA NPWNDCLASS;
+typedef LPWNDCLASSA LPWNDCLASS;
+
 typedef struct tagWNDCLASSEXA {
     UINT        cbSize;
     UINT        style;
@@ -511,6 +570,9 @@ ${messages.join("\n")}
 // Hit-Test Return Codes
 ${hitTests.join("\n")}
 
+// Class Styles (CS_*)
+${classStyles.join("\n")}
+
 // Window Styles (WS_*)
 ${winStyles.join("\n")}
 
@@ -541,15 +603,74 @@ ${menuFlags.join("\n")}
 // DrawText Format Flags (DT_*)
 ${drawTextFlags.join("\n")}
 
+// System Metrics Indices (SM_*)
+${sysMetrics.join("\n")}
+
+// Standard Icons & Cursors
+#define IDI_APPLICATION     MAKEINTRESOURCE(32512)
+#define IDI_HAND            MAKEINTRESOURCE(32513)
+#define IDI_QUESTION        MAKEINTRESOURCE(32514)
+#define IDI_EXCLAMATION     MAKEINTRESOURCE(32515)
+#define IDI_ASTERISK        MAKEINTRESOURCE(32516)
+#define IDI_WINLOGO         MAKEINTRESOURCE(32517)
+#define IDI_WARNING         IDI_EXCLAMATION
+#define IDI_ERROR           IDI_HAND
+#define IDI_INFORMATION     IDI_ASTERISK
+
+#define IDC_ARROW           MAKEINTRESOURCE(32512)
+#define IDC_IBEAM           MAKEINTRESOURCE(32513)
+#define IDC_WAIT            MAKEINTRESOURCE(32514)
+#define IDC_CROSS           MAKEINTRESOURCE(32515)
+#define IDC_UPARROW         MAKEINTRESOURCE(32516)
+#define IDC_SIZE            MAKEINTRESOURCE(32640)
+#define IDC_ICON            MAKEINTRESOURCE(32641)
+#define IDC_SIZENWSE        MAKEINTRESOURCE(32642)
+#define IDC_SIZENESW        MAKEINTRESOURCE(32643)
+#define IDC_SIZEWE          MAKEINTRESOURCE(32644)
+#define IDC_SIZENS          MAKEINTRESOURCE(32645)
+#define IDC_SIZEALL         MAKEINTRESOURCE(32646)
+#define IDC_NO              MAKEINTRESOURCE(32648)
+#define IDC_HAND            MAKEINTRESOURCE(32649)
+#define IDC_APPSTARTING     MAKEINTRESOURCE(32650)
+#define IDC_HELP            MAKEINTRESOURCE(32651)
+
+#ifndef CW_USEDEFAULT
+#define CW_USEDEFAULT       ((int)0x80000000)
+#endif
+
+#define CreateWindowA(lpClassName, lpWindowName, dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam) \\
+    CreateWindowExA(0L, lpClassName, lpWindowName, dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam)
+#define CreateWindow CreateWindowA
+
 // User32 Import Functions
+WIN32_IMPORT("GetSystemMetrics")
+int WINAPI GetSystemMetrics(int nIndex);
 WIN32_IMPORT("MessageBoxA")
 int WINAPI MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
 
 WIN32_IMPORT("MessageBeep")
 BOOL WINAPI MessageBeep(UINT uType);
 
+WIN32_IMPORT("RegisterClassA")
+ATOM WINAPI RegisterClassA(const WNDCLASSA *lpWndClass);
+
 WIN32_IMPORT("RegisterClassExA")
 ATOM WINAPI RegisterClassExA(const WNDCLASSEXA *lpwcx);
+
+WIN32_IMPORT("LoadIconA")
+HICON WINAPI LoadIconA(HINSTANCE hInstance, LPCSTR lpIconName);
+
+WIN32_IMPORT("LoadCursorA")
+HCURSOR WINAPI LoadCursorA(HINSTANCE hInstance, LPCSTR lpCursorName);
+
+WIN32_IMPORT("GetMessageA")
+BOOL WINAPI GetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax);
+
+WIN32_IMPORT("TranslateMessage")
+BOOL WINAPI TranslateMessage(const MSG *lpMsg);
+
+WIN32_IMPORT("DispatchMessageA")
+LRESULT WINAPI DispatchMessageA(const MSG *lpMsg);
 
 WIN32_IMPORT("CreateWindowExA")
 HWND WINAPI CreateWindowExA(
@@ -611,7 +732,10 @@ HINSTANCE WINAPI ShellExecuteA(HWND hWnd, LPCSTR lpOperation, LPCSTR lpFile, LPC
 
 // Standard aliases
 #define MessageBox      MessageBoxA
+#define RegisterClass   RegisterClassA
 #define RegisterClassEx RegisterClassExA
+#define LoadIcon        LoadIconA
+#define LoadCursor      LoadCursorA
 #define CreateWindowEx  CreateWindowExA
 #define DefWindowProc   DefWindowProcA
 #define SendMessage     SendMessageA
@@ -620,6 +744,8 @@ HINSTANCE WINAPI ShellExecuteA(HWND hWnd, LPCSTR lpOperation, LPCSTR lpFile, LPC
 #define GetWindowText   GetWindowTextA
 #define DrawText        DrawTextA
 #define ShellExecute    ShellExecuteA
+#define GetMessage      GetMessageA
+#define DispatchMessage DispatchMessageA
 
 #ifdef __cplusplus
 }

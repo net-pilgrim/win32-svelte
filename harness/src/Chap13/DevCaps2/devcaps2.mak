@@ -1,0 +1,1 @@
+DevCaps2.mak

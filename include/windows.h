@@ -14,6 +14,7 @@ extern "C" {
 #endif
 
 #include "windef.h"
+#include "_wasm_platform.h"
 #include "winbase.h"
 #include "wingdi.h"
 #include "winuser.h"

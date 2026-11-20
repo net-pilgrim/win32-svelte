@@ -88,7 +88,7 @@ export class Win32WasmRuntime {
   private stringLogs: WasmStringLogEntry[] = [];
   private registeredWndProcIndices: number[] = [];
 
-  constructor() {}
+  constructor(private options: WasmBridgeOptions = {}) {}
 
   public static getActiveRuntimes(): Win32WasmRuntime[] {
     return Array.from(activeWasmRuntimes);
@@ -239,7 +239,49 @@ export class Win32WasmRuntime {
 
   public getImportObject(): WebAssembly.Imports {
     const win32Imports = {
-      RegisterClassExA: (ptr: number) => {
+      RegisterClassA: (ptr: number) => {
+          if (!this.memory || !this.table) return 0;
+          const view = new DataView(this.memory.buffer);
+          const fnIdx = view.getUint32(ptr + 4, true);
+          this.registeredWndProcIndices.push(fnIdx);
+          const classNamePtr = view.getUint32(ptr + 36, true);
+          const className = this.readCString(classNamePtr, "RegisterClassA:lpszClassName");
+
+          const wndProc = (
+            hwnd: HWND,
+            uMsg: UINT,
+            wParam: WPARAM,
+            lParam: LPARAM
+          ): LRESULT => {
+            if (!this.table) return 0;
+            const targetFn = this.table.get(fnIdx);
+            let res: any = 0;
+            if (typeof targetFn === "function") {
+              res = targetFn(
+                hwnd,
+                uMsg,
+                typeof wParam === "number" ? wParam : 0,
+                typeof lParam === "number" ? lParam : 0
+              );
+            } else {
+              res = DefWindowProc(hwnd, uMsg, wParam, lParam);
+            }
+            if (uMsg === WM_DESTROY) {
+              this.destroy();
+            }
+            return typeof res === "number" ? res : 0;
+          };
+
+          this.registeredClasses.set(className.toUpperCase(), wndProc);
+
+          kernel.RegisterClassEx({
+            className,
+            lpfnWndProc: wndProc,
+          });
+          return 1;
+        },
+
+        RegisterClassExA: (ptr: number) => {
           if (!this.memory || !this.table) return 0;
           const view = new DataView(this.memory.buffer);
           const fnIdx = view.getUint32(ptr + 8, true);
@@ -281,6 +323,14 @@ export class Win32WasmRuntime {
           return 1;
         },
 
+        LoadIconA: (_hInstance: number, _lpIconName: number) => {
+          return 1; // Standard icon handle
+        },
+
+        LoadCursorA: (_hInstance: number, _lpCursorName: number) => {
+          return 1; // Standard cursor handle
+        },
+
         CreateWindowExA: (
           dwExStyle: number,
           lpClassName: number,
@@ -299,15 +349,33 @@ export class Win32WasmRuntime {
           const windowName = this.readCString(lpWindowName);
           const localWndProc = this.registeredClasses.get(className.toUpperCase());
 
+          const CW_USEDEFAULT = -2147483648;
+          let actualX = x;
+          let actualY = y;
+          let actualW = nWidth;
+          let actualH = nHeight;
+          if (actualX === CW_USEDEFAULT || actualX === 0x80000000) {
+            actualX = this.options.initialX ?? 120;
+          }
+          if (actualY === CW_USEDEFAULT || actualY === 0x80000000) {
+            actualY = this.options.initialY ?? 80;
+          }
+          if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
+            actualW = 500;
+          }
+          if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
+            actualH = 350;
+          }
+
           const hwnd = kernel.CreateWindowEx(
             dwExStyle,
             className,
             windowName,
             dwStyle,
-            x,
-            y,
-            nWidth,
-            nHeight,
+            actualX,
+            actualY,
+            actualW,
+            actualH,
             hWndParent === 0 ? null : hWndParent,
             hMenu === 0 ? null : hMenu,
             null,
@@ -332,7 +400,37 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        UpdateWindow: (_hwnd: number) => {
+        UpdateWindow: (hwnd: number) => {
+          SendMessage(hwnd, 0x000F, 0, 0); // WM_PAINT
+          return 1;
+        },
+
+        GetMessageA: (
+          _lpMsg: number,
+          _hWnd: number,
+          _wMsgFilterMin: number,
+          _wMsgFilterMax: number
+        ) => {
+          // In single-threaded browser WASM, return 0 (FALSE) so WinMain cleanly returns to event loop
+          return 0;
+        },
+
+        TranslateMessage: (_lpMsg: number) => 0,
+
+        DispatchMessageA: (_lpMsg: number) => 0,
+
+        PlaySoundA: (
+          _pszSound: number,
+          _hmod: number,
+          _fdwSound: number
+        ) => {
+          return 1;
+        },
+
+        sndPlaySoundA: (
+          _pszSound: number,
+          _fuSound: number
+        ) => {
           return 1;
         },
 
@@ -409,6 +507,78 @@ export class Win32WasmRuntime {
           return 1;
         },
 
+        GetSystemMetrics: (nIndex: number): number => {
+          switch (nIndex) {
+            case 0: // SM_CXSCREEN
+              return typeof window !== "undefined" ? window.innerWidth : 1024;
+            case 1: // SM_CYSCREEN
+              return typeof window !== "undefined" ? window.innerHeight : 768;
+            case 2: // SM_CXVSCROLL
+            case 3: // SM_CYHSCROLL
+              return 16;
+            case 4: // SM_CYCAPTION
+              return 19;
+            case 5: // SM_CXBORDER
+            case 6: // SM_CYBORDER
+              return 1;
+            case 7: // SM_CXFIXEDFRAME
+            case 8: // SM_CYFIXEDFRAME
+              return 3;
+            case 9: // SM_CYVTHUMB
+            case 10: // SM_CXHTHUMB
+              return 16;
+            case 11: // SM_CXICON
+            case 12: // SM_CYICON
+            case 13: // SM_CXCURSOR
+            case 14: // SM_CYCURSOR
+              return 32;
+            case 15: // SM_CYMENU
+              return 19;
+            case 16: // SM_CXFULLSCREEN
+              return typeof window !== "undefined" ? window.innerWidth : 1024;
+            case 17: // SM_CYFULLSCREEN
+              return typeof window !== "undefined" ? window.innerHeight - 28 : 740;
+            case 19: // SM_MOUSEPRESENT
+              return 1;
+            case 20: // SM_CYVSCROLL
+            case 21: // SM_CXHSCROLL
+              return 16;
+            case 23: // SM_SWAPBUTTON
+              return 0;
+            case 28: // SM_CXMIN
+            case 29: // SM_CYMIN
+              return 100;
+            case 30: // SM_CXSIZE
+            case 31: // SM_CYSIZE
+              return 16;
+            case 32: // SM_CXSIZEFRAME
+            case 33: // SM_CYSIZEFRAME
+              return 4;
+            case 43: // SM_CMOUSEBUTTONS
+              return 2;
+            case 45: // SM_CXEDGE
+            case 46: // SM_CYEDGE
+              return 2;
+            case 49: // SM_CXSMICON
+            case 50: // SM_CYSMICON
+              return 16;
+            case 51: // SM_CYSMCAPTION
+              return 15;
+            case 52: // SM_CXSMSIZE
+            case 53: // SM_CYSMSIZE
+              return 15;
+            case 54: // SM_CXMENUSIZE
+            case 55: // SM_CYMENUSIZE
+              return 18;
+            case 80: // SM_CMONITORS
+              return 1;
+            case 81: // SM_SAMEDISPLAYFORMAT
+              return 1;
+            default:
+              return 0; // Standard stub fallback
+          }
+        },
+
         MessageBeep: (uType: number) => {
           MessageBeep(uType);
           return 1;
@@ -455,6 +625,87 @@ export class Win32WasmRuntime {
         },
 
         // --- GDI APIs ---
+        GetDC: (hWnd: number) => {
+          try {
+            const hdc = BeginPaint(hWnd);
+            const handle = ++this.nextHdcHandle;
+            this.hdcMap.set(handle, hdc);
+            return handle;
+          } catch {
+            return ++this.nextHdcHandle;
+          }
+        },
+
+        ReleaseDC: (_hWnd: number, hdcHandle: number) => {
+          this.hdcMap.delete(hdcHandle);
+          return 1;
+        },
+
+        GetTextMetricsA: (_hdcHandle: number, lpTm: number) => {
+          if (!this.memory || !lpTm) return 0;
+          const view = new DataView(this.memory.buffer);
+          view.setInt32(lpTm + 0, 16, true);  // tmHeight
+          view.setInt32(lpTm + 4, 13, true);  // tmAscent
+          view.setInt32(lpTm + 8, 3, true);   // tmDescent
+          view.setInt32(lpTm + 12, 3, true);  // tmInternalLeading
+          view.setInt32(lpTm + 16, 0, true);  // tmExternalLeading
+          view.setInt32(lpTm + 20, 8, true);  // tmAveCharWidth
+          view.setInt32(lpTm + 24, 16, true); // tmMaxCharWidth
+          view.setInt32(lpTm + 28, 400, true);// tmWeight (FW_NORMAL)
+          view.setInt32(lpTm + 32, 0, true);  // tmOverhang
+          view.setInt32(lpTm + 36, 96, true); // tmDigitizedAspectX
+          view.setInt32(lpTm + 40, 96, true); // tmDigitizedAspectY
+          view.setUint8(lpTm + 44, 32);       // tmFirstChar
+          view.setUint8(lpTm + 45, 126);      // tmLastChar
+          view.setUint8(lpTm + 46, 32);       // tmDefaultChar
+          view.setUint8(lpTm + 47, 32);       // tmBreakChar
+          view.setUint8(lpTm + 48, 0);        // tmItalic
+          view.setUint8(lpTm + 49, 0);        // tmUnderlined
+          view.setUint8(lpTm + 50, 0);        // tmStruckOut
+          view.setUint8(lpTm + 51, 1);        // tmPitchAndFamily (variable pitch)
+          view.setUint8(lpTm + 52, 0);        // tmCharSet (ANSI_CHARSET)
+          return 1;
+        },
+
+        SetTextAlign: (_hdcHandle: number, _align: number) => {
+          return 0; // Previous alignment TA_LEFT | TA_TOP
+        },
+
+        ScrollWindow: (_hWnd: number, _xAmount: number, _yAmount: number, _lpRect: number, _lpClipRect: number) => {
+          return 1;
+        },
+
+        SetScrollInfo: (_hwnd: number, _nBar: number, lpsi: number, _redraw: number) => {
+          if (!this.memory || !lpsi) return 0;
+          const view = new DataView(this.memory.buffer);
+          return view.getInt32(lpsi + 20, true); // nPos
+        },
+
+        GetScrollInfo: (_hwnd: number, _nBar: number, _lpsi: number) => {
+          return 1;
+        },
+
+        SetScrollPos: (_hWnd: number, _nBar: number, nPos: number, _bRedraw: number) => {
+          return nPos;
+        },
+
+        GetScrollPos: (_hWnd: number, _nBar: number) => {
+          return 0;
+        },
+
+        SetScrollRange: (_hWnd: number, _nBar: number, _nMinPos: number, _nMaxPos: number, _bRedraw: number) => {
+          return 1;
+        },
+
+        GetScrollRange: (_hWnd: number, _nBar: number, lpMinPos: number, lpMaxPos: number) => {
+          if (this.memory) {
+            const view = new DataView(this.memory.buffer);
+            if (lpMinPos) view.setInt32(lpMinPos, 0, true);
+            if (lpMaxPos) view.setInt32(lpMaxPos, 100, true);
+          }
+          return 1;
+        },
+
         BeginPaint: (hWnd: number, lpPaint: number) => {
           if (!this.memory) return 0;
           try {
@@ -548,6 +799,41 @@ export class Win32WasmRuntime {
           const pen = CreatePen(iStyle, cWidth, this.colorRefToRgb(color));
           const handle = ++this.nextGdiHandle;
           this.gdiMap.set(handle, pen);
+          return handle;
+        },
+
+        GetStockObject: (i: number): number => {
+          let obj: any;
+          switch (i) {
+            case 0: // WHITE_BRUSH
+              obj = CreateSolidBrush("#ffffff");
+              break;
+            case 1: // LTGRAY_BRUSH
+              obj = CreateSolidBrush("#c0c0c0");
+              break;
+            case 2: // GRAY_BRUSH
+              obj = CreateSolidBrush("#808080");
+              break;
+            case 3: // DKGRAY_BRUSH
+              obj = CreateSolidBrush("#404040");
+              break;
+            case 4: // BLACK_BRUSH
+              obj = CreateSolidBrush("#000000");
+              break;
+            case 5: // NULL_BRUSH / HOLLOW_BRUSH
+              obj = { type: "brush" as const, color: "transparent" };
+              break;
+            case 6: // WHITE_PEN
+              obj = CreatePen(0, 1, "#ffffff");
+              break;
+            case 7: // BLACK_PEN
+              obj = CreatePen(0, 1, "#000000");
+              break;
+            default:
+              obj = CreateSolidBrush("#ffffff");
+          }
+          const handle = ++this.nextGdiHandle;
+          this.gdiMap.set(handle, obj);
           return handle;
         },
 
