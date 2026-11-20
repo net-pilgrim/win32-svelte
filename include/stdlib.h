@@ -46,6 +46,31 @@ static inline int abs(int n) {
 
 #define RAND_MAX 32767
 
+// Freestanding Heap Allocator
+static unsigned char _wasm_stdlib_heap[131072];
+static size_t _wasm_stdlib_heap_idx = 0;
+
+static inline void *malloc(size_t size) {
+    if (_wasm_stdlib_heap_idx + size > sizeof(_wasm_stdlib_heap)) return (void *)0;
+    void *ptr = (void *)&_wasm_stdlib_heap[_wasm_stdlib_heap_idx];
+    _wasm_stdlib_heap_idx = (_wasm_stdlib_heap_idx + size + 7) & ~7;
+    return ptr;
+}
+
+static inline void free(void *ptr) {
+    (void)ptr;
+}
+
+static inline void *calloc(size_t num, size_t size) {
+    size_t total = num * size;
+    void *p = malloc(total);
+    if (p) {
+        unsigned char *d = (unsigned char *)p;
+        for (size_t i = 0; i < total; i++) d[i] = 0;
+    }
+    return p;
+}
+
 #ifdef __cplusplus
 }
 #endif

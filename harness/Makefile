@@ -44,9 +44,17 @@ CHAP05_BINS := \
 	$(BUILD_DIR)/Chap05/SineWave/SineWave.wasm \
 	$(BUILD_DIR)/Chap05/WhatSize/WhatSize.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05
+# --- Chapter 06 ---
+CHAP06_BINS := \
+	$(BUILD_DIR)/Chap06/KeyView1/KeyView1.wasm \
+	$(BUILD_DIR)/Chap06/KeyView2/KeyView2.wasm \
+	$(BUILD_DIR)/Chap06/StokFont/StokFont.wasm \
+	$(BUILD_DIR)/Chap06/SysMets4/SysMets4.wasm \
+	$(BUILD_DIR)/Chap06/Typer/Typer.wasm
 
-all: chap01 chap02 chap03 chap04 chap05
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06
+
+all: chap01 chap02 chap03 chap04 chap05 chap06
 
 scan:
 	python3 scan_chapters.py
@@ -62,6 +70,7 @@ chap02: $(BUILD_DIR)/Chap02/ScrnSize/ScrnSize.wasm
 chap03: $(BUILD_DIR)/Chap03/HelloWin/HelloWin.wasm
 chap04: $(CHAP04_BINS)
 chap05: $(CHAP05_BINS)
+chap06: $(CHAP06_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

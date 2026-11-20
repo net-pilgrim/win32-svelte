@@ -680,6 +680,19 @@ export class Win32WasmRuntime {
           return 1;
         },
 
+        GetTextFaceA: (_hdcHandle: number, c: number, lpName: number) => {
+          if (this.memory && lpName && c > 0) {
+            const face = "MS Sans Serif";
+            const bytes = new TextEncoder().encode(face);
+            const heap = new Uint8Array(this.memory.buffer);
+            const toWrite = Math.min(bytes.length, c - 1);
+            heap.set(bytes.subarray(0, toWrite), lpName);
+            heap[lpName + toWrite] = 0;
+            return toWrite;
+          }
+          return 0;
+        },
+
         SetTextAlign: (_hdcHandle: number, _align: number) => {
           return 0; // Previous alignment TA_LEFT | TA_TOP
         },
@@ -958,6 +971,32 @@ export class Win32WasmRuntime {
           return 1;
         },
 
+        CreateCaret: (_hWnd: number, _hBitmap: number, _nWidth: number, _nHeight: number) => 1,
+        SetCaretPos: (_x: number, _y: number) => 1,
+        ShowCaret: (_hWnd: number) => 1,
+        HideCaret: (_hWnd: number) => 1,
+        DestroyCaret: () => 1,
+        GetFocus: () => 1,
+
+        SetBkMode: (hdcHandle: number, mode: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) hdc.bkMode = mode;
+          return mode;
+        },
+
+        GetKeyNameTextA: (_lParam: number, lpString: number, cchSize: number) => {
+          if (this.memory && lpString && cchSize > 0) {
+            const text = "Key";
+            const bytes = new TextEncoder().encode(text);
+            const heap = new Uint8Array(this.memory.buffer);
+            const toWrite = Math.min(bytes.length, cchSize - 1);
+            heap.set(bytes.subarray(0, toWrite), lpString);
+            heap[lpString + toWrite] = 0;
+            return toWrite;
+          }
+          return 0;
+        },
+
         LineTo: (hdcHandle: number, x: number, y: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
@@ -1014,6 +1053,8 @@ export class Win32WasmRuntime {
           this.gdiMap.set(handle, brush);
           return handle;
         },
+
+        CreateFontA: () => ++this.nextGdiHandle,
 
         CreatePen: (iStyle: number, cWidth: number, color: number) => {
           const pen = CreatePen(iStyle, cWidth, this.colorRefToRgb(color));
