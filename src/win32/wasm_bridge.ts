@@ -1912,6 +1912,144 @@ export class Win32WasmRuntime {
         },
 
         IsClipboardFormatAvailable: (_format: number) => 1,
+
+        // --- Chapter 11: Dialog Boxes & Common Dialogs ---
+        DialogBoxParamA: (
+          _hInstance: number,
+          _lpTemplateName: number,
+          _hWndParent: number,
+          _lpDialogFunc: number,
+          _dwInitParam: number
+        ) => 1,
+        DialogBoxParam: (...args: any[]) => (win32Imports as any).DialogBoxParamA(...args),
+        DialogBoxA: (...args: any[]) => (win32Imports as any).DialogBoxParamA(...args),
+        DialogBox: (...args: any[]) => (win32Imports as any).DialogBoxParamA(...args),
+
+        CreateDialogParamA: (
+          _hInstance: number,
+          _lpTemplateName: number,
+          _hWndParent: number,
+          _lpDialogFunc: number,
+          _dwInitParam: number
+        ) => ++this.nextGdiHandle,
+        CreateDialogParam: (...args: any[]) => (win32Imports as any).CreateDialogParamA(...args),
+        CreateDialogA: (...args: any[]) => (win32Imports as any).CreateDialogParamA(...args),
+        CreateDialog: (...args: any[]) => (win32Imports as any).CreateDialogParamA(...args),
+
+        EndDialog: (_hDlg: number, _nResult: number) => 1,
+
+        IsDialogMessageA: (_hDlg: number, _lpMsg: number) => 0,
+        IsDialogMessage: (...args: any[]) => (win32Imports as any).IsDialogMessageA(...args),
+
+        CheckRadioButton: (
+          _hDlg: number,
+          _nIDFirstButton: number,
+          _nIDLastButton: number,
+          _nIDCheckButton: number
+        ) => 1,
+
+        CheckDlgButton: (_hDlg: number, _nIDButton: number, _uCheck: number) => 1,
+        IsDlgButtonChecked: (_hDlg: number, _nIDButton: number) => 1,
+
+        SetDlgItemInt: (
+          _hDlg: number,
+          _nIDDlgItem: number,
+          _uValue: number,
+          _bSigned: number
+        ) => 1,
+
+        GetDlgItemInt: (
+          _hDlg: number,
+          _nIDDlgItem: number,
+          _lpTranslated: number,
+          _bSigned: number
+        ) => 0,
+
+        SetDlgItemTextA: (_hDlg: number, _nIDDlgItem: number, _lpString: number) => 1,
+        SetDlgItemText: (...args: any[]) => (win32Imports as any).SetDlgItemTextA(...args),
+
+        GetDlgItemTextA: (_hDlg: number, _nIDDlgItem: number, lpString: number, cchMax: number) =>
+          this.writeCString(lpString, "", cchMax),
+        GetDlgItemText: (...args: any[]) => (win32Imports as any).GetDlgItemTextA(...args),
+
+        SendDlgItemMessageA: (
+          _hDlg: number,
+          _nIDDlgItem: number,
+          _Msg: number,
+          _wParam: number,
+          _lParam: number
+        ) => 0,
+        SendDlgItemMessage: (...args: any[]) => (win32Imports as any).SendDlgItemMessageA(...args),
+
+        CreateFontIndirectA: (_lplf: number) => ++this.nextGdiHandle,
+        CreateFontIndirect: (...args: any[]) => (win32Imports as any).CreateFontIndirectA(...args),
+
+        GetObjectA: (_hgdiobj: number, _cbBuffer: number, _lpvObject: number) => 0,
+        GetObject: (...args: any[]) => (win32Imports as any).GetObjectA(...args),
+
+        WriteFile: (
+          _hFile: number,
+          _lpBuffer: number,
+          nNumberOfBytesToWrite: number,
+          lpNumberOfBytesWritten: number,
+          _lpOverlapped: number
+        ) => {
+          if (this.memory && lpNumberOfBytesWritten) {
+            const view = new DataView(this.memory.buffer);
+            view.setUint32(lpNumberOfBytesWritten, nNumberOfBytesToWrite, true);
+          }
+          return 1;
+        },
+
+        GetWindowTextLengthA: (_hWnd: number) => 0,
+        GetWindowTextLength: (...args: any[]) => (win32Imports as any).GetWindowTextLengthA(...args),
+
+        RegisterWindowMessageA: (_lpString: number) => 0xc000,
+        RegisterWindowMessage: (...args: any[]) =>
+          (win32Imports as any).RegisterWindowMessageA(...args),
+
+        Sleep: (_dwMilliseconds: number) => {},
+
+        GetFileSize: (_hFile: number, _lpFileSizeHigh: number) => 1024,
+        IsTextUnicode: (_lpv: number, _iSize: number, _lpiResult: number) => 0,
+
+        WideCharToMultiByte: (
+          _CodePage: number,
+          _dwFlags: number,
+          _lpWideCharStr: number,
+          _cchWideChar: number,
+          _lpMultiByteStr: number,
+          _cbMultiByte: number,
+          _lpDefaultChar: number,
+          _lpUsedDefaultChar: number
+        ) => 0,
+
+        MultiByteToWideChar: (
+          _CodePage: number,
+          _dwFlags: number,
+          _lpMultiByteStr: number,
+          _cbMultiByte: number,
+          _lpWideCharStr: number,
+          _cchWideChar: number
+        ) => 0,
+
+        ChooseColorA: (_lpcc: number) => 1,
+        ChooseColor: (...args: any[]) => (win32Imports as any).ChooseColorA(...args),
+
+        ChooseFontA: (_lpcf: number) => 1,
+        ChooseFont: (...args: any[]) => (win32Imports as any).ChooseFontA(...args),
+
+        GetOpenFileNameA: (_lpofn: number) => 1,
+        GetOpenFileName: (...args: any[]) => (win32Imports as any).GetOpenFileNameA(...args),
+
+        GetSaveFileNameA: (_lpofn: number) => 1,
+        GetSaveFileName: (...args: any[]) => (win32Imports as any).GetSaveFileNameA(...args),
+
+        FindTextA: (_lpfr: number) => ++this.nextGdiHandle,
+        FindText: (...args: any[]) => (win32Imports as any).FindTextA(...args),
+
+        ReplaceTextA: (_lpfr: number) => ++this.nextGdiHandle,
+        ReplaceText: (...args: any[]) => (win32Imports as any).ReplaceTextA(...args),
       };
 
     return {

@@ -90,12 +90,34 @@ CHAP10_BINS := \
 	$(BUILD_DIR)/Chap10/PopMenu/PopMenu.wasm \
 	$(BUILD_DIR)/Chap10/PopPad2/PopPad2.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10
+# --- Chapter 11 ---
+CHAP11_POPPAD3_SRCS := \
+	src/Chap11/PopPad3/PopFile.c \
+	src/Chap11/PopPad3/PopFind.c \
+	src/Chap11/PopPad3/PopFont.c \
+	src/Chap11/PopPad3/PopPad.c \
+	src/Chap11/PopPad3/PopPrnt0.c
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10
+CHAP11_BINS := \
+	$(BUILD_DIR)/Chap11/About1/About1.wasm \
+	$(BUILD_DIR)/Chap11/About2/About2.wasm \
+	$(BUILD_DIR)/Chap11/About3/About3.wasm \
+	$(BUILD_DIR)/Chap11/Colors2/Colors2.wasm \
+	$(BUILD_DIR)/Chap11/Colors3/Colors3.wasm \
+	$(BUILD_DIR)/Chap11/HexCalc/HexCalc.wasm \
+	$(BUILD_DIR)/Chap11/PopPad3/PopPad3.wasm
+
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11
 
 scan:
 	python3 scan_chapters.py
+
+$(BUILD_DIR)/Chap11/PopPad3/PopPad3.wasm: $(CHAP11_POPPAD3_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap11/PopPad3 $(CHAP11_POPPAD3_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
 
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
@@ -113,6 +135,7 @@ chap07: $(CHAP07_BINS)
 chap08: $(CHAP08_BINS)
 chap09: $(CHAP09_BINS)
 chap10: $(CHAP10_BINS)
+chap11: $(CHAP11_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

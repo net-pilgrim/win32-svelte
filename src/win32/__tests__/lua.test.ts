@@ -194,7 +194,7 @@ async function runLuaIntegrationTests() {
   const resCom = runtime.execute(scriptCom);
   if (!resCom.success) throw new Error(`Script COM failed: ${resCom.error}`);
 
-  await new Promise((r) => setTimeout(r, 100));
+  await new Promise((r) => setTimeout(r, 300));
 
   if (!capturedLogs.some((l) => l.includes("COM Add: 50"))) {
     throw new Error("COM Add result not found in logs");

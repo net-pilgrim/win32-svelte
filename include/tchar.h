@@ -7,6 +7,7 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include "string.h"
 
 #ifndef _T
 #define _T(x)       TEXT(x)
@@ -21,6 +22,7 @@
 #define _stprintf    sprintf
 #define _tcslen      lstrlen
 #define _tcscpy      lstrcpy
+#define _tcsstr      strstr
 #define _tprintf     printf
 
 #endif // _TCHAR_H

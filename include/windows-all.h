@@ -63,7 +63,9 @@ extern "C" {
 // Base primitive types (32-bit WASM environment)
 typedef unsigned long       DWORD;
 typedef int                 BOOL;
+typedef BOOL               *PBOOL, *LPBOOL;
 typedef unsigned char       BYTE;
+typedef BYTE               *PBYTE, *LPBYTE;
 typedef unsigned short      WORD;
 typedef float               FLOAT;
 typedef int                 INT;

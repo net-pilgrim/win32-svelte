@@ -43,6 +43,21 @@ static inline void *wasm_memcpy(void *dest, const void *src, size_t n) {
     return dest;
 }
 
+static inline char *wasm_strstr(const char *haystack, const char *needle) {
+    if (!haystack || !needle) return NULL;
+    if (!*needle) return (char *)haystack;
+    for (; *haystack; haystack++) {
+        const char *h = haystack;
+        const char *n = needle;
+        while (*h && *n && (*h == *n)) {
+            h++;
+            n++;
+        }
+        if (!*n) return (char *)haystack;
+    }
+    return NULL;
+}
+
 #endif // _WASM_STRING_OPS_DEFINED
 
 static inline void *wasm_memmove(void *dest, const void *src, size_t n) {
@@ -87,6 +102,9 @@ static inline int wasm_memcmp(const void *s1, const void *s2, size_t n) {
 #endif
 #ifndef strncmp
 #define strncmp wasm_strncmp
+#endif
+#ifndef strstr
+#define strstr wasm_strstr
 #endif
 #ifndef memset
 #define memset wasm_memset

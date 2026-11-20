@@ -31,6 +31,7 @@ extern "C" {
 #endif
 
 #include "stdlib.h"
+#include "ctype.h"
 
 #ifndef WM_DISPLAYCHANGE
 #define WM_DISPLAYCHANGE    0x007E
@@ -169,6 +170,25 @@ static inline int wasm_strcmp(const char *s1, const char *s2) {
     }
     return *(const unsigned char *)s1 - *(const unsigned char *)s2;
 }
+
+static inline char *wasm_strstr(const char *haystack, const char *needle) {
+    if (!haystack || !needle) return (char *)0;
+    if (!*needle) return (char *)haystack;
+    for (; *haystack; haystack++) {
+        const char *h = haystack;
+        const char *n = needle;
+        while (*h && *n && (*h == *n)) {
+            h++;
+            n++;
+        }
+        if (!*n) return (char *)haystack;
+    }
+    return (char *)0;
+}
+#endif
+
+#ifndef strstr
+#define strstr wasm_strstr
 #endif
 
 #ifndef memset
@@ -1489,6 +1509,9 @@ BOOL WINAPI SetCurrentDirectoryA(LPCSTR lpPathName);
 #ifndef EM_GETSEL
 #define EM_GETSEL           0x00B0
 #define EM_SETSEL           0x00B1
+#define EM_SCROLLCARET      0x00B7
+#define EM_REPLACESEL       0x00C2
+#define EM_LIMITTEXT        0x00C5
 #define EM_CANUNDO          0x00C6
 #define EM_UNDO             0x00C7
 #define EM_EMPTYUNDOBUFFER  0x00CD
@@ -1672,6 +1695,254 @@ static inline LPSTR AnsiNext(LPCSTR current) {
     if (!current || !*current) return (LPSTR)current;
     return (LPSTR)(current + 1);
 }
+
+// ==============================================================================
+// Chapter 11: Modal & Modeless Dialog Boxes & Controls
+// ==============================================================================
+
+#ifndef DLGWINDOWEXTRA
+#define DLGWINDOWEXTRA      30
+#endif
+
+#ifndef BM_GETCHECK
+#define BM_GETCHECK         0x00F0
+#define BM_SETCHECK         0x00F1
+#define BM_GETSTATE         0x00F2
+#define BM_SETSTATE         0x00F3
+#define BM_SETSTYLE         0x00F4
+#define BM_CLICK            0x00F5
+#define BM_GETIMAGE         0x00F6
+#define BM_SETIMAGE         0x00F7
+#endif
+
+WIN32_IMPORT("Sleep")
+void WINAPI Sleep(DWORD dwMilliseconds);
+
+#ifndef MAXDWORD
+#define MAXDWORD            0xffffffff
+#endif
+
+#ifndef LF_FACESIZE
+#define LF_FACESIZE         32
+#endif
+
+#ifndef _LOGFONT_DEFINED
+#define _LOGFONT_DEFINED
+typedef struct tagLOGFONTA {
+    LONG      lfHeight;
+    LONG      lfWidth;
+    LONG      lfEscapement;
+    LONG      lfOrientation;
+    LONG      lfWeight;
+    BYTE      lfItalic;
+    BYTE      lfUnderline;
+    BYTE      lfStrikeOut;
+    BYTE      lfCharSet;
+    BYTE      lfOutPrecision;
+    BYTE      lfClipPrecision;
+    BYTE      lfQuality;
+    BYTE      lfPitchAndFamily;
+    CHAR      lfFaceName[LF_FACESIZE];
+} LOGFONTA, *PLOGFONTA, *NPLOGFONTA, *LPLOGFONTA;
+
+typedef LOGFONTA LOGFONT;
+typedef LPLOGFONTA LPLOGFONT;
+#endif
+
+#ifndef WM_SETFONT
+#define WM_SETFONT          0x0030
+#define WM_GETFONT          0x0031
+#endif
+
+#ifndef EN_SETFOCUS
+#define EN_SETFOCUS         0x0100
+#define EN_KILLFOCUS        0x0200
+#define EN_CHANGE           0x0300
+#define EN_UPDATE           0x0400
+#define EN_ERRSPACE         0x0500
+#define EN_MAXTEXT          0x0501
+#define EN_HSCROLL          0x0601
+#define EN_VSCROLL          0x0602
+#endif
+
+#ifndef ES_LEFT
+#define ES_LEFT             0x0000L
+#define ES_CENTER           0x0001L
+#define ES_RIGHT            0x0002L
+#define ES_MULTILINE        0x0004L
+#define ES_UPPERCASE        0x0008L
+#define ES_LOWERCASE        0x0010L
+#define ES_PASSWORD         0x0020L
+#define ES_AUTOVSCROLL      0x0040L
+#define ES_AUTOHSCROLL      0x0080L
+#define ES_NOHIDESEL        0x0100L
+#define ES_OEMCONVERT       0x0400L
+#define ES_READONLY         0x0800L
+#define ES_WANTRETURN       0x1000L
+#define ES_NUMBER           0x2000L
+#endif
+
+typedef INT_PTR (CALLBACK *DLGPROC)(HWND, UINT, WPARAM, LPARAM);
+
+WIN32_IMPORT("DialogBoxParamA")
+INT_PTR WINAPI DialogBoxParamA(HINSTANCE hInstance, LPCSTR lpTemplateName, HWND hWndParent, DLGPROC lpDialogFunc, LPARAM dwInitParam);
+#ifndef DialogBoxParam
+#define DialogBoxParam DialogBoxParamA
+#endif
+#ifndef DialogBoxA
+#define DialogBoxA(hInstance, lpTemplate, hWndParent, lpDialogFunc) DialogBoxParamA(hInstance, lpTemplate, hWndParent, lpDialogFunc, 0L)
+#endif
+#ifndef DialogBox
+#define DialogBox DialogBoxA
+#endif
+
+WIN32_IMPORT("CreateDialogParamA")
+HWND WINAPI CreateDialogParamA(HINSTANCE hInstance, LPCSTR lpTemplateName, HWND hWndParent, DLGPROC lpDialogFunc, LPARAM dwInitParam);
+#ifndef CreateDialogParam
+#define CreateDialogParam CreateDialogParamA
+#endif
+#ifndef CreateDialogA
+#define CreateDialogA(hInstance, lpName, hWndParent, lpDialogFunc) CreateDialogParamA(hInstance, lpName, hWndParent, lpDialogFunc, 0L)
+#endif
+#ifndef CreateDialog
+#define CreateDialog CreateDialogA
+#endif
+
+WIN32_IMPORT("EndDialog")
+BOOL WINAPI EndDialog(HWND hDlg, INT_PTR nResult);
+
+WIN32_IMPORT("IsDialogMessageA")
+BOOL WINAPI IsDialogMessageA(HWND hDlg, LPMSG lpMsg);
+#ifndef IsDialogMessage
+#define IsDialogMessage IsDialogMessageA
+#endif
+
+WIN32_IMPORT("CheckRadioButton")
+BOOL WINAPI CheckRadioButton(HWND hDlg, int nIDFirstButton, int nIDLastButton, int nIDCheckButton);
+
+WIN32_IMPORT("CheckDlgButton")
+BOOL WINAPI CheckDlgButton(HWND hDlg, int nIDButton, UINT uCheck);
+
+WIN32_IMPORT("IsDlgButtonChecked")
+UINT WINAPI IsDlgButtonChecked(HWND hDlg, int nIDButton);
+
+WIN32_IMPORT("SetDlgItemInt")
+BOOL WINAPI SetDlgItemInt(HWND hDlg, int nIDDlgItem, UINT uValue, BOOL bSigned);
+
+WIN32_IMPORT("GetDlgItemInt")
+UINT WINAPI GetDlgItemInt(HWND hDlg, int nIDDlgItem, BOOL *lpTranslated, BOOL bSigned);
+
+WIN32_IMPORT("SetDlgItemTextA")
+BOOL WINAPI SetDlgItemTextA(HWND hDlg, int nIDDlgItem, LPCSTR lpString);
+#ifndef SetDlgItemText
+#define SetDlgItemText SetDlgItemTextA
+#endif
+
+WIN32_IMPORT("GetDlgItemTextA")
+UINT WINAPI GetDlgItemTextA(HWND hDlg, int nIDDlgItem, LPSTR lpString, int cchMax);
+#ifndef GetDlgItemText
+#define GetDlgItemText GetDlgItemTextA
+#endif
+
+WIN32_IMPORT("SendDlgItemMessageA")
+LRESULT WINAPI SendDlgItemMessageA(HWND hDlg, int nIDDlgItem, UINT Msg, WPARAM wParam, LPARAM lParam);
+#ifndef SendDlgItemMessage
+#define SendDlgItemMessage SendDlgItemMessageA
+#endif
+
+WIN32_IMPORT("CreateFontIndirectA")
+HFONT WINAPI CreateFontIndirectA(const LOGFONTA *lplf);
+#ifndef CreateFontIndirect
+#define CreateFontIndirect CreateFontIndirectA
+#endif
+
+WIN32_IMPORT("GetObjectA")
+int WINAPI GetObjectA(HANDLE hgdiobj, int cbBuffer, LPVOID lpvObject);
+#ifndef GetObject
+#define GetObject GetObjectA
+#endif
+
+WIN32_IMPORT("WriteFile")
+BOOL WINAPI WriteFile(
+    HANDLE hFile,
+    LPCVOID lpBuffer,
+    DWORD nNumberOfBytesToWrite,
+    LPDWORD lpNumberOfBytesWritten,
+    LPVOID lpOverlapped
+);
+
+WIN32_IMPORT("GetWindowTextLengthA")
+int WINAPI GetWindowTextLengthA(HWND hWnd);
+#ifndef GetWindowTextLength
+#define GetWindowTextLength GetWindowTextLengthA
+#endif
+
+WIN32_IMPORT("RegisterWindowMessageA")
+UINT WINAPI RegisterWindowMessageA(LPCSTR lpString);
+#ifndef RegisterWindowMessage
+#define RegisterWindowMessage RegisterWindowMessageA
+#endif
+
+static inline LPSTR CharUpperA(LPSTR lpsz) {
+    if (((UINT_PTR)lpsz) < 0x10000) {
+        char c = (char)(UINT_PTR)lpsz;
+        if (c >= 'a' && c <= 'z') c -= 32;
+        return (LPSTR)(UINT_PTR)(unsigned char)c;
+    }
+    if (!lpsz) return (LPSTR)0;
+    for (char *p = lpsz; *p; p++) {
+        if (*p >= 'a' && *p <= 'z') *p -= 32;
+    }
+    return lpsz;
+}
+#ifndef CharUpper
+#define CharUpper CharUpperA
+#endif
+
+#ifndef CP_ACP
+#define CP_ACP              0
+#define CP_OEMCP            1
+#define CP_UTF8             65001
+#endif
+
+#ifndef IS_TEXT_UNICODE_SIGNATURE
+#define IS_TEXT_UNICODE_ASCII16            0x0001
+#define IS_TEXT_UNICODE_REVERSE_ASCII16    0x0010
+#define IS_TEXT_UNICODE_STATISTICS         0x0002
+#define IS_TEXT_UNICODE_REVERSE_STATISTICS 0x0020
+#define IS_TEXT_UNICODE_CONTROLS           0x0004
+#define IS_TEXT_UNICODE_REVERSE_CONTROLS   0x0040
+#define IS_TEXT_UNICODE_SIGNATURE          0x0008
+#define IS_TEXT_UNICODE_REVERSE_SIGNATURE  0x0080
+#endif
+
+WIN32_IMPORT("GetFileSize")
+DWORD WINAPI GetFileSize(HANDLE hFile, LPDWORD lpFileSizeHigh);
+
+WIN32_IMPORT("IsTextUnicode")
+BOOL WINAPI IsTextUnicode(const void *lpv, int iSize, LPINT lpiResult);
+
+WIN32_IMPORT("WideCharToMultiByte")
+int WINAPI WideCharToMultiByte(
+    UINT CodePage,
+    DWORD dwFlags,
+    LPCWSTR lpWideCharStr,
+    int cchWideChar,
+    LPSTR lpMultiByteStr,
+    int cbMultiByte,
+    LPCSTR lpDefaultChar,
+    LPBOOL lpUsedDefaultChar
+);
+
+WIN32_IMPORT("MultiByteToWideChar")
+int WINAPI MultiByteToWideChar(
+    UINT CodePage,
+    DWORD dwFlags,
+    LPCSTR lpMultiByteStr,
+    int cbMultiByte,
+    LPWSTR lpWideCharStr,
+    int cchWideChar
+);
 
 #ifdef __cplusplus
 }
