@@ -29,7 +29,11 @@
     WC_TABCONTROL,
     WC_TREEVIEW,
     WC_LISTVIEW,
+    WM_MOUSEMOVE,
+    WM_PAINT,
+    MAKELPARAM,
   } from "../constants";
+  import { RegisterWindowCanvas, UnregisterWindowCanvas } from "../gdi";
   import type { WindowRecord, TreeNodeItem, ListViewRow, NMHDR } from "../types";
 
   interface Props {
@@ -37,6 +41,35 @@
   }
 
   let { window: win }: Props = $props();
+
+  let childCanvasRef = $state<HTMLCanvasElement | null>(null);
+
+  $effect(() => {
+    if (childCanvasRef && win.customProps?.hasCanvas) {
+      RegisterWindowCanvas(win.hwnd, childCanvasRef);
+      SendMessage(win.hwnd, WM_PAINT, 0, 0);
+    }
+    return () => {
+      UnregisterWindowCanvas(win.hwnd);
+    };
+  });
+
+  function onCustomChildPointerDown(e: PointerEvent) {
+    SendMessage(win.hwnd, WM_LBUTTONDOWN, 1, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
+  }
+
+  function onCustomChildPointerUp(e: PointerEvent) {
+    SendMessage(win.hwnd, WM_LBUTTONUP, 0, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
+  }
+
+  function onCustomChildPointerMove(e: PointerEvent) {
+    SendMessage(
+      win.hwnd,
+      WM_MOUSEMOVE,
+      e.buttons === 1 ? 1 : 0,
+      MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY))
+    );
+  }
 
   let isCheckbox = $derived(
     win.className.toUpperCase() === "BUTTON" &&
@@ -486,6 +519,26 @@
           {/each}
         </tbody>
       </table>
+    </div>
+  {:else}
+    <!-- Custom / User-registered child window class (e.g. Petzold Checker3 / Checker4) -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="win32-control win32-custom-child {win.customProps?.className ?? ''}"
+      style="left: {win.x}px; top: {win.y}px; width: {win.width}px; height: {win.height}px; position: absolute; box-sizing: border-box; overflow: hidden; {win.customProps?.style ?? ''}"
+      onpointerdown={onCustomChildPointerDown}
+      onpointerup={onCustomChildPointerUp}
+      onpointermove={onCustomChildPointerMove}
+    >
+      {#if win.customProps?.hasCanvas}
+        <canvas
+          bind:this={childCanvasRef}
+          class="win32-child-canvas"
+          style="width: 100%; height: 100%; display: block;"
+          width={win.width}
+          height={win.height}
+        ></canvas>
+      {/if}
     </div>
   {/if}
 {/if}

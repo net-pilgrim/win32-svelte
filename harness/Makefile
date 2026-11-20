@@ -52,9 +52,20 @@ CHAP06_BINS := \
 	$(BUILD_DIR)/Chap06/SysMets4/SysMets4.wasm \
 	$(BUILD_DIR)/Chap06/Typer/Typer.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06
+# --- Chapter 07 ---
+CHAP07_BINS := \
+	$(BUILD_DIR)/Chap07/BlokOut1/BlokOut1.wasm \
+	$(BUILD_DIR)/Chap07/BlokOut2/BlokOut2.wasm \
+	$(BUILD_DIR)/Chap07/Checker1/Checker1.wasm \
+	$(BUILD_DIR)/Chap07/Checker2/Checker2.wasm \
+	$(BUILD_DIR)/Chap07/Checker3/Checker3.wasm \
+	$(BUILD_DIR)/Chap07/Checker4/Checker4.wasm \
+	$(BUILD_DIR)/Chap07/Connect/Connect.wasm \
+	$(BUILD_DIR)/Chap07/SysMets/SysMets.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07
 
 scan:
 	python3 scan_chapters.py
@@ -71,6 +82,7 @@ chap03: $(BUILD_DIR)/Chap03/HelloWin/HelloWin.wasm
 chap04: $(CHAP04_BINS)
 chap05: $(CHAP05_BINS)
 chap06: $(CHAP06_BINS)
+chap07: $(CHAP07_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

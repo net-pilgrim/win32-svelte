@@ -859,6 +859,133 @@ static inline int wasm_wsprintfA(char *buffer, const char *format, ...) {
 #define wsprintf wasm_wsprintfA
 #endif
 
+// --- Chapter 07: Mouse Input Definitions ---
+
+#ifndef COLORREF
+typedef DWORD COLORREF;
+#endif
+#ifndef PVOID
+typedef void *PVOID;
+#endif
+
+// ROP2 Binary Raster Operations
+#ifndef R2_BLACK
+#define R2_BLACK            1   /*  0    */
+#define R2_NOTMERGEPEN      2   /* DPon  */
+#define R2_MASKNOTPEN       3   /* DPna  */
+#define R2_NOTCOPYPEN       4   /* PN    */
+#define R2_MASKPENNOT       5   /* PDna  */
+#define R2_NOT              6   /* Dn    */
+#define R2_XORPEN           7   /* DPx   */
+#define R2_NOTXORPEN        8   /* DPxn  */
+#define R2_MASKPEN          9   /* DPa   */
+#define R2_NOTMASKPEN       10  /* DPan  */
+#define R2_NOP              11  /* D     */
+#define R2_MERGENOTPEN      12  /* DPno  */
+#define R2_COPYPEN          13  /* P     */
+#define R2_MERGEPENNOT      14  /* PDno  */
+#define R2_MERGEPEN         15  /* DPo   */
+#define R2_WHITE            16  /*  1    */
+#define R2_LAST             16
+#endif
+
+// Mouse Wheel & SystemParametersInfo
+#ifndef WM_SETTINGCHANGE
+#define WM_SETTINGCHANGE    0x001A
+#endif
+#ifndef SPI_GETWHEELSCROLLLINES
+#define SPI_GETWHEELSCROLLLINES 104
+#endif
+#ifndef WHEEL_DELTA
+#define WHEEL_DELTA         120
+#endif
+#ifndef WM_MOUSEWHEEL
+#define WM_MOUSEWHEEL       0x020A
+#endif
+
+// Window Long offsets
+#ifndef GWL_WNDPROC
+#define GWL_WNDPROC         (-4)
+#define GWL_HINSTANCE       (-6)
+#define GWL_HWNDPARENT      (-8)
+#define GWL_STYLE           (-16)
+#define GWL_EXSTYLE         (-20)
+#define GWL_USERDATA        (-21)
+#define GWL_ID              (-12)
+#endif
+
+// Function Prototypes with WIN32_IMPORT
+WIN32_IMPORT("SetROP2")
+int WINAPI SetROP2(HDC hdc, int rop2);
+
+WIN32_IMPORT("GetROP2")
+int WINAPI GetROP2(HDC hdc);
+
+WIN32_IMPORT("SetCapture")
+HWND WINAPI SetCapture(HWND hWnd);
+
+WIN32_IMPORT("ReleaseCapture")
+BOOL WINAPI ReleaseCapture(void);
+
+WIN32_IMPORT("GetCapture")
+HWND WINAPI GetCapture(void);
+
+WIN32_IMPORT("GetCursorPos")
+BOOL WINAPI GetCursorPos(LPPOINT lpPoint);
+
+WIN32_IMPORT("SetCursorPos")
+BOOL WINAPI SetCursorPos(int X, int Y);
+
+WIN32_IMPORT("ScreenToClient")
+BOOL WINAPI ScreenToClient(HWND hWnd, LPPOINT lpPoint);
+
+WIN32_IMPORT("ClientToScreen")
+BOOL WINAPI ClientToScreen(HWND hWnd, LPPOINT lpPoint);
+
+WIN32_IMPORT("GetWindowLongA")
+LONG WINAPI GetWindowLongA(HWND hWnd, int nIndex);
+
+WIN32_IMPORT("SetWindowLongA")
+LONG WINAPI SetWindowLongA(HWND hWnd, int nIndex, LONG dwNewLong);
+
+#ifndef GetWindowLong
+#define GetWindowLong GetWindowLongA
+#endif
+#ifndef SetWindowLong
+#define SetWindowLong SetWindowLongA
+#endif
+
+WIN32_IMPORT("MoveWindow")
+BOOL WINAPI MoveWindow(HWND hWnd, int X, int Y, int nWidth, int nHeight, BOOL bRepaint);
+
+WIN32_IMPORT("SetFocus")
+HWND WINAPI SetFocus(HWND hWnd);
+
+WIN32_IMPORT("GetFocus")
+HWND WINAPI GetFocus(void);
+
+WIN32_IMPORT("GetDlgItem")
+HWND WINAPI GetDlgItem(HWND hDlg, int nIDDlgItem);
+
+WIN32_IMPORT("GetParent")
+HWND WINAPI GetParent(HWND hWnd);
+
+WIN32_IMPORT("SetPixel")
+COLORREF WINAPI SetPixel(HDC hdc, int x, int y, COLORREF color);
+
+WIN32_IMPORT("InvertRect")
+BOOL WINAPI InvertRect(HDC hDC, const RECT *lprc);
+
+WIN32_IMPORT("DrawFocusRect")
+BOOL WINAPI DrawFocusRect(HDC hDC, const RECT *lprc);
+
+WIN32_IMPORT("SystemParametersInfoA")
+BOOL WINAPI SystemParametersInfoA(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni);
+
+#ifndef SystemParametersInfo
+#define SystemParametersInfo SystemParametersInfoA
+#endif
+
 #ifdef __cplusplus
 }
 #endif

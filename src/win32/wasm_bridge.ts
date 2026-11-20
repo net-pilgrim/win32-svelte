@@ -87,6 +87,10 @@ export class Win32WasmRuntime {
   private registeredClasses = new Map<string, WndProc>();
   private stringLogs: WasmStringLogEntry[] = [];
   private registeredWndProcIndices: number[] = [];
+  private capturedHwnd: number | null = null;
+  private cursorPos = { x: 100, y: 100 };
+  private windowLongs = new Map<string, number>();
+  private hdcRop2 = new Map<number, number>();
 
   constructor(private options: WasmBridgeOptions = {}) {}
 
@@ -383,13 +387,16 @@ export class Win32WasmRuntime {
             localWndProc
           );
 
-          // For top-level C windows, attach canvas support for GDI drawing
+          // For top-level C windows or custom child windows, attach canvas support for GDI drawing
           const win = kernel.getWindow(hwnd);
-          if (win && !hWndParent) {
-            win.customProps = {
-              ...(win.customProps ?? {}),
-              hasCanvas: true,
-            };
+          if (win) {
+            win.menuId = hMenu;
+            if (!hWndParent || localWndProc) {
+              win.customProps = {
+                ...(win.customProps ?? {}),
+                hasCanvas: true,
+              };
+            }
           }
 
           return hwnd;
@@ -1306,6 +1313,225 @@ export class Win32WasmRuntime {
 
           return allOk ? S_OK : 1; // S_FALSE if some failed
         },
+
+        // --- Chapter 07: Mouse Input & Window Helpers ---
+        SetROP2: (hdcHandle: number, rop2: number) => {
+          const prev = this.hdcRop2.get(hdcHandle) ?? 13;
+          this.hdcRop2.set(hdcHandle, rop2);
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx) {
+            if (rop2 === 6 || rop2 === 7) {
+              hdc.ctx.globalCompositeOperation = "difference";
+            } else {
+              hdc.ctx.globalCompositeOperation = "source-over";
+            }
+          }
+          return prev;
+        },
+
+        GetROP2: (hdcHandle: number) => {
+          return this.hdcRop2.get(hdcHandle) ?? 13;
+        },
+
+        SetCapture: (hWnd: number) => {
+          const prev = this.capturedHwnd;
+          this.capturedHwnd = hWnd;
+          return prev ?? 0;
+        },
+
+        ReleaseCapture: () => {
+          this.capturedHwnd = null;
+          return 1;
+        },
+
+        GetCapture: () => {
+          return this.capturedHwnd ?? 0;
+        },
+
+        GetCursorPos: (lpPoint: number) => {
+          if (!this.memory || !lpPoint) return 0;
+          const view = new DataView(this.memory.buffer);
+          view.setInt32(lpPoint, this.cursorPos.x, true);
+          view.setInt32(lpPoint + 4, this.cursorPos.y, true);
+          return 1;
+        },
+
+        SetCursorPos: (x: number, y: number) => {
+          this.cursorPos = { x, y };
+          return 1;
+        },
+
+        ScreenToClient: (hWnd: number, lpPoint: number) => {
+          if (!this.memory || !lpPoint) return 0;
+          const win = kernel.getWindow(hWnd);
+          const view = new DataView(this.memory.buffer);
+          const x = view.getInt32(lpPoint, true);
+          const y = view.getInt32(lpPoint + 4, true);
+          const offsetX = win ? win.x : 0;
+          const offsetY = win ? win.y : 0;
+          view.setInt32(lpPoint, x - offsetX, true);
+          view.setInt32(lpPoint + 4, y - offsetY, true);
+          return 1;
+        },
+
+        ClientToScreen: (hWnd: number, lpPoint: number) => {
+          if (!this.memory || !lpPoint) return 0;
+          const win = kernel.getWindow(hWnd);
+          const view = new DataView(this.memory.buffer);
+          const x = view.getInt32(lpPoint, true);
+          const y = view.getInt32(lpPoint + 4, true);
+          const offsetX = win ? win.x : 0;
+          const offsetY = win ? win.y : 0;
+          view.setInt32(lpPoint, x + offsetX, true);
+          view.setInt32(lpPoint + 4, y + offsetY, true);
+          return 1;
+        },
+
+        GetWindowLongA: (hWnd: number, nIndex: number) => {
+          const win = kernel.getWindow(hWnd);
+          if (nIndex === -16) {
+            return win ? win.style : 0;
+          }
+          if (nIndex === -20) {
+            return win ? win.exStyle : 0;
+          }
+          if (nIndex === -12) {
+            return win ? (win.menuId ?? 0) : 0;
+          }
+          if (nIndex === -6) {
+            return 0x400000;
+          }
+          if (nIndex === -8) {
+            return win ? (win.parentHwnd ?? win.ownerHwnd ?? 0) : 0;
+          }
+          return this.windowLongs.get(`${hWnd}:${nIndex}`) ?? 0;
+        },
+
+        SetWindowLongA: (hWnd: number, nIndex: number, dwNewLong: number) => {
+          const win = kernel.getWindow(hWnd);
+          const oldVal = (win32Imports as any).GetWindowLongA(hWnd, nIndex);
+          if (nIndex === -16 && win) {
+            win.style = dwNewLong;
+          } else if (nIndex === -20 && win) {
+            win.exStyle = dwNewLong;
+          } else if (nIndex === -12 && win) {
+            win.menuId = dwNewLong;
+          } else if (nIndex === -8 && win) {
+            win.parentHwnd = dwNewLong;
+          } else {
+            this.windowLongs.set(`${hWnd}:${nIndex}`, dwNewLong);
+          }
+          return oldVal;
+        },
+
+        GetWindowLong: (hWnd: number, nIndex: number) => (win32Imports as any).GetWindowLongA(hWnd, nIndex),
+        SetWindowLong: (hWnd: number, nIndex: number, dwNewLong: number) => (win32Imports as any).SetWindowLongA(hWnd, nIndex, dwNewLong),
+
+        MoveWindow: (
+          hWnd: number,
+          x: number,
+          y: number,
+          nWidth: number,
+          nHeight: number,
+          bRepaint: number
+        ) => {
+          return kernel.MoveWindow(hWnd, x, y, nWidth, nHeight, Boolean(bRepaint)) ? 1 : 0;
+        },
+
+        SetFocus: (hWnd: number) => {
+          const prev = kernel.activeHwnd;
+          kernel.activeHwnd = hWnd;
+          if (prev && prev !== hWnd) {
+            kernel.SendMessage(prev, 0x0008, hWnd, 0); // WM_KILLFOCUS
+          }
+          kernel.SendMessage(hWnd, 0x0007, prev ?? 0, 0); // WM_SETFOCUS
+          return prev ?? 0;
+        },
+
+        GetFocus: () => {
+          return kernel.activeHwnd ?? 0;
+        },
+
+        GetDlgItem: (hDlg: number, nIDDlgItem: number) => {
+          const child = kernel.windows.find(
+            (w) => w.parentHwnd === hDlg && w.menuId === nIDDlgItem
+          );
+          return child ? child.hwnd : 0;
+        },
+
+        GetParent: (hWnd: number) => {
+          const win = kernel.getWindow(hWnd);
+          return win ? (win.parentHwnd ?? win.ownerHwnd ?? 0) : 0;
+        },
+
+        SetPixel: (hdcHandle: number, x: number, y: number, crColor: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx) {
+            hdc.ctx.fillStyle = this.colorRefToRgb(crColor);
+            hdc.ctx.fillRect(x, y, 1, 1);
+          }
+          return crColor;
+        },
+
+        InvertRect: (hdcHandle: number, lprc: number) => {
+          if (!this.memory || !lprc) return 0;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+          const view = new DataView(this.memory.buffer);
+          const left = view.getInt32(lprc, true);
+          const top = view.getInt32(lprc + 4, true);
+          const right = view.getInt32(lprc + 8, true);
+          const bottom = view.getInt32(lprc + 12, true);
+          ctx.save();
+          ctx.globalCompositeOperation = "difference";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(left, top, right - left, bottom - top);
+          ctx.restore();
+          return 1;
+        },
+
+        DrawFocusRect: (hdcHandle: number, lprc: number) => {
+          if (!this.memory || !lprc) return 0;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (!ctx) return 1;
+          const view = new DataView(this.memory.buffer);
+          const left = view.getInt32(lprc, true);
+          const top = view.getInt32(lprc + 4, true);
+          const right = view.getInt32(lprc + 8, true);
+          const bottom = view.getInt32(lprc + 12, true);
+          ctx.save();
+          ctx.setLineDash([1, 1]);
+          ctx.strokeStyle = "#000000";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(left + 0.5, top + 0.5, right - left - 1, bottom - top - 1);
+          ctx.restore();
+          return 1;
+        },
+
+        SystemParametersInfoA: (
+          uiAction: number,
+          _uiParam: number,
+          pvParam: number,
+          _fWinIni: number
+        ) => {
+          if (uiAction === 104) { // SPI_GETWHEELSCROLLLINES
+            if (this.memory && pvParam) {
+              const view = new DataView(this.memory.buffer);
+              view.setUint32(pvParam, 3, true);
+            }
+            return 1;
+          }
+          return 1;
+        },
+
+        SystemParametersInfo: (
+          uiAction: number,
+          uiParam: number,
+          pvParam: number,
+          fWinIni: number
+        ) => (win32Imports as any).SystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni),
       };
 
     return {

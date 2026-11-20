@@ -277,4 +277,53 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     await closeBtn.click();
     await expect(windowEl).toBeHidden();
   });
+
+  test("Chapter 07: Checker1 handles mouse clicks and hit-testing on 5x5 grid", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap07/Checker1/Checker1.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap07' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 200, initialY: 100 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    // Locate the newly created window titled "Checker1 Mouse Hit-Test Demo"
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Checker1 Mouse Hit-Test Demo" });
+    await expect(windowEl).toBeVisible();
+
+    const title = windowEl.locator(".title-bar-text");
+    await expect(title).toHaveText("Checker1 Mouse Hit-Test Demo");
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // Click on cell (0, 0)
+    await canvas.click({ position: { x: 50, y: 50 } });
+
+    // Click on cell (1, 1)
+    await canvas.click({ position: { x: 150, y: 150 } });
+
+    // Close window
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
 });
