@@ -13,6 +13,7 @@
     "test:visual": "playwright test",
     "rc": "tsx src/rc/cli.ts",
     "headers": "tsx scripts/generate_headers.ts",
+    "headers:ci": "tsx scripts/generate_headers.ts --ci-only",
     "generate:headers": "tsx scripts/generate_headers.ts",
     "build:wasm": "npm run headers && zig build-exe -target wasm32-freestanding -Iinclude src/wasm/sample_app.c -fno-entry --export=WinMain --export-table -femit-bin=src/wasm/sample_app.wasm && tsx src/wasm/embed_wasm.ts",
     "build:example": "make -C examples/simple_c_app",

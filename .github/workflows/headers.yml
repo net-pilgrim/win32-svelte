@@ -57,6 +57,9 @@ jobs:
       - name: Run Type Check
         run: npm run check
 
+      - name: Verify Web Production Build
+        run: npm run build
+
       - name: Upload Header Artifacts
         uses: actions/upload-artifact@v4
         with:

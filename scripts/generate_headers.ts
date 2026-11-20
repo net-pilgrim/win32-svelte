@@ -1129,6 +1129,30 @@ int WINAPI WinMain(
 
 // Main execution
 function main() {
+  // Check if header generation should be skipped:
+  // - Vercel build environment (process.env.VERCEL or NOW_BUILDER)
+  // - Explicit skip requested (SKIP_HEADERS or SKIP_HEADER_GENERATION)
+  // - CI-only mode when not running on GitHub Actions (--ci-only flag)
+  const isVercel = Boolean(process.env.VERCEL || process.env.NOW_BUILDER);
+  const skipRequested = Boolean(process.env.SKIP_HEADERS || process.env.SKIP_HEADER_GENERATION);
+  const isGhActions = Boolean(process.env.GITHUB_ACTIONS);
+  const ciOnlyFlag = process.argv.includes("--ci-only") || process.argv.includes("--if-ci");
+
+  if (isVercel) {
+    console.log("ℹ️ Vercel build environment detected: skipping Win32 header generation to preserve build compatibility.");
+    process.exit(0);
+  }
+
+  if (skipRequested) {
+    console.log("ℹ️ SKIP_HEADERS detected: skipping Win32 header generation.");
+    process.exit(0);
+  }
+
+  if (ciOnlyFlag && !isGhActions) {
+    console.log("ℹ️ Not running on GitHub Actions (--ci-only): skipping Win32 header generation.");
+    process.exit(0);
+  }
+
   console.log("=== Win32 Header Generator (Node 24 / ESM) ===");
 
   if (!fs.existsSync(INCLUDE_DIR)) {
