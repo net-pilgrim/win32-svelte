@@ -226,11 +226,19 @@
     const droppedFiles = Array.from(e.dataTransfer?.files ?? []);
     if (droppedFiles.length > 0) {
       for (const file of droppedFiles) {
-        let content = "";
-        try {
-          content = await file.text();
-        } catch {
-          content = `[Binary file: ${file.name}, size: ${file.size} bytes]`;
+        const ext = file.name.split(".").pop()?.toUpperCase() ?? "";
+        const isBinary = ["WASM", "WAD", "EXE", "DLL", "BIN", "PNG", "JPG", "JPEG", "BMP", "ICO", "DAT"].includes(ext);
+        let content: string | Uint8Array = "";
+        if (isBinary) {
+          const buf = await file.arrayBuffer();
+          content = new Uint8Array(buf);
+        } else {
+          try {
+            content = await file.text();
+          } catch {
+            const buf = await file.arrayBuffer();
+            content = new Uint8Array(buf);
+          }
         }
         files.push({
           name: file.name,

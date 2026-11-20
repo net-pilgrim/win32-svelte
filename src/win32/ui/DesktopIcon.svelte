@@ -97,7 +97,11 @@
 
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       for (const file of Array.from(e.dataTransfer.files)) {
-        onDropFiles({ name: file.name });
+        file.arrayBuffer().then((buf) => {
+          onDropFiles({ name: file.name, content: new Uint8Array(buf) });
+        }).catch(() => {
+          onDropFiles({ name: file.name });
+        });
       }
     }
   }

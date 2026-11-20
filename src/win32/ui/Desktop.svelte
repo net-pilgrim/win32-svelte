@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { kernel, ShowWindow, MessageBox } from "../kernel.svelte";
+  import { kernel, ShowWindow, MessageBox, vfs } from "../kernel.svelte";
   import { SW_RESTORE, SW_MINIMIZE, MB_OK } from "../constants";
   import Window from "./Window.svelte";
   import MessageBoxModal from "./MessageBoxModal.svelte";
@@ -203,6 +203,36 @@
     isStartMenuOpen = false;
   }
 
+  function onDesktopDragOver(e: DragEvent) {
+    if (e.dataTransfer) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }
+
+  async function onDesktopDrop(e: DragEvent) {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer?.files ?? []);
+    if (droppedFiles.length === 0) return;
+
+    for (const file of droppedFiles) {
+      const ext = file.name.split(".").pop()?.toUpperCase() ?? "";
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+
+      // Save to C:\My Documents\<file.name>
+      await vfs.importFileFromHost("C:\\My Documents", file.name, bytes);
+
+      if (ext === "WASM") {
+        audio.playDing();
+        await StartWasmApp(e.clientX, e.clientY, undefined, bytes);
+      } else {
+        audio.playDing();
+        MessageBox(null, `Saved '${file.name}' to C:\\My Documents.`, "File Dropped", MB_OK);
+      }
+    }
+  }
+
   function toggleStartMenu() {
     audio.playClick();
     isStartMenuOpen = !isStartMenuOpen;
@@ -242,7 +272,12 @@
 <div class="desktop-container">
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="desktop-surface" onclick={onDesktopSurfaceClick}>
+  <div
+    class="desktop-surface"
+    onclick={onDesktopSurfaceClick}
+    ondragover={onDesktopDragOver}
+    ondrop={onDesktopDrop}
+  >
     <!-- Draggable Desktop Icons -->
     {#each icons as icon (icon.id)}
       <DesktopIcon

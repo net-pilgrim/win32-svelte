@@ -108,7 +108,7 @@ export interface DropFileInfo {
   name: string;
   size?: number | string;
   type?: string;
-  content?: string;
+  content?: string | Uint8Array;
   isInternal?: boolean;
   data?: any;
 }
