@@ -1444,6 +1444,235 @@ BOOL WINAPI SetCurrentDirectoryA(LPCSTR lpPathName);
 #define lstrlen lstrlenA
 #endif
 
+// ==============================================================================
+// Chapter 10: Menus, Accelerators & Resources
+// ==============================================================================
+
+#ifndef WM_CLOSE
+#define WM_CLOSE            0x0010
+#endif
+#ifndef WM_QUERYENDSESSION
+#define WM_QUERYENDSESSION  0x0011
+#endif
+#ifndef WM_QUIT
+#define WM_QUIT             0x0012
+#endif
+#ifndef WM_ENDSESSION
+#define WM_ENDSESSION       0x0016
+#endif
+#ifndef WM_CONTEXTMENU
+#define WM_CONTEXTMENU      0x007B
+#endif
+#ifndef WM_SYSCOMMAND
+#define WM_SYSCOMMAND       0x0112
+#endif
+#ifndef WM_INITMENU
+#define WM_INITMENU         0x0116
+#endif
+#ifndef WM_INITMENUPOPUP
+#define WM_INITMENUPOPUP    0x0117
+#endif
+#ifndef WM_MENUSELECT
+#define WM_MENUSELECT       0x011F
+#endif
+#ifndef WM_MENUCHAR
+#define WM_MENUCHAR         0x0120
+#endif
+#ifndef WM_CUT
+#define WM_CUT              0x0300
+#define WM_COPY             0x0301
+#define WM_PASTE            0x0302
+#define WM_CLEAR            0x0303
+#define WM_UNDO             0x0304
+#endif
+
+#ifndef EM_GETSEL
+#define EM_GETSEL           0x00B0
+#define EM_SETSEL           0x00B1
+#define EM_CANUNDO          0x00C6
+#define EM_UNDO             0x00C7
+#define EM_EMPTYUNDOBUFFER  0x00CD
+#endif
+
+#ifndef MF_INSERT
+#define MF_INSERT           0x00000000L
+#define MF_CHANGE           0x00000080L
+#define MF_APPEND           0x00000100L
+#define MF_DELETE           0x00000200L
+#define MF_REMOVE           0x00001000L
+
+#define MF_BYCOMMAND        0x00000000L
+#define MF_BYPOSITION       0x00000400L
+
+#define MF_SEPARATOR        0x00000800L
+
+#define MF_ENABLED          0x00000000L
+#define MF_GRAYED           0x00000001L
+#define MF_DISABLED         0x00000002L
+
+#define MF_UNCHECKED        0x00000000L
+#define MF_CHECKED          0x00000008L
+#define MF_USECHECKBITMAPS  0x00000200L
+
+#define MF_STRING           0x00000000L
+#define MF_BITMAP           0x00000004L
+#define MF_OWNERDRAW        0x00000100L
+
+#define MF_POPUP            0x00000010L
+#define MF_MENUBARBREAK     0x00000020L
+#define MF_MENUBREAK        0x00000040L
+
+#define MF_UNHILITE         0x00000000L
+#define MF_HILITE           0x00000080L
+
+#define MF_SYSMENU          0x00002000L
+#define MF_HELP             0x00004000L
+#define MF_RIGHTJUSTIFY     0x00004000L
+#define MF_MOUSESELECT      0x00008000L
+#endif
+
+#ifndef TPM_LEFTBUTTON
+#define TPM_LEFTBUTTON      0x0000L
+#define TPM_RIGHTBUTTON     0x0002L
+#define TPM_LEFTALIGN       0x0000L
+#define TPM_CENTERALIGN     0x0004L
+#define TPM_RIGHTALIGN      0x0008L
+#define TPM_TOPALIGN        0x0000L
+#define TPM_VCENTERALIGN    0x0010L
+#define TPM_BOTTOMALIGN     0x0020L
+#define TPM_HORIZONTAL      0x0000L
+#define TPM_VERTICAL        0x0040L
+#define TPM_NONOTIFY        0x0080L
+#define TPM_RETURNCMD       0x0100L
+#define TPM_RECURSE         0x0001L
+#endif
+
+#ifndef CF_TEXT
+#define CF_TEXT             1
+#define CF_BITMAP           2
+#define CF_METAFILEPICT     3
+#define CF_SYLK             4
+#define CF_DIF              5
+#define CF_TIFF             6
+#define CF_OEMTEXT          7
+#define CF_DIB              8
+#define CF_PALETTE          9
+#define CF_PENDATA          10
+#define CF_RIFF             11
+#define CF_WAVE             12
+#define CF_UNICODETEXT      13
+#define CF_ENHMETAFILE      14
+#define CF_HDROP            15
+#define CF_LOCALE           16
+#endif
+
+WIN32_IMPORT("CreateMenu")
+HMENU WINAPI CreateMenu(void);
+
+WIN32_IMPORT("CreatePopupMenu")
+HMENU WINAPI CreatePopupMenu(void);
+
+WIN32_IMPORT("AppendMenuA")
+BOOL WINAPI AppendMenuA(HMENU hMenu, UINT uFlags, UINT_PTR uIDNewItem, LPCSTR lpNewItem);
+#ifndef AppendMenu
+#define AppendMenu AppendMenuA
+#endif
+
+WIN32_IMPORT("InsertMenuA")
+BOOL WINAPI InsertMenuA(HMENU hMenu, UINT uPosition, UINT uFlags, UINT_PTR uIDNewItem, LPCSTR lpNewItem);
+#ifndef InsertMenu
+#define InsertMenu InsertMenuA
+#endif
+
+WIN32_IMPORT("ModifyMenuA")
+BOOL WINAPI ModifyMenuA(HMENU hMnu, UINT uPosition, UINT uFlags, UINT_PTR uIDNewItem, LPCSTR lpItem);
+#ifndef ModifyMenu
+#define ModifyMenu ModifyMenuA
+#endif
+
+WIN32_IMPORT("DeleteMenu")
+BOOL WINAPI DeleteMenu(HMENU hMenu, UINT uPosition, UINT uFlags);
+
+WIN32_IMPORT("DestroyMenu")
+BOOL WINAPI DestroyMenu(HMENU hMenu);
+
+WIN32_IMPORT("DestroyWindow")
+BOOL WINAPI DestroyWindow(HWND hWnd);
+
+WIN32_IMPORT("SetMenu")
+BOOL WINAPI SetMenu(HWND hWnd, HMENU hMenu);
+
+WIN32_IMPORT("GetMenu")
+HMENU WINAPI GetMenu(HWND hWnd);
+
+WIN32_IMPORT("GetSubMenu")
+HMENU WINAPI GetSubMenu(HMENU hMenu, int nPos);
+
+WIN32_IMPORT("GetSystemMenu")
+HMENU WINAPI GetSystemMenu(HWND hWnd, BOOL bRevert);
+
+WIN32_IMPORT("TrackPopupMenu")
+BOOL WINAPI TrackPopupMenu(HMENU hMenu, UINT uFlags, int x, int y, int nReserved, HWND hWnd, const RECT *prcRect);
+
+WIN32_IMPORT("EnableMenuItem")
+BOOL WINAPI EnableMenuItem(HMENU hMenu, UINT uIDEnableItem, UINT uEnable);
+
+WIN32_IMPORT("CheckMenuItem")
+DWORD WINAPI CheckMenuItem(HMENU hMenu, UINT uIDCheckItem, UINT uCheck);
+
+WIN32_IMPORT("LoadMenuA")
+HMENU WINAPI LoadMenuA(HINSTANCE hInstance, LPCSTR lpMenuName);
+#ifndef LoadMenu
+#define LoadMenu LoadMenuA
+#endif
+
+WIN32_IMPORT("LoadAcceleratorsA")
+HACCEL WINAPI LoadAcceleratorsA(HINSTANCE hInstance, LPCSTR lpTableName);
+#ifndef LoadAccelerators
+#define LoadAccelerators LoadAcceleratorsA
+#endif
+
+WIN32_IMPORT("TranslateAcceleratorA")
+int WINAPI TranslateAcceleratorA(HWND hWnd, HACCEL hAccTable, LPMSG lpMsg);
+#ifndef TranslateAccelerator
+#define TranslateAccelerator TranslateAcceleratorA
+#endif
+
+WIN32_IMPORT("FindResourceA")
+HRSRC WINAPI FindResourceA(HMODULE hModule, LPCSTR lpName, LPCSTR lpType);
+#ifndef FindResource
+#define FindResource FindResourceA
+#endif
+
+WIN32_IMPORT("LoadResource")
+HGLOBAL WINAPI LoadResource(HMODULE hModule, HRSRC hResInfo);
+
+WIN32_IMPORT("LockResource")
+LPVOID WINAPI LockResource(HGLOBAL hResData);
+
+WIN32_IMPORT("SizeofResource")
+DWORD WINAPI SizeofResource(HMODULE hModule, HRSRC hResInfo);
+
+WIN32_IMPORT("FreeResource")
+BOOL WINAPI FreeResource(HGLOBAL hResData);
+
+WIN32_IMPORT("LoadStringA")
+int WINAPI LoadStringA(HINSTANCE hInstance, UINT uID, LPSTR lpBuffer, int cchBufferMax);
+#ifndef LoadString
+#define LoadString LoadStringA
+#endif
+
+WIN32_IMPORT("DrawIcon")
+BOOL WINAPI DrawIcon(HDC hDC, int X, int Y, HICON hIcon);
+
+WIN32_IMPORT("IsClipboardFormatAvailable")
+BOOL WINAPI IsClipboardFormatAvailable(UINT format);
+
+static inline LPSTR AnsiNext(LPCSTR current) {
+    if (!current || !*current) return (LPSTR)current;
+    return (LPSTR)(current + 1);
+}
+
 #ifdef __cplusplus
 }
 #endif

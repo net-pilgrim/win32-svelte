@@ -10,6 +10,7 @@ import {
   MessageBox,
   SetTimer,
   KillTimer,
+  DestroyWindow,
 } from "./kernel.svelte";
 import {
   BeginPaint,
@@ -91,6 +92,7 @@ export class Win32WasmRuntime {
   private cursorPos = { x: 100, y: 100 };
   private windowLongs = new Map<string, number>();
   private hdcRop2 = new Map<number, number>();
+  private poePoemPtr = 0;
 
   constructor(private options: WasmBridgeOptions = {}) {}
 
@@ -1781,6 +1783,135 @@ export class Win32WasmRuntime {
         },
 
         CloseHandle: (_hObject: number) => 1,
+
+        // --- Chapter 10: Menus, Accelerators & Resources ---
+        DestroyWindow: (hWnd: number) => (DestroyWindow(hWnd) ? 1 : 0),
+
+        CreateMenu: () => ++this.nextGdiHandle,
+        CreatePopupMenu: () => ++this.nextGdiHandle,
+
+        AppendMenuA: (
+          _hMenu: number,
+          _uFlags: number,
+          _uIDNewItem: number,
+          _lpNewItem: number
+        ) => 1,
+        AppendMenu: (...args: any[]) => (win32Imports as any).AppendMenuA(...args),
+
+        InsertMenuA: (
+          _hMenu: number,
+          _uPosition: number,
+          _uFlags: number,
+          _uIDNewItem: number,
+          _lpNewItem: number
+        ) => 1,
+        InsertMenu: (...args: any[]) => (win32Imports as any).InsertMenuA(...args),
+
+        ModifyMenuA: (
+          _hMnu: number,
+          _uPosition: number,
+          _uFlags: number,
+          _uIDNewItem: number,
+          _lpItem: number
+        ) => 1,
+        ModifyMenu: (...args: any[]) => (win32Imports as any).ModifyMenuA(...args),
+
+        DeleteMenu: (_hMenu: number, _uPosition: number, _uFlags: number) => 1,
+        DestroyMenu: (_hMenu: number) => 1,
+
+        SetMenu: (_hWnd: number, _hMenu: number) => 1,
+        GetMenu: (_hWnd: number) => ++this.nextGdiHandle,
+        GetSubMenu: (_hMenu: number, _nPos: number) => ++this.nextGdiHandle,
+        GetSystemMenu: (_hWnd: number, _bRevert: number) => ++this.nextGdiHandle,
+
+        TrackPopupMenu: (
+          _hMenu: number,
+          _uFlags: number,
+          _x: number,
+          _y: number,
+          _nReserved: number,
+          _hWnd: number,
+          _prcRect: number
+        ) => 1,
+
+        EnableMenuItem: (_hMenu: number, _uIDEnableItem: number, _uEnable: number) => 1,
+        CheckMenuItem: (_hMenu: number, _uIDCheckItem: number, _uCheck: number) => 0,
+
+        LoadMenuA: (_hInstance: number, _lpMenuName: number) => ++this.nextGdiHandle,
+        LoadMenu: (...args: any[]) => (win32Imports as any).LoadMenuA(...args),
+
+        LoadAcceleratorsA: (_hInstance: number, _lpTableName: number) => ++this.nextGdiHandle,
+        LoadAccelerators: (...args: any[]) => (win32Imports as any).LoadAcceleratorsA(...args),
+
+        TranslateAcceleratorA: (_hWnd: number, _hAccTable: number, _lpMsg: number) => 0,
+        TranslateAccelerator: (...args: any[]) => (win32Imports as any).TranslateAcceleratorA(...args),
+
+        FindResourceA: (_hModule: number, _lpName: number, _lpType: number) => ++this.nextGdiHandle,
+        FindResource: (...args: any[]) => (win32Imports as any).FindResourceA(...args),
+
+        LoadResource: (_hModule: number, _hResInfo: number) => ++this.nextGdiHandle,
+
+        LockResource: (_hResData: number) => {
+          if (!this.poePoemPtr) {
+            const poem =
+              "It was many and many a year ago,\n" +
+              "   In a kingdom by the sea,\n" +
+              "That a maiden there lived whom you may know\n" +
+              "   By the name of Annabel Lee;\n" +
+              "And this maiden she lived with no other thought\n" +
+              "   Than to love and be loved by me.\n" +
+              " \n" +
+              "I was a child and she was a child\n" +
+              "   In this kingdom by the sea,\n" +
+              "But we loved with a love that was more than love --\n" +
+              "   I and my Annabel Lee --\n" +
+              "With a love that the winged seraphs of Heaven\n" +
+              "   Coveted her and me.\n" +
+              "\\\n";
+            const bytes = new TextEncoder().encode(poem);
+            this.poePoemPtr = this.allocateMemory(bytes.length + 1);
+            if (this.memory && this.poePoemPtr) {
+              const u8 = new Uint8Array(this.memory.buffer);
+              u8.set(bytes, this.poePoemPtr);
+              u8[this.poePoemPtr + bytes.length] = 0;
+            }
+          }
+          return this.poePoemPtr;
+        },
+
+        SizeofResource: (_hModule: number, _hResInfo: number) => 1024,
+        FreeResource: (_hResData: number) => 1,
+
+        LoadStringA: (
+          _hInstance: number,
+          uID: number,
+          lpBuffer: number,
+          cchBufferMax: number
+        ) => {
+          let str = "PoePoem";
+          if (uID === 1) str = "PoePoem";
+          else if (uID === 2) str = "\"Annabel Lee\" by Edgar Allan Poe";
+          else if (uID === 3) str = "This program requires Windows NT!";
+          else str = `String#${uID}`;
+          return this.writeCString(lpBuffer, str, cchBufferMax);
+        },
+        LoadString: (...args: any[]) => (win32Imports as any).LoadStringA(...args),
+
+        DrawIcon: (hdcHandle: number, x: number, y: number, _hIcon: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const ctx = hdc?.ctx;
+          if (ctx) {
+            ctx.save();
+            ctx.fillStyle = "#008080";
+            ctx.fillRect(x + 2, y + 2, 28, 28);
+            ctx.strokeStyle = "#ffffff";
+            ctx.strokeRect(x + 2, y + 2, 28, 28);
+            ctx.restore();
+          }
+          return 1;
+        },
+
+        IsClipboardFormatAvailable: (_format: number) => 1,
       };
 
     return {
@@ -1817,6 +1948,7 @@ export class Win32WasmRuntime {
     this.gdiMap.clear();
     this.comObjectMap.clear();
     this.registeredClasses.clear();
+    this.poePoemPtr = 0;
   }
 
   public getStats(): WasmRuntimeStats {

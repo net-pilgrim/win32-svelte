@@ -119,6 +119,9 @@ typedef HANDLE              HMENU;
 typedef HANDLE              HINSTANCE;
 typedef HANDLE              HMODULE;
 typedef HANDLE              HGDIOBJ;
+typedef HANDLE              HACCEL;
+typedef HANDLE              HGLOBAL;
+typedef HANDLE              HRSRC;
 
 // Geometry structures
 typedef struct tagRECT {

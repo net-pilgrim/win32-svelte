@@ -15,7 +15,7 @@ INCLUDE_DIR := $(ROOT_DIR)/include
 HARNESS_DIR := $(abspath .)
 BUILD_DIR := $(HARNESS_DIR)/build
 
-CFLAGS ?= -target $(TARGET) -nostdlib -I$(INCLUDE_DIR) -Wno-missing-braces -Wno-nonportable-include-path -Wno-macro-redefined -O2 -Wall
+CFLAGS ?= -target $(TARGET) -nostdlib -I$(INCLUDE_DIR) -Wno-missing-braces -Wno-nonportable-include-path -Wno-macro-redefined -Wno-implicit-int -O2 -Wall
 LDFLAGS ?= -Wl,--no-entry -Wl,--export=WinMain -Wl,--export-table
 
 # --- Chapter 01 ---
@@ -80,9 +80,19 @@ CHAP09_BINS := \
 	$(BUILD_DIR)/Chap09/PopPad1/PopPad1.wasm \
 	$(BUILD_DIR)/Chap09/head/head.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09
+# --- Chapter 10 ---
+CHAP10_BINS := \
+	$(BUILD_DIR)/Chap10/IconDemo/IconDemo.wasm \
+	$(BUILD_DIR)/Chap10/MenuDemo/MenuDemo.wasm \
+	$(BUILD_DIR)/Chap10/NoPopups/NoPopups.wasm \
+	$(BUILD_DIR)/Chap10/PoePoem/PoePoem.wasm \
+	$(BUILD_DIR)/Chap10/PoorMenu/PoorMenu.wasm \
+	$(BUILD_DIR)/Chap10/PopMenu/PopMenu.wasm \
+	$(BUILD_DIR)/Chap10/PopPad2/PopPad2.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10
 
 scan:
 	python3 scan_chapters.py
@@ -102,6 +112,7 @@ chap06: $(CHAP06_BINS)
 chap07: $(CHAP07_BINS)
 chap08: $(CHAP08_BINS)
 chap09: $(CHAP09_BINS)
+chap10: $(CHAP10_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)
