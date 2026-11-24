@@ -455,4 +455,69 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     await closeBtn.click();
     await expect(windowEl).toBeHidden();
   });
+
+  test("Chapter 12: ClipText and ClipView demonstrate clipboard and viewer chains", async ({ page }) => {
+    const clipTextPath = path.resolve("harness/build/Chap12/ClipText/ClipText.wasm");
+    const clipViewPath = path.resolve("harness/build/Chap12/ClipView/ClipView.wasm");
+    if (!fs.existsSync(clipTextPath) || !fs.existsSync(clipViewPath)) {
+      throw new Error("Compiled WASM binary not found. Run 'make -C harness chap12' first.");
+    }
+
+    const clipTextBase64 = fs.readFileSync(clipTextPath).toString("base64");
+    const clipViewBase64 = fs.readFileSync(clipViewPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCodeText = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 280, initialY: 120 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, clipTextBase64);
+
+    expect(exitCodeText).toBe(0);
+
+    const textWindow = page.locator(".win32-window").filter({ hasText: "Clipboard Text Transfers" });
+    await expect(textWindow).toBeVisible();
+
+    const textTitle = textWindow.locator(".title-bar-text");
+    await expect(textTitle).toHaveText("Clipboard Text Transfers - ANSI Version");
+
+    const exitCodeView = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 340, initialY: 180 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, clipViewBase64);
+
+    expect(exitCodeView).toBe(0);
+
+    const viewWindow = page.locator(".win32-window").filter({ hasText: "Simple Clipboard Viewer" });
+    await expect(viewWindow).toBeVisible();
+
+    const viewTitle = viewWindow.locator(".title-bar-text");
+    await expect(viewTitle).toHaveText("Simple Clipboard Viewer (Text Only)");
+
+    // Close both windows
+    const closeViewBtn = viewWindow.locator('button[aria-label="Close"]');
+    await closeViewBtn.click();
+    await expect(viewWindow).toBeHidden();
+
+    const closeTextBtn = textWindow.locator('button[aria-label="Close"]');
+    await closeTextBtn.click();
+    await expect(textWindow).toBeHidden();
+  });
 });

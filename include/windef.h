@@ -99,6 +99,8 @@ typedef int                 INT_PTR;
 typedef long                LONG_PTR;
 typedef unsigned long       ULONG_PTR;
 typedef ULONG_PTR           DWORD_PTR;
+typedef ULONG_PTR           SIZE_T;
+typedef LONG_PTR            SSIZE_T;
 
 typedef UINT_PTR            WPARAM;
 typedef LONG_PTR            LPARAM;

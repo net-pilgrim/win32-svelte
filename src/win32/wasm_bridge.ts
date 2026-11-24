@@ -70,6 +70,16 @@ export interface WasmRuntimeStats {
 
 export const activeWasmRuntimes = new Set<Win32WasmRuntime>();
 
+interface ClipboardViewerEntry {
+  runtime: Win32WasmRuntime;
+  hwnd: number;
+}
+
+export const systemClipboardData = new Map<number, Uint8Array>();
+export let systemClipboardOwner = 0;
+export let systemClipboardOpenHwnd = 0;
+export const systemClipboardViewers: ClipboardViewerEntry[] = [];
+
 export class Win32WasmRuntime {
   private instance: WebAssembly.Instance | null = null;
   private memory: WebAssembly.Memory | null = null;
@@ -93,6 +103,7 @@ export class Win32WasmRuntime {
   private windowLongs = new Map<string, number>();
   private hdcRop2 = new Map<number, number>();
   private poePoemPtr = 0;
+  private globalAllocMap = new Map<number, { size: number; flags: number; locked: number }>();
 
   constructor(private options: WasmBridgeOptions = {}) {}
 
@@ -1911,8 +1922,6 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        IsClipboardFormatAvailable: (_format: number) => 1,
-
         // --- Chapter 11: Dialog Boxes & Common Dialogs ---
         DialogBoxParamA: (
           _hInstance: number,
@@ -2050,6 +2059,146 @@ export class Win32WasmRuntime {
 
         ReplaceTextA: (_lpfr: number) => ++this.nextGdiHandle,
         ReplaceText: (...args: any[]) => (win32Imports as any).ReplaceTextA(...args),
+
+        // --- Chapter 12: Clipboard & Global Memory ---
+        GlobalAlloc: (uFlags: number, dwBytes: number) => {
+          const ptr = this.allocateMemory(dwBytes);
+          if (!ptr) return 0;
+          if (uFlags & 0x0040) { // GMEM_ZEROINIT
+            if (this.memory) {
+              new Uint8Array(this.memory.buffer, ptr, dwBytes).fill(0);
+            }
+          }
+          this.globalAllocMap.set(ptr, { size: dwBytes, flags: uFlags, locked: 0 });
+          return ptr;
+        },
+
+        GlobalLock: (hMem: number) => {
+          const block = this.globalAllocMap.get(hMem);
+          if (block) block.locked++;
+          return hMem;
+        },
+
+        GlobalUnlock: (hMem: number) => {
+          const block = this.globalAllocMap.get(hMem);
+          if (block && block.locked > 0) block.locked--;
+          return 0;
+        },
+
+        GlobalSize: (hMem: number) => {
+          const block = this.globalAllocMap.get(hMem);
+          return block ? block.size : 0;
+        },
+
+        GlobalFree: (hMem: number) => {
+          this.globalAllocMap.delete(hMem);
+          return 0;
+        },
+
+        OpenClipboard: (hWndNewOwner: number) => {
+          systemClipboardOpenHwnd = hWndNewOwner;
+          return 1;
+        },
+
+        CloseClipboard: () => {
+          systemClipboardOpenHwnd = 0;
+          return 1;
+        },
+
+        EmptyClipboard: () => {
+          systemClipboardData.clear();
+          systemClipboardOwner = systemClipboardOpenHwnd;
+          return 1;
+        },
+
+        IsClipboardFormatAvailable: (format: number) => {
+          if (format === 1 /* CF_TEXT */ || format === 13 /* CF_UNICODETEXT */) {
+            return systemClipboardData.has(1) || systemClipboardData.has(13) ? 1 : 0;
+          }
+          return systemClipboardData.has(format) ? 1 : 0;
+        },
+
+        GetClipboardData: (uFormat: number) => {
+          let bytes = systemClipboardData.get(uFormat);
+          if (!bytes) {
+            // Automatic text conversion between CF_TEXT (1) and CF_UNICODETEXT (13)
+            if (uFormat === 1 && systemClipboardData.has(13)) {
+              const u16Bytes = systemClipboardData.get(13)!;
+              const u16 = new Uint16Array(u16Bytes.buffer, u16Bytes.byteOffset, Math.floor(u16Bytes.byteLength / 2));
+              const ansi = new Uint8Array(u16.length + 1);
+              for (let i = 0; i < u16.length; i++) {
+                ansi[i] = u16[i] <= 0xFF ? u16[i] : 63; // '?'
+              }
+              bytes = ansi;
+            } else if (uFormat === 13 && systemClipboardData.has(1)) {
+              const ansi = systemClipboardData.get(1)!;
+              const u16 = new Uint16Array(ansi.length + 1);
+              for (let i = 0; i < ansi.length; i++) {
+                u16[i] = ansi[i];
+              }
+              bytes = new Uint8Array(u16.buffer, u16.byteOffset, u16.byteLength);
+            }
+          }
+
+          if (!bytes || !this.memory) return 0;
+
+          const ptr = this.allocateMemory(bytes.byteLength);
+          new Uint8Array(this.memory.buffer, ptr, bytes.byteLength).set(bytes);
+          this.globalAllocMap.set(ptr, { size: bytes.byteLength, flags: 0, locked: 0 });
+          return ptr;
+        },
+
+        SetClipboardData: (uFormat: number, hMem: number) => {
+          if (!this.memory) return 0;
+          let size = 0;
+          const block = this.globalAllocMap.get(hMem);
+          if (block) {
+            size = block.size;
+          } else if (uFormat === 1) { // CF_TEXT: scan for null terminator
+            const view = new Uint8Array(this.memory.buffer, hMem);
+            while (size < view.length && view[size] !== 0) size++;
+            size++; // include null terminator
+          } else if (uFormat === 13) { // CF_UNICODETEXT: scan for UTF-16 null
+            const view = new Uint16Array(this.memory.buffer, hMem);
+            while (size < view.length && view[size] !== 0) size++;
+            size = (size + 1) * 2;
+          } else {
+            size = 256;
+          }
+
+          const srcBytes = new Uint8Array(this.memory.buffer, hMem, size);
+          const copy = new Uint8Array(size);
+          copy.set(srcBytes);
+          systemClipboardData.set(uFormat, copy);
+
+          // Broadcast WM_DRAWCLIPBOARD (0x0308) to clipboard viewer chain
+          if (systemClipboardViewers.length > 0) {
+            const topViewer = systemClipboardViewers[systemClipboardViewers.length - 1];
+            SendMessage(topViewer.hwnd, 0x0308, 0, 0);
+          }
+
+          return hMem;
+        },
+
+        SetClipboardViewer: (hWndNewViewer: number) => {
+          const prevViewerHwnd = systemClipboardViewers.length > 0 
+            ? systemClipboardViewers[systemClipboardViewers.length - 1].hwnd 
+            : 0;
+          systemClipboardViewers.push({ runtime: this, hwnd: hWndNewViewer });
+          return prevViewerHwnd;
+        },
+
+        ChangeClipboardChain: (hWndRemove: number, hWndNewNext: number) => {
+          const idx = systemClipboardViewers.findIndex(v => v.hwnd === hWndRemove);
+          if (idx !== -1) {
+            systemClipboardViewers.splice(idx, 1);
+          }
+          if (systemClipboardViewers.length > 0) {
+            const topViewer = systemClipboardViewers[systemClipboardViewers.length - 1];
+            SendMessage(topViewer.hwnd, 0x030D, hWndRemove, hWndNewNext); // WM_CHANGECBCHAIN
+          }
+          return 1;
+        },
       };
 
     return {
@@ -2082,10 +2231,16 @@ export class Win32WasmRuntime {
 
   public destroy(): void {
     activeWasmRuntimes.delete(this);
+    for (let i = systemClipboardViewers.length - 1; i >= 0; i--) {
+      if (systemClipboardViewers[i].runtime === this) {
+        systemClipboardViewers.splice(i, 1);
+      }
+    }
     this.hdcMap.clear();
     this.gdiMap.clear();
     this.comObjectMap.clear();
     this.registeredClasses.clear();
+    this.globalAllocMap.clear();
     this.poePoemPtr = 0;
   }
 

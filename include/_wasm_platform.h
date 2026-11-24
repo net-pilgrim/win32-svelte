@@ -1944,6 +1944,101 @@ int WINAPI MultiByteToWideChar(
     int cchWideChar
 );
 
+// --- Chapter 12: Clipboard & Global Memory ---
+
+#ifndef CF_TEXT
+#define CF_TEXT             1
+#define CF_BITMAP           2
+#define CF_METAFILEPICT     3
+#define CF_SYLK             4
+#define CF_DIF              5
+#define CF_TIFF             6
+#define CF_OEMTEXT          7
+#define CF_DIB              8
+#define CF_PALETTE          9
+#define CF_PENDATA          10
+#define CF_RIFF             11
+#define CF_WAVE             12
+#define CF_UNICODETEXT      13
+#define CF_ENHMETAFILE      14
+#define CF_HDROP            15
+#define CF_LOCALE           16
+#define CF_DIBV5            17
+#define CF_MAX              18
+#endif
+
+#ifndef WM_RENDERFORMAT
+#define WM_RENDERFORMAT     0x0305
+#define WM_RENDERALLFORMATS 0x0306
+#define WM_DESTROYCLIPBOARD 0x0307
+#define WM_DRAWCLIPBOARD    0x0308
+#define WM_PAINTCLIPBOARD   0x0309
+#define WM_VSCROLLCLIPBOARD 0x030A
+#define WM_SIZECLIPBOARD    0x030B
+#define WM_ASKCBFORMATNAME  0x030C
+#define WM_CHANGECBCHAIN    0x030D
+#define WM_HSCROLLCLIPBOARD 0x030E
+#endif
+
+#ifndef GMEM_FIXED
+#define GMEM_FIXED          0x0000
+#define GMEM_MOVEABLE       0x0002
+#define GMEM_NOCOMPACT      0x0010
+#define GMEM_NODISCARD      0x0020
+#define GMEM_ZEROINIT       0x0040
+#define GMEM_MODIFY         0x0080
+#define GMEM_DISCARDABLE    0x0100
+#define GMEM_NOT_BANKED     0x1000
+#define GMEM_SHARE          0x2000
+#define GMEM_DDESHARE       0x2000
+#define GMEM_NOTIFY         0x4000
+#define GMEM_LOWER          GMEM_NOT_BANKED
+#define GMEM_VALID_FLAGS    0x7F72
+#define GMEM_INVALID_HANDLE 0x8000
+
+#define GHND                (GMEM_MOVEABLE | GMEM_ZEROINIT)
+#define GPTR                (GMEM_FIXED | GMEM_ZEROINIT)
+#endif
+
+WIN32_IMPORT("GlobalAlloc")
+HGLOBAL WINAPI GlobalAlloc(UINT uFlags, SIZE_T dwBytes);
+
+WIN32_IMPORT("GlobalLock")
+LPVOID WINAPI GlobalLock(HGLOBAL hMem);
+
+WIN32_IMPORT("GlobalUnlock")
+BOOL WINAPI GlobalUnlock(HGLOBAL hMem);
+
+WIN32_IMPORT("GlobalSize")
+SIZE_T WINAPI GlobalSize(HGLOBAL hMem);
+
+WIN32_IMPORT("GlobalFree")
+HGLOBAL WINAPI GlobalFree(HGLOBAL hMem);
+
+WIN32_IMPORT("OpenClipboard")
+BOOL WINAPI OpenClipboard(HWND hWndNewOwner);
+
+WIN32_IMPORT("CloseClipboard")
+BOOL WINAPI CloseClipboard(VOID);
+
+WIN32_IMPORT("EmptyClipboard")
+BOOL WINAPI EmptyClipboard(VOID);
+
+WIN32_IMPORT("IsClipboardFormatAvailable")
+BOOL WINAPI IsClipboardFormatAvailable(UINT format);
+
+WIN32_IMPORT("GetClipboardData")
+HANDLE WINAPI GetClipboardData(UINT uFormat);
+
+WIN32_IMPORT("SetClipboardData")
+HANDLE WINAPI SetClipboardData(UINT uFormat, HANDLE hMem);
+
+WIN32_IMPORT("SetClipboardViewer")
+HWND WINAPI SetClipboardViewer(HWND hWndNewViewer);
+
+WIN32_IMPORT("ChangeClipboardChain")
+BOOL WINAPI ChangeClipboardChain(HWND hWndRemove, HWND hWndNewNext);
+
 #ifdef __cplusplus
 }
 #endif
