@@ -1006,6 +1006,8 @@ export class Win32WasmRuntime {
               return 1;
             case 24: // NUMCOLORS
               return -1; // True color
+            case 38: // RASTERCAPS
+              return 0x0100 | 0x0001; // RC_PALETTE | RC_BITBLT
             case 40: // ASPECTX
             case 42: // ASPECTY
               return 36;
@@ -1014,6 +1016,12 @@ export class Win32WasmRuntime {
             case 88: // LOGPIXELSX
             case 90: // LOGPIXELSY
               return 96;
+            case 104: // SIZEPALETTE
+              return 256;
+            case 106: // NUMRESERVED
+              return 20;
+            case 108: // COLORRES
+              return 24;
             case 110: // PHYSICALWIDTH
               return 2400;
             case 111: // PHYSICALHEIGHT
@@ -3050,6 +3058,185 @@ export class Win32WasmRuntime {
 
         DeleteFileA: (_lpFileName: number) => 1,
         DeleteFile: (...args: any[]) => (win32Imports as any).DeleteFileA(...args),
+
+        // --- Chapter 16: The Palette Manager ---
+        CreatePalette: (plp: number) => {
+          const handle = ++this.nextGdiHandle;
+          const entries: { r: number; g: number; b: number; flags: number }[] = [];
+          if (this.memory && plp) {
+            const view = new DataView(this.memory.buffer);
+            const count = view.getUint16(plp + 2, true);
+            for (let i = 0; i < count; i++) {
+              const offset = plp + 4 + i * 4;
+              entries.push({
+                r: view.getUint8(offset + 0),
+                g: view.getUint8(offset + 1),
+                b: view.getUint8(offset + 2),
+                flags: view.getUint8(offset + 3),
+              });
+            }
+          }
+          this.gdiMap.set(handle, { type: "palette", entries });
+          return handle;
+        },
+
+        CreateHalftonePalette: (_hdc: number) => {
+          const handle = ++this.nextGdiHandle;
+          const entries: { r: number; g: number; b: number; flags: number }[] = [];
+          for (let i = 0; i < 256; i++) {
+            entries.push({ r: i, g: i, b: i, flags: 0 });
+          }
+          this.gdiMap.set(handle, { type: "palette", entries });
+          return handle;
+        },
+
+        SelectPalette: (hdcHandle: number, hpal: number, _bForceBkgd: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            const prev = (hdc as any).hPalette || 0;
+            (hdc as any).hPalette = hpal;
+            return prev || hpal;
+          }
+          return hpal;
+        },
+
+        RealizePalette: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const pal = hdc ? this.gdiMap.get((hdc as any).hPalette) : null;
+          return pal && pal.entries ? pal.entries.length : 256;
+        },
+
+        GetSystemPaletteEntries: (
+          _hdc: number,
+          iStart: number,
+          cEntries: number,
+          ppe: number
+        ) => {
+          if (!this.memory || !ppe) return 0;
+          const view = new DataView(this.memory.buffer);
+          const count = Math.min(cEntries, 256 - iStart);
+          for (let i = 0; i < count; i++) {
+            const idx = iStart + i;
+            const offset = ppe + i * 4;
+            view.setUint8(offset + 0, idx);
+            view.setUint8(offset + 1, idx);
+            view.setUint8(offset + 2, idx);
+            view.setUint8(offset + 3, 0);
+          }
+          return count;
+        },
+
+        GetPaletteEntries: (
+          hpal: number,
+          iStart: number,
+          cEntries: number,
+          ppe: number
+        ) => {
+          if (!this.memory || !ppe) return 0;
+          const pal = this.gdiMap.get(hpal);
+          const entries = pal?.entries || [];
+          const count = Math.min(cEntries, Math.max(0, entries.length - iStart));
+          const view = new DataView(this.memory.buffer);
+          for (let i = 0; i < count; i++) {
+            const e = entries[iStart + i] || { r: 0, g: 0, b: 0, flags: 0 };
+            const offset = ppe + i * 4;
+            view.setUint8(offset + 0, e.r);
+            view.setUint8(offset + 1, e.g);
+            view.setUint8(offset + 2, e.b);
+            view.setUint8(offset + 3, e.flags);
+          }
+          return count;
+        },
+
+        SetPaletteEntries: (
+          hpal: number,
+          iStart: number,
+          cEntries: number,
+          ppe: number
+        ) => {
+          if (!this.memory || !ppe) return 0;
+          const pal = this.gdiMap.get(hpal);
+          if (!pal || !pal.entries) return 0;
+          const view = new DataView(this.memory.buffer);
+          for (let i = 0; i < cEntries; i++) {
+            const offset = ppe + i * 4;
+            pal.entries[iStart + i] = {
+              r: view.getUint8(offset + 0),
+              g: view.getUint8(offset + 1),
+              b: view.getUint8(offset + 2),
+              flags: view.getUint8(offset + 3),
+            };
+          }
+          return cEntries;
+        },
+
+        AnimatePalette: (
+          hpal: number,
+          iStart: number,
+          cEntries: number,
+          ppe: number
+        ) => {
+          if (!this.memory || !ppe) return 0;
+          const pal = this.gdiMap.get(hpal);
+          if (!pal || !pal.entries) return 0;
+          const view = new DataView(this.memory.buffer);
+          for (let i = 0; i < cEntries; i++) {
+            const offset = ppe + i * 4;
+            pal.entries[iStart + i] = {
+              r: view.getUint8(offset + 0),
+              g: view.getUint8(offset + 1),
+              b: view.getUint8(offset + 2),
+              flags: view.getUint8(offset + 3),
+            };
+          }
+          return 1;
+        },
+
+        UpdateColors: (_hdc: number) => 1,
+
+        GetNearestPaletteIndex: (_hpal: number, cr: number) => {
+          return (cr & 0xff);
+        },
+
+        GetDIBColorTable: (
+          _hdcHandle: number,
+          iStart: number,
+          cEntries: number,
+          prgb: number
+        ) => {
+          if (!this.memory || !prgb) return 0;
+          const view = new DataView(this.memory.buffer);
+          for (let i = 0; i < cEntries; i++) {
+            const offset = prgb + i * 4;
+            const val = iStart + i;
+            view.setUint8(offset + 0, val);
+            view.setUint8(offset + 1, val);
+            view.setUint8(offset + 2, val);
+            view.setUint8(offset + 3, 0);
+          }
+          return cEntries;
+        },
+
+        SetDIBColorTable: (
+          _hdc: number,
+          _iStart: number,
+          cEntries: number,
+          _prgb: number
+        ) => cEntries,
+
+        SetBrushOrgEx: (
+          _hdc: number,
+          _x: number,
+          _y: number,
+          lppt: number
+        ) => {
+          if (lppt && this.memory) {
+            const view = new DataView(this.memory.buffer);
+            view.setInt32(lppt + 0, 0, true);
+            view.setInt32(lppt + 4, 0, true);
+          }
+          return 1;
+        },
       };
 
     return {

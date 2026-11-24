@@ -15,7 +15,7 @@ INCLUDE_DIR := $(ROOT_DIR)/include
 HARNESS_DIR := $(abspath .)
 BUILD_DIR := $(HARNESS_DIR)/build
 
-CFLAGS ?= -target $(TARGET) -nostdlib -I$(INCLUDE_DIR) -Wno-missing-braces -Wno-nonportable-include-path -Wno-macro-redefined -Wno-implicit-int -O2 -Wall
+CFLAGS ?= -target $(TARGET) -nostdlib -I$(INCLUDE_DIR) -fms-extensions -Wno-missing-braces -Wno-nonportable-include-path -Wno-macro-redefined -Wno-implicit-int -Wno-unused-but-set-variable -Wno-incompatible-pointer-types -Wno-pointer-bool-conversion -Wno-parentheses -O2 -Wall
 LDFLAGS ?= -Wl,--no-entry -Wl,--export=WinMain -Wl,--export-table
 
 # --- Chapter 01 ---
@@ -171,9 +171,29 @@ CHAP15_BINS = \
 	$(BUILD_DIR)/Chap15/ShowDib1/ShowDib1.wasm \
 	$(BUILD_DIR)/Chap15/ShowDib2/ShowDib2.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15
+CHAP16_BINS = \
+	$(BUILD_DIR)/Chap16/AllColor/AllColor.wasm \
+	$(BUILD_DIR)/Chap16/Bounce/Bounce.wasm \
+	$(BUILD_DIR)/Chap16/Dibble/Dibble.wasm \
+	$(BUILD_DIR)/Chap16/Fader/Fader.wasm \
+	$(BUILD_DIR)/Chap16/Grays1/Grays1.wasm \
+	$(BUILD_DIR)/Chap16/Grays2/Grays2.wasm \
+	$(BUILD_DIR)/Chap16/Grays3/Grays3.wasm \
+	$(BUILD_DIR)/Chap16/Pipes/Pipes.wasm \
+	$(BUILD_DIR)/Chap16/ShowDib3/ShowDib3.wasm \
+	$(BUILD_DIR)/Chap16/ShowDib4/ShowDib4.wasm \
+	$(BUILD_DIR)/Chap16/ShowDib5/ShowDib5.wasm \
+	$(BUILD_DIR)/Chap16/ShowDib6/ShowDib6.wasm \
+	$(BUILD_DIR)/Chap16/ShowDib7/ShowDib7.wasm \
+	$(BUILD_DIR)/Chap16/ShowDib8/ShowDib8.wasm \
+	$(BUILD_DIR)/Chap16/SysPal1/SysPal1.wasm \
+	$(BUILD_DIR)/Chap16/SysPal2/SysPal2.wasm \
+	$(BUILD_DIR)/Chap16/SysPal3/SysPal3.wasm \
+	$(BUILD_DIR)/Chap16/Tunnel/Tunnel.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16
 
 scan:
 	python3 scan_chapters.py
@@ -228,6 +248,66 @@ $(BUILD_DIR)/Chap15/ShowDib2/ShowDib2.wasm: src/Chap15/ShowDib2/Showdib2.c src/C
 	$(CC) $(CFLAGS) -Isrc/Chap15/ShowDib2 $^ $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
+$(BUILD_DIR)/Chap16/AllColor/AllColor.wasm: src/Chap16/AllColor/AllColor.c src/Chap16/Bounce/PalAnim.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/AllColor -Isrc/Chap16/Bounce $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/Bounce/Bounce.wasm: src/Chap16/Bounce/Bounce.c src/Chap16/Bounce/PalAnim.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/Bounce $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/Dibble/Dibble.wasm: src/Chap16/Dibble/Dibble.c src/Chap16/Dibble/DibConv.c src/Chap16/Dibble/DibHelp.c src/Chap16/Dibble/DibPal.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/Dibble $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/Fader/Fader.wasm: src/Chap16/Fader/Fader.c src/Chap16/Bounce/PalAnim.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/Fader -Isrc/Chap16/Bounce $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/Pipes/Pipes.wasm: src/Chap16/Pipes/Pipes.c src/Chap16/Bounce/PalAnim.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/Pipes -Isrc/Chap16/Bounce $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/ShowDib3/ShowDib3.wasm: src/Chap16/ShowDib3/ShowDib3.c src/Chap16/ShowDib3/PackeDib.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/ShowDib3 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/ShowDib4/ShowDib4.wasm: src/Chap16/ShowDib4/ShowDib4.c src/Chap16/ShowDib3/PackeDib.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/ShowDib4 -Isrc/Chap16/ShowDib3 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/ShowDib5/ShowDib5.wasm: src/Chap16/ShowDib5/ShowDib5.c src/Chap16/ShowDib3/PackeDib.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/ShowDib5 -Isrc/Chap16/ShowDib3 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/ShowDib6/ShowDib6.wasm: src/Chap16/ShowDib6/ShowDib6.c src/Chap16/ShowDib3/PackeDib.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/ShowDib6 -Isrc/Chap16/ShowDib3 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/ShowDib7/ShowDib7.wasm: src/Chap16/ShowDib7/ShowDib7.c src/Chap16/ShowDib3/PackeDib.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/ShowDib7 -Isrc/Chap16/ShowDib3 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/ShowDib8/ShowDib8.wasm: src/Chap16/ShowDib8/ShowDib8.c src/Chap16/ShowDib3/PackeDib.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/ShowDib8 -Isrc/Chap16/ShowDib3 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap16/Tunnel/Tunnel.wasm: src/Chap16/Tunnel/Tunnel.c src/Chap16/Bounce/PalAnim.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap16/Tunnel -Isrc/Chap16/Bounce $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(dir $<) $< $(LDFLAGS) -o $@
@@ -249,6 +329,7 @@ chap12: $(CHAP12_BINS)
 chap13: $(CHAP13_BINS)
 chap14: $(CHAP14_BINS)
 chap15: $(CHAP15_BINS)
+chap16: $(CHAP16_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

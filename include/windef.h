@@ -128,6 +128,7 @@ typedef HANDLE              HGDIOBJ;
 typedef HANDLE              HACCEL;
 typedef HANDLE              HGLOBAL;
 typedef HANDLE              HRSRC;
+typedef HANDLE              HPALETTE;
 
 // Geometry structures
 typedef struct tagRECT {

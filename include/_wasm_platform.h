@@ -2700,6 +2700,117 @@ BOOL WINAPI DeleteFileA(LPCSTR lpFileName);
 #define DeleteFile DeleteFileA
 #endif
 
+// --- Chapter 16: The Palette Manager ---
+
+typedef struct tagPALETTEENTRY {
+    BYTE        peRed;
+    BYTE        peGreen;
+    BYTE        peBlue;
+    BYTE        peFlags;
+} PALETTEENTRY, *PPALETTEENTRY, *LPPALETTEENTRY;
+
+typedef struct tagLOGPALETTE {
+    WORD         palVersion;
+    WORD         palNumEntries;
+    PALETTEENTRY palPalEntry[1];
+} LOGPALETTE, *PLOGPALETTE, *LPLOGPALETTE;
+
+#ifndef PC_RESERVED
+#define PC_RESERVED     0x01
+#define PC_EXPLICIT     0x02
+#define PC_NOCOLLAPSE   0x04
+#endif
+
+#ifndef PALETTERGB
+#define PALETTERGB(r,g,b)   (0x02000000 | RGB(r,g,b))
+#endif
+#ifndef PALETTEINDEX
+#define PALETTEINDEX(i)     ((COLORREF)(0x01000000 | (DWORD)(WORD)(i)))
+#endif
+
+#ifndef WM_QUERYNEWPALETTE
+#define WM_QUERYNEWPALETTE      0x030F
+#define WM_PALETTEISCHANGING    0x0310
+#define WM_PALETTECHANGED       0x0311
+#endif
+
+#ifndef WM_USER
+#define WM_USER                 0x0400
+#endif
+
+static inline void wasm_qsort(void *base, size_t nel, size_t width, int (*compar)(const void *, const void *)) {
+    char *arr = (char *)base;
+    for (size_t i = 0; i < nel; i++) {
+        for (size_t j = i + 1; j < nel; j++) {
+            if (compar(arr + i * width, arr + j * width) > 0) {
+                for (size_t k = 0; k < width; k++) {
+                    char tmp = arr[i * width + k];
+                    arr[i * width + k] = arr[j * width + k];
+                    arr[j * width + k] = tmp;
+                }
+            }
+        }
+    }
+}
+#ifndef qsort
+#define qsort wasm_qsort
+#endif
+
+typedef struct tagDIBSECTION {
+    BITMAP              dsBm;
+    BITMAPINFOHEADER    dsBmih;
+    DWORD               dsBitfields[3];
+    HANDLE              dshSection;
+    DWORD               dsOffset;
+} DIBSECTION, *PDIBSECTION, *LPDIBSECTION;
+
+#ifndef IsBadReadPtr
+static inline BOOL IsBadReadPtr(const VOID *lp, UINT_PTR ucb) {
+    (void)lp;
+    (void)ucb;
+    return FALSE;
+}
+#endif
+
+WIN32_IMPORT("CreatePalette")
+HPALETTE WINAPI CreatePalette(const LOGPALETTE *plp);
+
+WIN32_IMPORT("CreateHalftonePalette")
+HPALETTE WINAPI CreateHalftonePalette(HDC hdc);
+
+WIN32_IMPORT("SetBrushOrgEx")
+BOOL WINAPI SetBrushOrgEx(HDC hdc, int x, int y, LPPOINT lppt);
+
+WIN32_IMPORT("SelectPalette")
+HPALETTE WINAPI SelectPalette(HDC hdc, HPALETTE hpal, BOOL bForceBkgd);
+
+WIN32_IMPORT("RealizePalette")
+UINT WINAPI RealizePalette(HDC hdc);
+
+WIN32_IMPORT("GetSystemPaletteEntries")
+UINT WINAPI GetSystemPaletteEntries(HDC hdc, UINT iStart, UINT cEntries, LPPALETTEENTRY ppe);
+
+WIN32_IMPORT("GetPaletteEntries")
+UINT WINAPI GetPaletteEntries(HPALETTE hpal, UINT iStart, UINT cEntries, LPPALETTEENTRY ppe);
+
+WIN32_IMPORT("SetPaletteEntries")
+UINT WINAPI SetPaletteEntries(HPALETTE hpal, UINT iStart, UINT cEntries, const PALETTEENTRY *ppe);
+
+WIN32_IMPORT("AnimatePalette")
+BOOL WINAPI AnimatePalette(HPALETTE hpal, UINT iStart, UINT cEntries, const PALETTEENTRY *ppe);
+
+WIN32_IMPORT("UpdateColors")
+BOOL WINAPI UpdateColors(HDC hdc);
+
+WIN32_IMPORT("GetNearestPaletteIndex")
+UINT WINAPI GetNearestPaletteIndex(HPALETTE hpal, COLORREF cr);
+
+WIN32_IMPORT("GetDIBColorTable")
+UINT WINAPI GetDIBColorTable(HDC hdc, UINT iStart, UINT cEntries, RGBQUAD *prgb);
+
+WIN32_IMPORT("SetDIBColorTable")
+UINT WINAPI SetDIBColorTable(HDC hdc, UINT iStart, UINT cEntries, const RGBQUAD *prgb);
+
 #ifdef __cplusplus
 }
 #endif
