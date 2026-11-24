@@ -13,6 +13,7 @@ TARGET ?= wasm32-freestanding
 ROOT_DIR := $(abspath ..)
 INCLUDE_DIR := $(ROOT_DIR)/include
 HARNESS_DIR := $(abspath .)
+SRC_DIR := $(HARNESS_DIR)/src
 BUILD_DIR := $(HARNESS_DIR)/build
 
 CFLAGS ?= -target $(TARGET) -nostdlib -I$(INCLUDE_DIR) -fms-extensions -Wno-missing-braces -Wno-nonportable-include-path -Wno-macro-redefined -Wno-implicit-int -Wno-unused-but-set-variable -Wno-incompatible-pointer-types -Wno-pointer-bool-conversion -Wno-parentheses -Wno-absolute-value -O2 -Wall
