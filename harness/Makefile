@@ -162,9 +162,18 @@ CHAP14_BINS := \
 	$(BUILD_DIR)/Chap14/Sketch/Sketch.wasm \
 	$(BUILD_DIR)/Chap14/Stretch/Stretch.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14
+CHAP15_BINS = \
+	$(BUILD_DIR)/Chap15/Apollo11/Apollo11.wasm \
+	$(BUILD_DIR)/Chap15/DibConv/DibConv.wasm \
+	$(BUILD_DIR)/Chap15/DibHeads/DibHeads.wasm \
+	$(BUILD_DIR)/Chap15/DibSect/DibSect.wasm \
+	$(BUILD_DIR)/Chap15/SeqDisp/SeqDisp.wasm \
+	$(BUILD_DIR)/Chap15/ShowDib1/ShowDib1.wasm \
+	$(BUILD_DIR)/Chap15/ShowDib2/ShowDib2.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15
 
 scan:
 	python3 scan_chapters.py
@@ -204,6 +213,21 @@ $(BUILD_DIR)/Chap14/Bricks3/Bricks3.wasm: src/Chap14/Bricks3/BRICKS3.C
 	$(CC) $(CFLAGS) -Isrc/Chap14/Bricks3 $< $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
+$(BUILD_DIR)/Chap15/Apollo11/Apollo11.wasm: src/Chap15/Apollo11/Apollo11.c src/Chap15/ShowDib1/DibFile.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap15/Apollo11 -Isrc/Chap15/ShowDib1 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap15/ShowDib1/ShowDib1.wasm: src/Chap15/ShowDib1/ShowDib1.c src/Chap15/ShowDib1/DibFile.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap15/ShowDib1 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap15/ShowDib2/ShowDib2.wasm: src/Chap15/ShowDib2/Showdib2.c src/Chap15/ShowDib2/DibFile.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap15/ShowDib2 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(dir $<) $< $(LDFLAGS) -o $@
@@ -224,6 +248,7 @@ chap11: $(CHAP11_BINS)
 chap12: $(CHAP12_BINS)
 chap13: $(CHAP13_BINS)
 chap14: $(CHAP14_BINS)
+chap15: $(CHAP15_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

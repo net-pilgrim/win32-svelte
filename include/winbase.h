@@ -38,7 +38,9 @@ extern "C" {
 #define FILE_BEGIN                 0
 #define FILE_CURRENT               1
 #define FILE_END                   2
-#define INVALID_HANDLE_VALUE       -1
+#ifndef INVALID_HANDLE_VALUE
+#define INVALID_HANDLE_VALUE       ((HANDLE)(LONG_PTR)-1)
+#endif
 #define INVALID_FILE_SIZE          0xffffffff
 
 // File Find Data Structure

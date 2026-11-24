@@ -21,6 +21,7 @@ extern "C" {
 #include "commctrl.h"
 #include "shellapi.h"
 #include "winspool.h"
+#include "commdlg.h"
 #include "sql.h"
 #include "unknwn.h"
 #include "objbase.h"

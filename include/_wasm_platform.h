@@ -20,6 +20,9 @@ extern "C" {
 
 #ifndef min
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
+#ifndef abs
+#define abs(n)              __builtin_abs(n)
+#endif
 #endif
 #ifndef max
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
@@ -978,6 +981,16 @@ static inline int wasm_wsprintfA(char *buffer, const char *format, ...) {
 #endif
 #ifndef wsprintf
 #define wsprintf wasm_wsprintfA
+#endif
+
+static inline int wasm_wvsprintfA(char *buffer, const char *format, va_list args) {
+    return vsnprintf(buffer, 1024, format, args);
+}
+#ifndef wvsprintfA
+#define wvsprintfA wasm_wvsprintfA
+#endif
+#ifndef wvsprintf
+#define wvsprintf wasm_wvsprintfA
 #endif
 
 // --- Chapter 07: Mouse Input Definitions ---
@@ -2458,6 +2471,233 @@ WIN32_IMPORT("GetMenuItemInfoA")
 BOOL WINAPI GetMenuItemInfoA(HMENU hMenu, UINT item, BOOL fByPosition, LPMENUITEMINFOA lpmii);
 #ifndef GetMenuItemInfo
 #define GetMenuItemInfo GetMenuItemInfoA
+#endif
+
+// --- Chapter 15: Device-Independent Bitmaps (DIBs) ---
+
+#ifndef FILE_FLAG_SEQUENTIAL_SCAN
+#define FILE_FLAG_SEQUENTIAL_SCAN 0x08000000
+#endif
+
+#ifndef BI_RGB
+#define BI_RGB        0L
+#define BI_RLE8       1L
+#define BI_RLE4       2L
+#define BI_BITFIELDS  3L
+#define BI_JPEG       4L
+#define BI_PNG        5L
+#endif
+
+#ifndef DIB_RGB_COLORS
+#define DIB_RGB_COLORS  0
+#define DIB_PAL_COLORS  1
+#endif
+
+#ifndef CBM_INIT
+#define CBM_INIT 4L
+#endif
+
+#ifndef COLORONCOLOR
+#define COLORONCOLOR 3
+#endif
+
+#pragma pack(push, 2)
+typedef struct tagBITMAPFILEHEADER {
+    WORD    bfType;
+    DWORD   bfSize;
+    WORD    bfReserved1;
+    WORD    bfReserved2;
+    DWORD   bfOffBits;
+} BITMAPFILEHEADER, *PBITMAPFILEHEADER, *LPBITMAPFILEHEADER;
+#pragma pack(pop)
+
+typedef struct tagBITMAPCOREHEADER {
+    DWORD   bcSize;
+    WORD    bcWidth;
+    WORD    bcHeight;
+    WORD    bcPlanes;
+    WORD    bcBitCount;
+} BITMAPCOREHEADER, *PBITMAPCOREHEADER, *LPBITMAPCOREHEADER;
+
+typedef struct tagRGBTRIPLE {
+    BYTE    rgbtBlue;
+    BYTE    rgbtGreen;
+    BYTE    rgbtRed;
+} RGBTRIPLE, *PRGBTRIPLE, *LPRGBTRIPLE;
+
+typedef struct tagRGBQUAD {
+    BYTE    rgbBlue;
+    BYTE    rgbGreen;
+    BYTE    rgbRed;
+    BYTE    rgbReserved;
+} RGBQUAD, *PRGBQUAD, *LPRGBQUAD;
+
+typedef struct tagBITMAPCOREINFO {
+    BITMAPCOREHEADER    bmciHeader;
+    RGBTRIPLE           bmciColors[1];
+} BITMAPCOREINFO, *PBITMAPCOREINFO, *LPBITMAPCOREINFO;
+
+typedef struct tagBITMAPINFOHEADER {
+    DWORD      biSize;
+    LONG       biWidth;
+    LONG       biHeight;
+    WORD       biPlanes;
+    WORD       biBitCount;
+    DWORD      biCompression;
+    DWORD      biSizeImage;
+    LONG       biXPelsPerMeter;
+    LONG       biYPelsPerMeter;
+    DWORD      biClrUsed;
+    DWORD      biClrImportant;
+} BITMAPINFOHEADER, *PBITMAPINFOHEADER, *LPBITMAPINFOHEADER;
+
+typedef struct tagBITMAPINFO {
+    BITMAPINFOHEADER    bmiHeader;
+    RGBQUAD             bmiColors[1];
+} BITMAPINFO, *PBITMAPINFO, *LPBITMAPINFO;
+
+typedef LONG FXPT2DOT30, *LPFXPT2DOT30;
+typedef struct tagCIEXYZ {
+    FXPT2DOT30 ciexyzX;
+    FXPT2DOT30 ciexyzY;
+    FXPT2DOT30 ciexyzZ;
+} CIEXYZ, *LPCIEXYZ;
+
+typedef struct tagCIEXYZTRIPLE {
+    CIEXYZ  ciexyzRed;
+    CIEXYZ  ciexyzGreen;
+    CIEXYZ  ciexyzBlue;
+} CIEXYZTRIPLE, *LPCIEXYZTRIPLE;
+
+typedef struct {
+    DWORD        bV4Size;
+    LONG         bV4Width;
+    LONG         bV4Height;
+    WORD         bV4Planes;
+    WORD         bV4BitCount;
+    DWORD        bV4Compression;
+    DWORD        bV4SizeImage;
+    LONG         bV4XPelsPerMeter;
+    LONG         bV4YPelsPerMeter;
+    DWORD        bV4ClrUsed;
+    DWORD        bV4ClrImportant;
+    DWORD        bV4RedMask;
+    DWORD        bV4GreenMask;
+    DWORD        bV4BlueMask;
+    DWORD        bV4AlphaMask;
+    DWORD        bV4CSType;
+    CIEXYZTRIPLE bV4Endpoints;
+    DWORD        bV4GammaRed;
+    DWORD        bV4GammaGreen;
+    DWORD        bV4GammaBlue;
+} BITMAPV4HEADER, *PBITMAPV4HEADER, *LPBITMAPV4HEADER;
+
+typedef struct {
+    DWORD        bV5Size;
+    LONG         bV5Width;
+    LONG         bV5Height;
+    WORD         bV5Planes;
+    WORD         bV5BitCount;
+    DWORD        bV5Compression;
+    DWORD        bV5SizeImage;
+    LONG         bV5XPelsPerMeter;
+    LONG         bV5YPelsPerMeter;
+    DWORD        bV5ClrUsed;
+    DWORD        bV5ClrImportant;
+    DWORD        bV5RedMask;
+    DWORD        bV5GreenMask;
+    DWORD        bV5BlueMask;
+    DWORD        bV5AlphaMask;
+    DWORD        bV5CSType;
+    CIEXYZTRIPLE bV5Endpoints;
+    DWORD        bV5GammaRed;
+    DWORD        bV5GammaGreen;
+    DWORD        bV5GammaBlue;
+    DWORD        bV5Intent;
+    DWORD        bV5ProfileData;
+    DWORD        bV5ProfileSize;
+    DWORD        bV5Reserved;
+} BITMAPV5HEADER, *PBITMAPV5HEADER, *LPBITMAPV5HEADER;
+
+WIN32_IMPORT("SetDIBitsToDevice")
+int WINAPI SetDIBitsToDevice(
+    HDC hdc,
+    int xDest,
+    int yDest,
+    DWORD w,
+    DWORD h,
+    int xSrc,
+    int ySrc,
+    UINT uStartScan,
+    UINT cScanLines,
+    const VOID *lpvBits,
+    const BITMAPINFO *lpbmi,
+    UINT fuColorUse
+);
+
+WIN32_IMPORT("StretchDIBits")
+int WINAPI StretchDIBits(
+    HDC hdc,
+    int xDest,
+    int yDest,
+    int DestWidth,
+    int DestHeight,
+    int xSrc,
+    int ySrc,
+    int SrcWidth,
+    int SrcHeight,
+    const VOID *lpBits,
+    const BITMAPINFO *lpbmi,
+    UINT iUsage,
+    DWORD rop
+);
+
+WIN32_IMPORT("CreateDIBSection")
+HBITMAP WINAPI CreateDIBSection(
+    HDC hdc,
+    const BITMAPINFO *pbmi,
+    UINT usage,
+    VOID **ppvBits,
+    HANDLE hSection,
+    DWORD offset
+);
+
+WIN32_IMPORT("CreateDIBitmap")
+HBITMAP WINAPI CreateDIBitmap(
+    HDC hdc,
+    const BITMAPINFOHEADER *pbmih,
+    DWORD fdwInit,
+    const VOID *lpbInit,
+    const BITMAPINFO *lpbmi,
+    UINT fuUsage
+);
+
+WIN32_IMPORT("SetDIBits")
+int WINAPI SetDIBits(
+    HDC hdc,
+    HBITMAP hbm,
+    UINT start,
+    UINT cLines,
+    const VOID *lpBits,
+    const BITMAPINFO *lpbmi,
+    UINT ColorUse
+);
+
+WIN32_IMPORT("GetDIBits")
+int WINAPI GetDIBits(
+    HDC hdc,
+    HBITMAP hbm,
+    UINT start,
+    UINT cLines,
+    LPVOID lpBits,
+    LPBITMAPINFO lpbmi,
+    UINT usage
+);
+
+WIN32_IMPORT("DeleteFileA")
+BOOL WINAPI DeleteFileA(LPCSTR lpFileName);
+#ifndef DeleteFile
+#define DeleteFile DeleteFileA
 #endif
 
 #ifdef __cplusplus

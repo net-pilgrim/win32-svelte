@@ -80,6 +80,207 @@ export let systemClipboardOwner = 0;
 export let systemClipboardOpenHwnd = 0;
 export const systemClipboardViewers: ClipboardViewerEntry[] = [];
 
+function createSyntheticBmp(width: number, height: number, topDown = false): Uint8Array {
+  const absHeight = Math.abs(height);
+  const rowBytes = Math.floor(((width * 8 + 31) & ~31) / 8);
+  const imageSize = rowBytes * absHeight;
+  const numColors = 256;
+  const headerSize = 40;
+  const paletteSize = numColors * 4;
+  const bfOffBits = 14 + headerSize + paletteSize;
+  const fileSize = bfOffBits + imageSize;
+
+  const buf = new Uint8Array(fileSize);
+  const view = new DataView(buf.buffer);
+
+  // BITMAPFILEHEADER (14 bytes)
+  view.setUint16(0, 0x4D42, true); // 'BM'
+  view.setUint32(2, fileSize, true);
+  view.setUint16(6, 0, true);
+  view.setUint16(8, 0, true);
+  view.setUint32(10, bfOffBits, true);
+
+  // BITMAPINFOHEADER (40 bytes)
+  view.setUint32(14, headerSize, true);
+  view.setInt32(18, width, true);
+  view.setInt32(22, topDown ? -absHeight : absHeight, true);
+  view.setUint16(26, 1, true); // planes
+  view.setUint16(28, 8, true); // 8 bpp
+  view.setUint32(30, 0, true); // BI_RGB
+  view.setUint32(34, imageSize, true);
+  view.setInt32(38, 2835, true);
+  view.setInt32(42, 2835, true);
+  view.setUint32(46, numColors, true);
+  view.setUint32(50, numColors, true);
+
+  // Palette: 256 grayscale entries
+  let palOffset = 54;
+  for (let i = 0; i < 256; i++) {
+    buf[palOffset + 0] = i; // B
+    buf[palOffset + 1] = i; // G
+    buf[palOffset + 2] = i; // R
+    buf[palOffset + 3] = 0;
+    palOffset += 4;
+  }
+
+  // Pixels: test pattern (checker / gradient)
+  for (let y = 0; y < absHeight; y++) {
+    const rowOffset = bfOffBits + y * rowBytes;
+    for (let x = 0; x < width; x++) {
+      buf[rowOffset + x] = ((x ^ y) & 0x7f) + 64;
+    }
+  }
+
+  return buf;
+}
+
+interface ParsedDibInfo {
+  biSize: number;
+  width: number;
+  height: number;
+  isTopDown: boolean;
+  planes: number;
+  bitCount: number;
+  compression: number;
+  numColors: number;
+  palettePtr: number;
+  headerSize: number;
+}
+
+function parseDibInfo(view: DataView, pbmiPtr: number): ParsedDibInfo {
+  const biSize = view.getUint32(pbmiPtr + 0, true);
+  let width = 0;
+  let height = 0;
+  let planes = 1;
+  let bitCount = 0;
+  let compression = 0; // BI_RGB
+  let clrUsed = 0;
+  const headerSize = biSize;
+
+  if (biSize === 12) { // BITMAPCOREHEADER
+    width = view.getUint16(pbmiPtr + 4, true);
+    height = view.getUint16(pbmiPtr + 6, true);
+    planes = view.getUint16(pbmiPtr + 8, true);
+    bitCount = view.getUint16(pbmiPtr + 10, true);
+  } else { // BITMAPINFOHEADER (40), BITMAPV4HEADER (108), BITMAPV5HEADER (124)
+    width = view.getInt32(pbmiPtr + 4, true);
+    height = view.getInt32(pbmiPtr + 8, true);
+    planes = view.getUint16(pbmiPtr + 12, true);
+    bitCount = view.getUint16(pbmiPtr + 14, true);
+    compression = view.getUint32(pbmiPtr + 16, true);
+    clrUsed = view.getUint32(pbmiPtr + 32, true);
+  }
+
+  const isTopDown = height < 0;
+  const absHeight = Math.abs(height);
+
+  let numColors = clrUsed;
+  if (numColors === 0 && bitCount <= 8) {
+    numColors = 1 << bitCount;
+  }
+
+  const palettePtr = pbmiPtr + headerSize;
+  return {
+    biSize,
+    width,
+    height: absHeight,
+    isTopDown,
+    planes,
+    bitCount,
+    compression,
+    numColors,
+    palettePtr,
+    headerSize,
+  };
+}
+
+function renderDibToCanvas(
+  memBuffer: ArrayBuffer,
+  pbmiPtr: number,
+  pBitsPtr: number
+): HTMLCanvasElement | null {
+  const view = new DataView(memBuffer);
+  const info = parseDibInfo(view, pbmiPtr);
+  if (!info.width || !info.height) return null;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = info.width;
+  canvas.height = info.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const imgData = ctx.createImageData(info.width, info.height);
+  const dst = imgData.data;
+
+  const isCore = info.biSize === 12;
+  const paletteEntrySize = isCore ? 3 : 4;
+  const paletteU8 = new Uint8Array(memBuffer, info.palettePtr, info.numColors * paletteEntrySize);
+
+  const rowBytes = Math.floor(((info.width * info.bitCount + 31) & ~31) / 8);
+  const srcU8 = new Uint8Array(memBuffer);
+
+  for (let row = 0; row < info.height; row++) {
+    const srcRow = info.isTopDown ? row : (info.height - 1 - row);
+    const srcRowOffset = pBitsPtr + srcRow * rowBytes;
+    const dstRowOffset = row * (info.width * 4);
+
+    if (info.bitCount === 1) {
+      for (let x = 0; x < info.width; x++) {
+        const byteVal = srcU8[srcRowOffset + (x >> 3)];
+        const bit = (byteVal >> (7 - (x & 7))) & 1;
+        const palIdx = bit * paletteEntrySize;
+        const dstIdx = dstRowOffset + x * 4;
+        dst[dstIdx + 0] = paletteU8[palIdx + 2];
+        dst[dstIdx + 1] = paletteU8[palIdx + 1];
+        dst[dstIdx + 2] = paletteU8[palIdx + 0];
+        dst[dstIdx + 3] = 255;
+      }
+    } else if (info.bitCount === 4) {
+      for (let x = 0; x < info.width; x++) {
+        const byteVal = srcU8[srcRowOffset + (x >> 1)];
+        const nibble = (x & 1) === 0 ? (byteVal >> 4) : (byteVal & 0x0f);
+        const palIdx = nibble * paletteEntrySize;
+        const dstIdx = dstRowOffset + x * 4;
+        dst[dstIdx + 0] = paletteU8[palIdx + 2];
+        dst[dstIdx + 1] = paletteU8[palIdx + 1];
+        dst[dstIdx + 2] = paletteU8[palIdx + 0];
+        dst[dstIdx + 3] = 255;
+      }
+    } else if (info.bitCount === 8) {
+      for (let x = 0; x < info.width; x++) {
+        const palEntry = srcU8[srcRowOffset + x];
+        const palIdx = palEntry * paletteEntrySize;
+        const dstIdx = dstRowOffset + x * 4;
+        dst[dstIdx + 0] = paletteU8[palIdx + 2];
+        dst[dstIdx + 1] = paletteU8[palIdx + 1];
+        dst[dstIdx + 2] = paletteU8[palIdx + 0];
+        dst[dstIdx + 3] = 255;
+      }
+    } else if (info.bitCount === 24) {
+      for (let x = 0; x < info.width; x++) {
+        const srcIdx = srcRowOffset + x * 3;
+        const dstIdx = dstRowOffset + x * 4;
+        dst[dstIdx + 0] = srcU8[srcIdx + 2];
+        dst[dstIdx + 1] = srcU8[srcIdx + 1];
+        dst[dstIdx + 2] = srcU8[srcIdx + 0];
+        dst[dstIdx + 3] = 255;
+      }
+    } else if (info.bitCount === 32) {
+      for (let x = 0; x < info.width; x++) {
+        const srcIdx = srcRowOffset + x * 4;
+        const dstIdx = dstRowOffset + x * 4;
+        dst[dstIdx + 0] = srcU8[srcIdx + 2];
+        dst[dstIdx + 1] = srcU8[srcIdx + 1];
+        dst[dstIdx + 2] = srcU8[srcIdx + 0];
+        dst[dstIdx + 3] = 255;
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
 export class Win32WasmRuntime {
   private instance: WebAssembly.Instance | null = null;
   private memory: WebAssembly.Memory | null = null;
@@ -104,6 +305,7 @@ export class Win32WasmRuntime {
   private hdcRop2 = new Map<number, number>();
   private poePoemPtr = 0;
   private globalAllocMap = new Map<number, { size: number; flags: number; locked: number }>();
+  private openFileMap = new Map<number, { fileName: string; data: Uint8Array; position: number }>();
 
   constructor(private options: WasmBridgeOptions = {}) {}
 
@@ -1137,7 +1339,13 @@ export class Win32WasmRuntime {
           const hdc = this.hdcMap.get(hdcHandle);
           const obj = this.gdiMap.get(hObj);
           if (!hdc || !obj) return 0;
-          if (obj.type === "bitmap" && obj.canvas) {
+          if ((obj.type === "bitmap" || obj.type === "DIBSECTION") && obj.canvas) {
+            if (obj.type === "DIBSECTION" && this.memory && obj.ctx) {
+              const canvas = renderDibToCanvas(this.memory.buffer, obj.pbmiPtr, obj.pBits);
+              if (canvas) {
+                obj.ctx.drawImage(canvas, 0, 0);
+              }
+            }
             hdc.canvas = obj.canvas;
             hdc.ctx = obj.ctx;
           }
@@ -1784,27 +1992,49 @@ export class Win32WasmRuntime {
           if (fileName.includes("nonexistent") || fileName.includes("fail")) {
             return -1; // INVALID_HANDLE_VALUE
           }
-          return ++this.nextGdiHandle;
+          const handle = ++this.nextGdiHandle;
+          let data: Uint8Array;
+          if (fileName.toLowerCase().endsWith(".bmp")) {
+            const isTopDown = fileName.toLowerCase().includes("td");
+            data = createSyntheticBmp(220, 240, isTopDown);
+          } else {
+            const mockContent = "Programming Windows by Charles Petzold (5th Edition)\nSample File Output\n";
+            data = new TextEncoder().encode(mockContent);
+          }
+          this.openFileMap.set(handle, { fileName, data, position: 0 });
+          return handle;
         },
         CreateFile: (...args: any[]) => (win32Imports as any).CreateFileA(...args),
 
         ReadFile: (
-          _hFile: number,
+          hFile: number,
           lpBuffer: number,
           nNumberOfBytesToRead: number,
           lpNumberOfBytesRead: number,
           _lpOverlapped: number
         ) => {
-          const mockContent = "Programming Windows by Charles Petzold (5th Edition)\nSample File Output\n";
-          const written = this.writeCString(lpBuffer, mockContent, nNumberOfBytesToRead);
+          const file = this.openFileMap.get(hFile);
+          let toRead = 0;
+          if (file && this.memory) {
+            toRead = Math.min(nNumberOfBytesToRead, Math.max(0, file.data.byteLength - file.position));
+            const dst = new Uint8Array(this.memory.buffer, lpBuffer, toRead);
+            dst.set(file.data.subarray(file.position, file.position + toRead));
+            file.position += toRead;
+          } else if (this.memory) {
+            const mockContent = "Programming Windows by Charles Petzold (5th Edition)\nSample File Output\n";
+            toRead = this.writeCString(lpBuffer, mockContent, nNumberOfBytesToRead);
+          }
           if (this.memory && lpNumberOfBytesRead) {
             const view = new DataView(this.memory.buffer);
-            view.setUint32(lpNumberOfBytesRead, written, true);
+            view.setUint32(lpNumberOfBytesRead, toRead, true);
           }
           return 1;
         },
 
-        CloseHandle: (_hObject: number) => 1,
+        CloseHandle: (hObject: number) => {
+          this.openFileMap.delete(hObject);
+          return 1;
+        },
 
         // --- Chapter 10: Menus, Accelerators & Resources ---
         DestroyWindow: (hWnd: number) => (DestroyWindow(hWnd) ? 1 : 0),
@@ -2007,19 +2237,19 @@ export class Win32WasmRuntime {
         GetObjectA: (hgdiobj: number, cbBuffer: number, lpvObject: number) => {
           if (!this.memory || !lpvObject) return 0;
           const obj = this.gdiMap.get(hgdiobj);
-          if (obj && (obj.type === "bitmap" || obj.width !== undefined)) {
+          if (obj && (obj.type === "bitmap" || obj.type === "DIBSECTION" || obj.width !== undefined)) {
             const width = obj.width || 64;
             const height = obj.height || 64;
-            const widthBytes = Math.ceil(width / 8);
+            const widthBytes = obj.rowBytes || Math.ceil(width / 8);
             const view = new DataView(this.memory.buffer);
             if (cbBuffer >= 24) {
               view.setInt32(lpvObject + 0, 0, true);          // bmType
               view.setInt32(lpvObject + 4, width, true);      // bmWidth
               view.setInt32(lpvObject + 8, height, true);     // bmHeight
               view.setInt32(lpvObject + 12, widthBytes, true);// bmWidthBytes
-              view.setUint16(lpvObject + 16, 1, true);        // bmPlanes
-              view.setUint16(lpvObject + 18, 1, true);        // bmBitsPixel
-              view.setUint32(lpvObject + 20, 0, true);        // bmBits
+              view.setUint16(lpvObject + 16, obj.planes || 1, true);        // bmPlanes
+              view.setUint16(lpvObject + 18, obj.bitsPixel || obj.bitCount || 1, true); // bmBitsPixel
+              view.setUint32(lpvObject + 20, obj.pBits || 0, true);        // bmBits
               return 24;
             }
           }
@@ -2028,12 +2258,24 @@ export class Win32WasmRuntime {
         GetObject: (...args: any[]) => (win32Imports as any).GetObjectA(...args),
 
         WriteFile: (
-          _hFile: number,
-          _lpBuffer: number,
+          hFile: number,
+          lpBuffer: number,
           nNumberOfBytesToWrite: number,
           lpNumberOfBytesWritten: number,
           _lpOverlapped: number
         ) => {
+          const file = this.openFileMap.get(hFile);
+          if (file && this.memory) {
+            const src = new Uint8Array(this.memory.buffer, lpBuffer, nNumberOfBytesToWrite);
+            const neededLen = file.position + nNumberOfBytesToWrite;
+            if (neededLen > file.data.byteLength) {
+              const newBuf = new Uint8Array(neededLen);
+              newBuf.set(file.data);
+              file.data = newBuf;
+            }
+            file.data.set(src, file.position);
+            file.position += nNumberOfBytesToWrite;
+          }
           if (this.memory && lpNumberOfBytesWritten) {
             const view = new DataView(this.memory.buffer);
             view.setUint32(lpNumberOfBytesWritten, nNumberOfBytesToWrite, true);
@@ -2050,7 +2292,14 @@ export class Win32WasmRuntime {
 
         Sleep: (_dwMilliseconds: number) => {},
 
-        GetFileSize: (_hFile: number, _lpFileSizeHigh: number) => 1024,
+        GetFileSize: (hFile: number, lpFileSizeHigh: number) => {
+          const file = this.openFileMap.get(hFile);
+          const size = file ? file.data.byteLength : 1024;
+          if (lpFileSizeHigh && this.memory) {
+            new DataView(this.memory.buffer).setUint32(lpFileSizeHigh, 0, true);
+          }
+          return size;
+        },
         IsTextUnicode: (_lpv: number, _iSize: number, _lpiResult: number) => 0,
 
         WideCharToMultiByte: (
@@ -2079,10 +2328,40 @@ export class Win32WasmRuntime {
         ChooseFontA: (_lpcf: number) => 1,
         ChooseFont: (...args: any[]) => (win32Imports as any).ChooseFontA(...args),
 
-        GetOpenFileNameA: (_lpofn: number) => 1,
+        GetOpenFileNameA: (lpofn: number) => {
+          if (this.memory && lpofn) {
+            const view = new DataView(this.memory.buffer);
+            const lpstrFile = view.getUint32(lpofn + 28, true);
+            const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
+            if (lpstrFile) {
+              this.writeCString(lpstrFile, "Apollo11.bmp", nMaxFile);
+            }
+            const lpstrFileTitle = view.getUint32(lpofn + 36, true);
+            const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            if (lpstrFileTitle) {
+              this.writeCString(lpstrFileTitle, "Apollo11.bmp", nMaxFileTitle);
+            }
+          }
+          return 1;
+        },
         GetOpenFileName: (...args: any[]) => (win32Imports as any).GetOpenFileNameA(...args),
 
-        GetSaveFileNameA: (_lpofn: number) => 1,
+        GetSaveFileNameA: (lpofn: number) => {
+          if (this.memory && lpofn) {
+            const view = new DataView(this.memory.buffer);
+            const lpstrFile = view.getUint32(lpofn + 28, true);
+            const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
+            if (lpstrFile) {
+              this.writeCString(lpstrFile, "Apollo11.bmp", nMaxFile);
+            }
+            const lpstrFileTitle = view.getUint32(lpofn + 36, true);
+            const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            if (lpstrFileTitle) {
+              this.writeCString(lpstrFileTitle, "Apollo11.bmp", nMaxFileTitle);
+            }
+          }
+          return 1;
+        },
         GetSaveFileName: (...args: any[]) => (win32Imports as any).GetSaveFileNameA(...args),
 
         FindTextA: (_lpfr: number) => ++this.nextGdiHandle,
@@ -2547,6 +2826,230 @@ export class Win32WasmRuntime {
           return 1;
         },
         GetMenuItemInfo: (...args: any[]) => (win32Imports as any).GetMenuItemInfoA(...args),
+
+        // --- Chapter 15: Device-Independent Bitmaps (DIBs) ---
+        SetDIBitsToDevice: (
+          hdcHandle: number,
+          xDest: number,
+          yDest: number,
+          w: number,
+          h: number,
+          xSrc: number,
+          ySrc: number,
+          uStartScan: number,
+          cScanLines: number,
+          lpvBits: number,
+          lpbmi: number,
+          _fuColorUse: number
+        ) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc || !hdc.ctx || !this.memory) return 0;
+          const view = new DataView(this.memory.buffer);
+          const info = parseDibInfo(view, lpbmi);
+
+          if (cScanLines >= info.height && uStartScan === 0) {
+            const canvas = renderDibToCanvas(this.memory.buffer, lpbmi, lpvBits);
+            if (canvas) {
+              hdc.ctx.drawImage(canvas, xSrc, ySrc, w, h, xDest, yDest, w, h);
+            }
+          } else {
+            // Partial scan lines (e.g. SeqDisp line-by-line)
+            const rowBytes = Math.floor(((info.width * info.bitCount + 31) & ~31) / 8);
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, info.width);
+            canvas.height = Math.max(1, cScanLines);
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              const imgData = ctx.createImageData(info.width, cScanLines);
+              const dst = imgData.data;
+              const isCore = info.biSize === 12;
+              const paletteEntrySize = isCore ? 3 : 4;
+              const paletteU8 = new Uint8Array(this.memory.buffer, info.palettePtr, info.numColors * paletteEntrySize);
+              const srcU8 = new Uint8Array(this.memory.buffer);
+
+              for (let line = 0; line < cScanLines; line++) {
+                const srcRowOffset = lpvBits + line * rowBytes;
+                const dstRowOffset = line * (info.width * 4);
+                if (info.bitCount === 8) {
+                  for (let x = 0; x < info.width; x++) {
+                    const palEntry = srcU8[srcRowOffset + x];
+                    const palIdx = palEntry * paletteEntrySize;
+                    const dstIdx = dstRowOffset + x * 4;
+                    dst[dstIdx + 0] = paletteU8[palIdx + 2];
+                    dst[dstIdx + 1] = paletteU8[palIdx + 1];
+                    dst[dstIdx + 2] = paletteU8[palIdx + 0];
+                    dst[dstIdx + 3] = 255;
+                  }
+                } else if (info.bitCount === 24) {
+                  for (let x = 0; x < info.width; x++) {
+                    const sIdx = srcRowOffset + x * 3;
+                    const dIdx = dstRowOffset + x * 4;
+                    dst[dIdx + 0] = srcU8[sIdx + 2];
+                    dst[dIdx + 1] = srcU8[sIdx + 1];
+                    dst[dIdx + 2] = srcU8[sIdx + 0];
+                    dst[dIdx + 3] = 255;
+                  }
+                }
+              }
+              ctx.putImageData(imgData, 0, 0);
+              const targetY = yDest + (info.isTopDown ? uStartScan : (info.height - 1 - uStartScan)) - ySrc;
+              hdc.ctx.drawImage(canvas, xDest, targetY);
+            }
+          }
+          return cScanLines;
+        },
+
+        StretchDIBits: (
+          hdcHandle: number,
+          xDest: number,
+          yDest: number,
+          DestWidth: number,
+          DestHeight: number,
+          xSrc: number,
+          ySrc: number,
+          SrcWidth: number,
+          SrcHeight: number,
+          lpBits: number,
+          lpbmi: number,
+          _iUsage: number,
+          _rop: number
+        ) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc || !hdc.ctx || !this.memory) return 0;
+          const canvas = renderDibToCanvas(this.memory.buffer, lpbmi, lpBits);
+          if (canvas) {
+            hdc.ctx.drawImage(
+              canvas,
+              xSrc,
+              ySrc,
+              SrcWidth,
+              SrcHeight,
+              xDest,
+              yDest,
+              DestWidth,
+              DestHeight
+            );
+          }
+          return DestHeight;
+        },
+
+        CreateDIBSection: (
+          _hdcHandle: number,
+          pbmiPtr: number,
+          _usage: number,
+          ppvBitsPtr: number,
+          _hSection: number,
+          _offset: number
+        ) => {
+          if (!this.memory) return 0;
+          const view = new DataView(this.memory.buffer);
+          const info = parseDibInfo(view, pbmiPtr);
+          const rowBytes = Math.floor(((info.width * info.bitCount + 31) & ~31) / 8);
+          const totalBytes = rowBytes * info.height;
+
+          const pBits = this.allocateMemory(totalBytes);
+          if (ppvBitsPtr) {
+            view.setUint32(ppvBitsPtr, pBits, true);
+          }
+
+          const hBitmap = ++this.nextGdiHandle;
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, info.width);
+          canvas.height = Math.max(1, info.height);
+          this.gdiMap.set(hBitmap, {
+            type: "DIBSECTION",
+            width: info.width,
+            height: info.height,
+            bitCount: info.bitCount,
+            rowBytes,
+            pBits,
+            pbmiPtr,
+            canvas,
+            ctx: canvas.getContext("2d"),
+          });
+          return hBitmap;
+        },
+
+        CreateDIBitmap: (
+          _hdcHandle: number,
+          pbmihPtr: number,
+          fdwInit: number,
+          lpbInit: number,
+          lpbmi: number,
+          _fuUsage: number
+        ) => {
+          if (!this.memory) return 0;
+          const view = new DataView(this.memory.buffer);
+          const info = parseDibInfo(view, lpbmi || pbmihPtr);
+          let canvas: HTMLCanvasElement | null = null;
+          if ((fdwInit & 4) && lpbInit) {
+            canvas = renderDibToCanvas(this.memory.buffer, lpbmi || pbmihPtr, lpbInit);
+          }
+          if (!canvas) {
+            canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, info.width || 100);
+            canvas.height = Math.max(1, info.height || 100);
+          }
+          const hBitmap = ++this.nextGdiHandle;
+          this.gdiMap.set(hBitmap, {
+            type: "bitmap",
+            width: canvas.width,
+            height: canvas.height,
+            canvas,
+            ctx: canvas.getContext("2d"),
+          });
+          return hBitmap;
+        },
+
+        SetDIBits: (
+          _hdc: number,
+          hbm: number,
+          _start: number,
+          cLines: number,
+          lpBits: number,
+          lpbmi: number,
+          _ColorUse: number
+        ) => {
+          const obj = this.gdiMap.get(hbm);
+          if (obj && obj.ctx && this.memory) {
+            const canvas = renderDibToCanvas(this.memory.buffer, lpbmi, lpBits);
+            if (canvas) {
+              obj.ctx.drawImage(canvas, 0, 0);
+            }
+          }
+          return cLines;
+        },
+
+        GetDIBits: (
+          _hdc: number,
+          _hbm: number,
+          _start: number,
+          cLines: number,
+          _lpBits: number,
+          _lpbmi: number,
+          _usage: number
+        ) => cLines,
+
+        SetFilePointer: (
+          hFile: number,
+          lDistanceToMove: number,
+          _lpDistanceToMoveHigh: number,
+          dwMoveMethod: number
+        ) => {
+          const file = this.openFileMap.get(hFile);
+          if (!file) return -1;
+          if (dwMoveMethod === 0) { // FILE_BEGIN
+            file.position = lDistanceToMove;
+          } else if (dwMoveMethod === 1) { // FILE_CURRENT
+            file.position += lDistanceToMove;
+          } else if (dwMoveMethod === 2) { // FILE_END
+            file.position = file.data.byteLength + lDistanceToMove;
+          }
+          return file.position;
+        },
+
+        DeleteFileA: (_lpFileName: number) => 1,
+        DeleteFile: (...args: any[]) => (win32Imports as any).DeleteFileA(...args),
       };
 
     return {
@@ -2589,6 +3092,7 @@ export class Win32WasmRuntime {
     this.comObjectMap.clear();
     this.registeredClasses.clear();
     this.globalAllocMap.clear();
+    this.openFileMap.clear();
     this.poePoemPtr = 0;
   }
 
