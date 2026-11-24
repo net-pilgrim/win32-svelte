@@ -216,6 +216,9 @@ export interface WindowRecord {
     progressPos?: number;
     rangeMin?: number;
     rangeMax?: number;
+    scrollPos?: number;
+    scrollMin?: number;
+    scrollMax?: number;
     // Common Controls (comctl32)
     statusParts?: Array<{ text: string; width?: number }>;
     tabs?: Array<{ text: string; id?: string | number }>;

@@ -315,6 +315,7 @@ export class Win32WasmRuntime {
   private openFileMap = new Map<number, { fileName: string; data: Uint8Array; position: number }>();
   private metafileMap = new Map<number, any>();
   private static sharedEmfFiles = new Map<string, any>();
+  private peekMessageCount = 0;
 
   private normalizeMetafileName(name: string): string {
     return name.toLowerCase().replace(/\\/g, "/").split("/").pop() || name.toLowerCase();
@@ -623,6 +624,10 @@ export class Win32WasmRuntime {
   }
 
   public getImportObject(): WebAssembly.Imports {
+    const logWasmStub = (api: string, ...args: any[]) => {
+      console.warn(`[WASM STUB] ${api}(${args.join(", ")})`);
+    };
+
     const win32Imports = {
       RegisterClassA: (ptr: number) => {
           if (!this.memory || !this.table) return 0;
@@ -831,21 +836,36 @@ export class Win32WasmRuntime {
         },
 
         PeekMessageA: (
-          _lpMsg: number,
+          lpMsg: number,
           _hWnd: number,
           _wMsgFilterMin: number,
           _wMsgFilterMax: number,
           _wRemoveMsg: number
         ) => {
+          this.peekMessageCount = (this.peekMessageCount || 0) + 1;
+          if (this.peekMessageCount > 25) {
+            this.peekMessageCount = 0;
+            if (this.memory && lpMsg) {
+              const dv = new DataView(this.memory.buffer);
+              dv.setUint32(lpMsg + 4, 0x0012 /* WM_QUIT */, true);
+              return 1;
+            }
+          }
           return 0;
         },
 
         SetCursor: (_hCursor: number) => 1,
         ShowCursor: (_bShow: number) => 1,
 
-        TranslateMessage: (_lpMsg: number) => 0,
+        TranslateMessage: (_lpMsg: number) => {
+          logWasmStub("TranslateMessage", _lpMsg);
+          return 0;
+        },
 
-        DispatchMessageA: (_lpMsg: number) => 0,
+        DispatchMessageA: (_lpMsg: number) => {
+          logWasmStub("DispatchMessageA", _lpMsg);
+          return 0;
+        },
 
         PlaySoundA: (
           _pszSound: number,
@@ -1097,10 +1117,10 @@ export class Win32WasmRuntime {
 
         GetClientRect: (hwnd: number, lpRect: number) => {
           if (!this.memory || !lpRect) return 0;
-          const canvas = GetWindowCanvas(hwnd);
           const win = kernel.getWindow(hwnd);
-          const w = canvas ? canvas.width : (win?.width ?? 0);
-          const h = canvas ? canvas.height : (win?.height ?? 0);
+          const canvas = GetWindowCanvas(hwnd);
+          const w = win?.width ?? (canvas ? canvas.width : 0);
+          const h = win?.height ?? (canvas ? canvas.height : 0);
           const view = new DataView(this.memory.buffer);
           view.setInt32(lpRect, 0, true);
           view.setInt32(lpRect + 4, 0, true);
@@ -1189,6 +1209,7 @@ export class Win32WasmRuntime {
             case 81: // SM_SAMEDISPLAYFORMAT
               return 1;
             default:
+              logWasmStub("GetSystemMetrics:unknown_index", nIndex);
               return 0; // Standard stub fallback
           }
         },
@@ -1440,6 +1461,7 @@ export class Win32WasmRuntime {
             case 113: // PHYSICALOFFSETY
               return 75;
             default:
+              logWasmStub("GetDeviceCaps:unknown_index", nIndex);
               return 1;
           }
         },
@@ -1726,11 +1748,26 @@ export class Win32WasmRuntime {
           return Ellipse(this.hdcMap.get(hdcHandle)!, x1, y1, x2, y2) ? 1 : 0;
         },
 
-        SetPolyFillMode: (_hdcHandle: number, _mode: number) => 1,
-        CreateRectRgn: (_x1: number, _y1: number, _x2: number, _y2: number) => ++this.nextGdiHandle,
-        CreateEllipticRgn: (_x1: number, _y1: number, _x2: number, _y2: number) => ++this.nextGdiHandle,
-        CombineRgn: (_hrgnDest: number, _hrgnSrc1: number, _hrgnSrc2: number, _fnCombineMode: number) => 1,
-        SelectClipRgn: (_hdcHandle: number, _hrgn: number) => 1,
+        SetPolyFillMode: (_hdcHandle: number, _mode: number) => {
+          logWasmStub("SetPolyFillMode", _hdcHandle, _mode);
+          return 1;
+        },
+        CreateRectRgn: (_x1: number, _y1: number, _x2: number, _y2: number) => {
+          logWasmStub("CreateRectRgn", _x1, _y1, _x2, _y2);
+          return ++this.nextGdiHandle;
+        },
+        CreateEllipticRgn: (_x1: number, _y1: number, _x2: number, _y2: number) => {
+          logWasmStub("CreateEllipticRgn", _x1, _y1, _x2, _y2);
+          return ++this.nextGdiHandle;
+        },
+        CombineRgn: (_hrgnDest: number, _hrgnSrc1: number, _hrgnSrc2: number, _fnCombineMode: number) => {
+          logWasmStub("CombineRgn", _hrgnDest, _hrgnSrc1, _hrgnSrc2, _fnCombineMode);
+          return 1;
+        },
+        SelectClipRgn: (_hdcHandle: number, _hrgn: number) => {
+          logWasmStub("SelectClipRgn", _hdcHandle, _hrgn);
+          return 1;
+        },
 
         SaveDC: (hdcHandle: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
@@ -1776,11 +1813,26 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        CreateCaret: (_hWnd: number, _hBitmap: number, _nWidth: number, _nHeight: number) => 1,
-        SetCaretPos: (_x: number, _y: number) => 1,
-        ShowCaret: (_hWnd: number) => 1,
-        HideCaret: (_hWnd: number) => 1,
-        DestroyCaret: () => 1,
+        CreateCaret: (_hWnd: number, _hBitmap: number, _nWidth: number, _nHeight: number) => {
+          logWasmStub("CreateCaret", _hWnd, _hBitmap, _nWidth, _nHeight);
+          return 1;
+        },
+        SetCaretPos: (_x: number, _y: number) => {
+          logWasmStub("SetCaretPos", _x, _y);
+          return 1;
+        },
+        ShowCaret: (_hWnd: number) => {
+          logWasmStub("ShowCaret", _hWnd);
+          return 1;
+        },
+        HideCaret: (_hWnd: number) => {
+          logWasmStub("HideCaret", _hWnd);
+          return 1;
+        },
+        DestroyCaret: () => {
+          logWasmStub("DestroyCaret");
+          return 1;
+        },
 
         SetBkMode: (hdcHandle: number, mode: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
@@ -3404,14 +3456,26 @@ export class Win32WasmRuntime {
           y: number,
           w: number,
           h: number,
-          _rop: number
+          rop: number
         ) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (hdc?.ctx) {
             hdc.ctx.save();
-            hdc.ctx.fillStyle = "#ffffff";
+            let fillStyle = hdc.currentBrush?.color || "#000000";
+            if (rop === 0x00000042 /* WHITENESS */) {
+              fillStyle = "#ffffff";
+            } else if (rop === 0x00000062 /* BLACKNESS */) {
+              fillStyle = "#000000";
+            } else if (rop === 0x00550009 /* DSTINVERT */) {
+              hdc.ctx.globalCompositeOperation = "difference";
+              fillStyle = "#ffffff";
+            }
+            hdc.ctx.fillStyle = fillStyle;
             hdc.ctx.fillRect(x, y, w, h);
             hdc.ctx.restore();
+          }
+          if ((hdc as any)?.svgRecorder) {
+            (hdc as any).svgRecorder.recordRectangle(x, y, x + w, y + h);
           }
           return 1;
         },

@@ -295,6 +295,77 @@ class Win32Kernel {
     };
     this.RegisterClassEx({ className: "COMBOBOX", lpfnWndProc: comboboxProc });
 
+    // LISTBOX window class
+    const listboxProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      if (!win.controlState) {
+        win.controlState = { items: [], selectedIndex: 0 };
+      }
+      if (!win.controlState.items) {
+        win.controlState.items = [];
+      }
+      switch (msg) {
+        case 0x0180: /* LB_ADDSTRING */ {
+          const str = String(lParam);
+          win.controlState.items.push(str);
+          return win.controlState.items.length - 1;
+        }
+        case 0x0182: /* LB_INSERTSTRING */ {
+          const idx = wParam;
+          const str = String(lParam);
+          win.controlState.items.splice(idx, 0, str);
+          return idx;
+        }
+        case 0x0186: /* LB_SETCURSEL */ {
+          win.controlState.selectedIndex = wParam;
+          return wParam;
+        }
+        case 0x0188: /* LB_GETCURSEL */ {
+          return win.controlState.selectedIndex ?? 0;
+        }
+        case 0x0189: /* LB_GETTEXT */ {
+          return (win.controlState.items[wParam] ?? "") as any;
+        }
+        case 0x018b: /* LB_GETCOUNT */ {
+          return win.controlState.items.length;
+        }
+        case 0x0184: /* LB_RESETCONTENT */ {
+          win.controlState.items = [];
+          win.controlState.selectedIndex = -1;
+          return 0;
+        }
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: "LISTBOX", lpfnWndProc: listboxProc });
+
+    // SCROLLBAR window class
+    const scrollbarProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      if (!win.controlState) {
+        win.controlState = { scrollPos: 0, scrollMin: 0, scrollMax: 100 };
+      }
+      const cs = win.controlState;
+      switch (msg) {
+        case 0x00e0: /* SBM_SETPOS */ {
+          cs.scrollPos = wParam;
+          return wParam;
+        }
+        case 0x00e1: /* SBM_GETPOS */ {
+          return cs.scrollPos ?? 0;
+        }
+        case 0x00e2: /* SBM_SETRANGE */ {
+          cs.scrollMin = wParam;
+          cs.scrollMax = lParam;
+          return 0;
+        }
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: "SCROLLBAR", lpfnWndProc: scrollbarProc });
+
     // PROGRESS window class (msctls_progress32)
     const progressProc: WndProc = (hwnd, msg, wParam, lParam) => {
       const win = this.getWindow(hwnd);
