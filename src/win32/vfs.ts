@@ -423,11 +423,29 @@ export class Win32VFS {
         "• Weapons: 1 - 7\r\n" +
         "• Automap: Tab\r\n\r\n" +
         "id Software (C) 1993\r\n",
+      "wasm-files/README.txt":
+        "WebAssembly Win32 Applications (wasm-files)\r\n" +
+        "===========================================\r\n\r\n" +
+        "This directory contains native Win32 C applications compiled to WebAssembly (wasm32-freestanding).\r\n" +
+        "You can launch any .wasm application by double-clicking it in Windows Explorer,\r\n" +
+        "by selecting it from the Start Menu -> Programs -> WASM Files,\r\n" +
+        "or by dragging and dropping .wasm files directly onto the Desktop.\r\n\r\n" +
+        "Available applications include:\r\n" +
+        "• MDIDemo.wasm - Multiple Document Interface Demonstration\r\n" +
+        "• EndJoin.wasm - GDI Geometric Pens & Joins Demo\r\n" +
+        "• EZTest.wasm - TrueType Font Outlines & Layout\r\n" +
+        "• Emf1.wasm / Metafile.wasm - Enhanced & Standard GDI Metafiles\r\n" +
+        "• SineWave.wasm - Real-Time Polyline Curve\r\n" +
+        "• BitBlt.wasm / Bounce.wasm - GDI Raster Operations & Animation\r\n" +
+        "• MenuDemo.wasm - Dynamic Menus & Accelerators\r\n" +
+        "• Clock.wasm / DigClock.wasm - GDI Timers & Clocks\r\n" +
+        "• HelloWin.wasm - Classic Programming Windows 98 Window\r\n",
     };
 
     const defaultDirs = [
       "My Documents",
       "wasm_application",
+      "wasm-files",
       "INCLUDE",
       "lua",
       "GAMES",

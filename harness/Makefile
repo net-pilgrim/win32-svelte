@@ -225,7 +225,7 @@ CHAP18_BINS = \
 CHAP19_BINS = \
 	$(BUILD_DIR)/Chap19/MDIDemo/MDIDemo.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19
+.PHONY: all clean help scan copy-wasm-files chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19
 
 all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19
 
@@ -432,6 +432,11 @@ chap16: $(CHAP16_BINS)
 chap17: $(CHAP17_BINS)
 chap18: $(CHAP18_BINS)
 chap19: $(CHAP19_BINS)
+
+copy-wasm-files:
+	@mkdir -p $(ROOT_DIR)/public/wasm-files
+	@find $(BUILD_DIR) -name "*.wasm" -exec cp {} $(ROOT_DIR)/public/wasm-files/ \;
+	@echo "✓ Copied WASM binaries to public/wasm-files"
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -8,30 +8,67 @@ let wasmInstanceCount = 0;
 export async function StartWasmApp(
   x?: number,
   y?: number,
-  vfsPath?: string,
+  pathOrVfsPath?: string,
   rawBytes?: Uint8Array
 ): Promise<void> {
   const runtime = new Win32WasmRuntime();
-  let wasmBytes: Uint8Array;
+  let wasmBytes: Uint8Array | null = null;
 
   if (rawBytes) {
     wasmBytes = rawBytes;
-  } else if (vfsPath) {
-    try {
-      wasmBytes = await vfs.readBinaryFile(vfsPath);
-    } catch (err: any) {
-      console.error(`Failed to read WASM file at "${vfsPath}":`, err);
-      MessageBox(
-        null,
-        `Cannot open WebAssembly file:\n${vfsPath}\n\n${err?.message || err}`,
-        "Error Opening WASM File",
-        MB_ICONERROR
-      );
-      return;
+  } else if (pathOrVfsPath) {
+    if (pathOrVfsPath.startsWith("/") || pathOrVfsPath.startsWith("http")) {
+      try {
+        const resp = await fetch(pathOrVfsPath);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+        const buf = await resp.arrayBuffer();
+        wasmBytes = new Uint8Array(buf);
+      } catch (err: any) {
+        console.error(`Failed to fetch WASM file at "${pathOrVfsPath}":`, err);
+        MessageBox(
+          null,
+          `Cannot load WebAssembly file:\n${pathOrVfsPath}\n\nTo test locally, run:\nnpm run sync:wasm\n(or 'make -C harness copy-wasm-files')`,
+          "WASM File Not Found",
+          MB_ICONERROR
+        );
+        return;
+      }
+    } else {
+      try {
+        wasmBytes = await vfs.readBinaryFile(pathOrVfsPath);
+      } catch (err: any) {
+        // Fallback: check if the file exists in /wasm-files/<basename>
+        const fileName = pathOrVfsPath.split(/[\\/]/).pop();
+        let fetched = false;
+        if (fileName && typeof fetch !== "undefined") {
+          try {
+            const resp = await fetch(`/wasm-files/${fileName}`);
+            if (resp.ok) {
+              const buf = await resp.arrayBuffer();
+              wasmBytes = new Uint8Array(buf);
+              fetched = true;
+            }
+          } catch {
+            // ignore fetch error and report original error
+          }
+        }
+        if (!fetched) {
+          console.error(`Failed to read WASM file at "${pathOrVfsPath}":`, err);
+          MessageBox(
+            null,
+            `Cannot open WebAssembly file:\n${pathOrVfsPath}\n\nTo test locally, run:\nnpm run sync:wasm\n(or 'make -C harness copy-wasm-files')`,
+            "Error Opening WASM File",
+            MB_ICONERROR
+          );
+          return;
+        }
+      }
     }
   } else {
     wasmBytes = getSampleAppWasmBytes();
   }
+
+  if (!wasmBytes) return;
 
   const prevWindows = new Set(kernel.windows.map((w) => w.hwnd));
 
