@@ -467,6 +467,89 @@ typedef LPTEXTMETRICA LPTEXTMETRIC;
 #define COLORRES            108
 #endif
 
+#ifndef PHYSICALWIDTH
+#define PHYSICALWIDTH       110
+#define PHYSICALHEIGHT      111
+#define PHYSICALOFFSETX     112
+#define PHYSICALOFFSETY     113
+#define SCALINGFACTORX      114
+#define SCALINGFACTORY      115
+#endif
+
+#ifndef CP_RECTANGLE
+#define CP_NONE             0
+#define CP_RECTANGLE        1
+#define CP_REGION           2
+
+#define RC_BITBLT           1
+#define RC_BANDING          2
+#define RC_SCALING          4
+#define RC_BITMAP64         8
+#define RC_GDI20_OUTPUT     0x0010
+#define RC_GDI20_STATE      0x0020
+#define RC_SAVEBITMAP       0x0040
+#define RC_DI_BITMAP        0x0080
+#define RC_PALETTE          0x0100
+#define RC_DIBTODEV         0x0200
+#define RC_BIGFONT          0x0400
+#define RC_STRETCHBLT       0x0800
+#define RC_FLOODFILL        0x1000
+#define RC_STRETCHDIB       0x2000
+#define RC_OP_DX_OUTPUT     0x4000
+#define RC_DEVBITS          0x8000
+
+#define CC_NONE             0
+#define CC_CIRCLES          1
+#define CC_PIE              2
+#define CC_CHORD            4
+#define CC_ELLIPSES         8
+#define CC_WIDE             16
+#define CC_STYLED           32
+#define CC_WIDESTYLED       64
+#define CC_INTERIORS        128
+#define CC_ROUNDRECT        256
+
+#define LC_NONE             0
+#define LC_POLYLINE         2
+#define LC_MARKER           4
+#define LC_POLYMARKER       8
+#define LC_WIDE             16
+#define LC_STYLED           32
+#define LC_WIDESTYLED       64
+#define LC_INTERIORS        128
+
+#define PC_NONE             0
+#define PC_POLYGON          1
+#define PC_RECTANGLE        2
+#define PC_WINDPOLYGON      4
+#define PC_TRAPEZOID        4
+#define PC_SCANLINE         8
+#define PC_WIDE             16
+#define PC_STYLED           32
+#define PC_WIDESTYLED       64
+#define PC_INTERIORS        128
+#define PC_POLYPOLYGON      256
+#define PC_PATHS            512
+
+#define TC_OP_CHARACTER     0x00000001
+#define TC_OP_STROKE        0x00000002
+#define TC_CP_STROKE        0x00000004
+#define TC_CR_90            0x00000008
+#define TC_CR_ANY           0x00000010
+#define TC_SF_X_YINDEP      0x00000020
+#define TC_SA_DOUBLE        0x00000040
+#define TC_SA_INTEGER       0x00000080
+#define TC_SA_CONTIN        0x00000100
+#define TC_EA_DOUBLE        0x00000200
+#define TC_IA_ABLE          0x00000400
+#define TC_UA_ABLE          0x00000800
+#define TC_SO_ABLE          0x00001000
+#define TC_RA_ABLE          0x00002000
+#define TC_VA_ABLE          0x00004000
+#define TC_RESERVED         0x00008000
+#define TC_SCROLLBLT        0x00010000
+#endif
+
 #ifndef MM_TEXT
 #define MM_TEXT             1
 #define MM_LOMETRIC         2
@@ -1515,6 +1598,11 @@ BOOL WINAPI SetCurrentDirectoryA(LPCSTR lpPathName);
 #define EM_CANUNDO          0x00C6
 #define EM_UNDO             0x00C7
 #define EM_EMPTYUNDOBUFFER  0x00CD
+#define EM_LINESCROLL       0x00B6
+#define EM_GETLINECOUNT     0x00BA
+#define EM_LINEINDEX        0x00BB
+#define EM_LINELENGTH       0x00C1
+#define EM_GETLINE          0x00C4
 #endif
 
 #ifndef MF_INSERT
@@ -2038,6 +2126,77 @@ HWND WINAPI SetClipboardViewer(HWND hWndNewViewer);
 
 WIN32_IMPORT("ChangeClipboardChain")
 BOOL WINAPI ChangeClipboardChain(HWND hWndRemove, HWND hWndNewNext);
+
+// --- Chapter 13: Printing & Spooler ---
+
+#ifndef SC_CLOSE
+#define SC_SIZE             0xF000
+#define SC_MOVE             0xF010
+#define SC_MINIMIZE         0xF020
+#define SC_MAXIMIZE         0xF030
+#define SC_NEXTWINDOW       0xF040
+#define SC_PREVWINDOW       0xF050
+#define SC_CLOSE            0xF060
+#define SC_VSCROLL          0xF070
+#define SC_HSCROLL          0xF080
+#define SC_MOUSEMENU        0xF090
+#define SC_KEYMENU          0xF100
+#define SC_ARRANGE          0xF110
+#define SC_RESTORE          0xF120
+#define SC_TASKLIST         0xF130
+#define SC_SCREENSAVE       0xF140
+#define SC_HOTKEY           0xF150
+#endif
+
+#ifndef _DOCINFO_DEFINED
+#define _DOCINFO_DEFINED
+typedef struct tagDOCINFOA {
+    int     cbSize;
+    LPCSTR  lpszDocName;
+    LPCSTR  lpszOutput;
+    LPCSTR  lpszDatatype;
+    DWORD   fwType;
+} DOCINFOA, *LPDOCINFOA;
+typedef DOCINFOA DOCINFO;
+#endif
+
+typedef int (CALLBACK *ABORTPROC)(HDC, int);
+
+WIN32_IMPORT("StartDocA")
+int WINAPI StartDocA(HDC hdc, CONST DOCINFOA *lpdi);
+#ifndef StartDoc
+#define StartDoc StartDocA
+#endif
+
+WIN32_IMPORT("EndDoc")
+int WINAPI EndDoc(HDC hdc);
+
+WIN32_IMPORT("StartPage")
+int WINAPI StartPage(HDC hdc);
+
+WIN32_IMPORT("EndPage")
+int WINAPI EndPage(HDC hdc);
+
+WIN32_IMPORT("AbortDoc")
+int WINAPI AbortDoc(HDC hdc);
+
+WIN32_IMPORT("SetAbortProc")
+int WINAPI SetAbortProc(HDC hdc, ABORTPROC lpAbortProc);
+
+WIN32_IMPORT("EnableWindow")
+BOOL WINAPI EnableWindow(HWND hWnd, BOOL bEnable);
+
+WIN32_IMPORT("GetMenuItemCount")
+int WINAPI GetMenuItemCount(HMENU hMenu);
+
+WIN32_IMPORT("GetMenuStringA")
+int WINAPI GetMenuStringA(HMENU hMenu, UINT uIDItem, LPSTR lpString, int cchMax, UINT flags);
+#ifndef GetMenuString
+#define GetMenuString GetMenuStringA
+#endif
+
+WIN32_IMPORT("GetVersion")
+DWORD WINAPI GetVersion(VOID);
 
 #ifdef __cplusplus
 }

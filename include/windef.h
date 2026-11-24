@@ -110,6 +110,8 @@ typedef WORD                ATOM;
 
 // Handles
 typedef void*               HANDLE;
+typedef HANDLE             *PHANDLE;
+typedef HANDLE             *LPHANDLE;
 typedef HANDLE              HWND;
 typedef HANDLE              HDC;
 typedef HANDLE              HBRUSH;

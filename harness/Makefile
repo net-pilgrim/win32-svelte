@@ -112,9 +112,44 @@ CHAP12_BINS := \
 	$(BUILD_DIR)/Chap12/ClipText/ClipText.wasm \
 	$(BUILD_DIR)/Chap12/ClipView/ClipView.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12
+# --- Chapter 13 ---
+CHAP13_PRINT1_SRCS := \
+	src/Chap13/Print1/Print1.c \
+	src/Chap13/Print1/Print.c \
+	src/Chap13/Print1/GetPrnDC.c
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12
+CHAP13_PRINT2_SRCS := \
+	src/Chap13/Print2/Print2.c \
+	src/Chap13/Print1/Print.c \
+	src/Chap13/Print1/GetPrnDC.c
+
+CHAP13_PRINT3_SRCS := \
+	src/Chap13/Print3/Print3.c \
+	src/Chap13/Print1/Print.c \
+	src/Chap13/Print1/GetPrnDC.c
+
+CHAP13_FORMFEED_SRCS := \
+	src/Chap13/FormFeed/FormFeed.c \
+	src/Chap13/Print1/GetPrnDC.c
+
+CHAP13_POPPAD_SRCS := \
+	src/Chap13/PopPad/PopFile.c \
+	src/Chap13/PopPad/PopFind.c \
+	src/Chap13/PopPad/PopFont.c \
+	src/Chap13/PopPad/PopPad.c \
+	src/Chap13/PopPad/PopPrnt.c
+
+CHAP13_BINS := \
+	$(BUILD_DIR)/Chap13/DevCaps2/DevCaps2.wasm \
+	$(BUILD_DIR)/Chap13/FormFeed/FormFeed.wasm \
+	$(BUILD_DIR)/Chap13/Print1/Print1.wasm \
+	$(BUILD_DIR)/Chap13/Print2/Print2.wasm \
+	$(BUILD_DIR)/Chap13/Print3/Print3.wasm \
+	$(BUILD_DIR)/Chap13/PopPad/PopPad.wasm
+
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13
 
 scan:
 	python3 scan_chapters.py
@@ -122,6 +157,31 @@ scan:
 $(BUILD_DIR)/Chap11/PopPad3/PopPad3.wasm: $(CHAP11_POPPAD3_SRCS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -Isrc/Chap11/PopPad3 $(CHAP11_POPPAD3_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap13/FormFeed/FormFeed.wasm: $(CHAP13_FORMFEED_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap13/FormFeed -Isrc/Chap13/Print1 $(CHAP13_FORMFEED_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap13/Print1/Print1.wasm: $(CHAP13_PRINT1_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap13/Print1 $(CHAP13_PRINT1_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap13/Print2/Print2.wasm: $(CHAP13_PRINT2_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap13/Print2 -Isrc/Chap13/Print1 $(CHAP13_PRINT2_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap13/Print3/Print3.wasm: $(CHAP13_PRINT3_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap13/Print3 -Isrc/Chap13/Print1 $(CHAP13_PRINT3_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap13/PopPad/PopPad.wasm: $(CHAP13_POPPAD_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap13/PopPad $(CHAP13_POPPAD_SRCS) $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
 $(BUILD_DIR)/%.wasm: src/%.c
@@ -142,6 +202,7 @@ chap09: $(CHAP09_BINS)
 chap10: $(CHAP10_BINS)
 chap11: $(CHAP11_BINS)
 chap12: $(CHAP12_BINS)
+chap13: $(CHAP13_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

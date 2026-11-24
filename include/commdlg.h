@@ -230,6 +230,40 @@ HWND WINAPI ReplaceTextA(LPFINDREPLACEA lpfr);
 #define ReplaceText ReplaceTextA
 #endif
 
+typedef UINT_PTR (CALLBACK *LPPRINTHOOKPROC)(HWND, UINT, WPARAM, LPARAM);
+typedef UINT_PTR (CALLBACK *LPSETUPHOOKPROC)(HWND, UINT, WPARAM, LPARAM);
+
+typedef struct tagPDA {
+    DWORD            lStructSize;
+    HWND             hwndOwner;
+    HGLOBAL          hDevMode;
+    HGLOBAL          hDevNames;
+    HDC              hDC;
+    DWORD            Flags;
+    WORD             nFromPage;
+    WORD             nToPage;
+    WORD             nMinPage;
+    WORD             nMaxPage;
+    WORD             nCopies;
+    HINSTANCE        hInstance;
+    LPARAM           lCustData;
+    LPPRINTHOOKPROC  lpfnPrintHook;
+    LPSETUPHOOKPROC  lpfnSetupHook;
+    LPCSTR           lpPrintTemplateName;
+    LPCSTR           lpSetupTemplateName;
+    HGLOBAL          hPrintTemplate;
+    HGLOBAL          hSetupTemplate;
+} PRINTDLGA, *LPPRINTDLGA;
+
+typedef PRINTDLGA PRINTDLG;
+typedef LPPRINTDLGA LPPRINTDLG;
+
+WIN32_IMPORT("PrintDlgA")
+BOOL WINAPI PrintDlgA(LPPRINTDLGA lppd);
+#ifndef PrintDlg
+#define PrintDlg PrintDlgA
+#endif
+
 #ifdef __cplusplus
 }
 #endif

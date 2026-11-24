@@ -812,6 +812,13 @@ export class Win32WasmRuntime {
             case 88: // LOGPIXELSX
             case 90: // LOGPIXELSY
               return 96;
+            case 110: // PHYSICALWIDTH
+              return 2400;
+            case 111: // PHYSICALHEIGHT
+              return 3300;
+            case 112: // PHYSICALOFFSETX
+            case 113: // PHYSICALOFFSETY
+              return 75;
             default:
               return 1;
           }
@@ -2199,6 +2206,110 @@ export class Win32WasmRuntime {
           }
           return 1;
         },
+
+        // --- Chapter 13: Printing & Spooler ---
+        GetVersion: () => 0xc0000004, // Windows 98 (bit 31 set)
+
+        EnableWindow: (_hWnd: number, _bEnable: number) => 1,
+
+        GetMenuItemCount: (_hMenu: number) => 1,
+
+        GetMenuStringA: (
+          _hMenu: number,
+          _uIDItem: number,
+          lpString: number,
+          cchMax: number,
+          _flags: number
+        ) => {
+          return this.writeCString(lpString, "Generic / Text Only", cchMax);
+        },
+        GetMenuString: (...args: any[]) => (win32Imports as any).GetMenuStringA(...args),
+
+        EnumPrintersA: (
+          _Flags: number,
+          _Name: number,
+          Level: number,
+          pPrinterEnum: number,
+          cbBuf: number,
+          pcbNeeded: number,
+          pcReturned: number
+        ) => {
+          if (!this.memory) return 0;
+          const printerName = "Generic / Text Only";
+          const portName = "LPT1:";
+          const headerSize = Level === 5 ? 20 : 12;
+          const nameBytes = printerName.length + 1;
+          const portBytes = portName.length + 1;
+          const needed = headerSize + nameBytes + portBytes;
+
+          if (pcbNeeded) {
+            new DataView(this.memory.buffer).setUint32(pcbNeeded, needed, true);
+          }
+
+          if (!pPrinterEnum || cbBuf < needed) {
+            if (pcReturned) {
+              new DataView(this.memory.buffer).setUint32(pcReturned, 0, true);
+            }
+            return 0;
+          }
+
+          const dv = new DataView(this.memory.buffer);
+          const strOffsetName = pPrinterEnum + headerSize;
+          const strOffsetPort = strOffsetName + nameBytes;
+
+          this.writeCString(strOffsetName, printerName, nameBytes);
+          this.writeCString(strOffsetPort, portName, portBytes);
+
+          if (Level === 5) {
+            dv.setUint32(pPrinterEnum + 0, strOffsetName, true); // pPrinterName
+            dv.setUint32(pPrinterEnum + 4, strOffsetPort, true); // pPortName
+            dv.setUint32(pPrinterEnum + 8, 0, true);            // Attributes
+            dv.setUint32(pPrinterEnum + 12, 0, true);           // DeviceNotSelectedTimeout
+            dv.setUint32(pPrinterEnum + 16, 0, true);           // TransmissionRetryTimeout
+          } else {
+            dv.setUint32(pPrinterEnum + 0, strOffsetName, true); // pPrinterName
+            dv.setUint32(pPrinterEnum + 4, 0, true);             // pServerName
+            dv.setUint32(pPrinterEnum + 8, 0, true);             // Attributes
+          }
+
+          if (pcReturned) {
+            dv.setUint32(pcReturned, 1, true);
+          }
+          return 1;
+        },
+        EnumPrinters: (...args: any[]) => (win32Imports as any).EnumPrintersA(...args),
+
+        OpenPrinterA: (_pPrinterName: number, phPrinter: number, _pDefault: number) => {
+          if (this.memory && phPrinter) {
+            new DataView(this.memory.buffer).setUint32(phPrinter, ++this.nextGdiHandle, true);
+          }
+          return 1;
+        },
+        OpenPrinter: (...args: any[]) => (win32Imports as any).OpenPrinterA(...args),
+
+        ClosePrinter: (_hPrinter: number) => 1,
+        PrinterProperties: (_hWnd: number, _hPrinter: number) => 1,
+
+        PrintDlgA: (lppd: number) => {
+          if (!this.memory || !lppd) return 1;
+          const dv = new DataView(this.memory.buffer);
+          const flags = dv.getUint32(lppd + 20, true);
+          if (flags & 0x00000100 /* PD_RETURNDC */) {
+            const printerHdc = (win32Imports as any).CreateDCA();
+            dv.setUint32(lppd + 16, printerHdc, true);
+          }
+          return 1;
+        },
+        PrintDlg: (...args: any[]) => (win32Imports as any).PrintDlgA(...args),
+
+        StartDocA: (_hdcHandle: number, _lpdi: number) => 1,
+        StartDoc: (...args: any[]) => (win32Imports as any).StartDocA(...args),
+
+        StartPage: (_hdcHandle: number) => 1,
+        EndPage: (_hdcHandle: number) => 1,
+        EndDoc: (_hdcHandle: number) => 1,
+        AbortDoc: (_hdcHandle: number) => 1,
+        SetAbortProc: (_hdcHandle: number, _lpAbortProc: number) => 1,
       };
 
     return {

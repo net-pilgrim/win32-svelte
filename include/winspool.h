@@ -28,6 +28,8 @@ extern "C" {
 #define SP_OUTOFDISK               -4
 #define SP_OUTOFMEMORY             -5
 
+#ifndef _DOCINFO_DEFINED
+#define _DOCINFO_DEFINED
 typedef struct tagDOCINFOA {
     int     cbSize;
     LPCSTR  lpszDocName;
@@ -37,6 +39,66 @@ typedef struct tagDOCINFOA {
 } DOCINFOA, *LPDOCINFOA;
 
 typedef DOCINFOA DOCINFO;
+#endif
+
+#ifndef WIN32_IMPORT
+#define WIN32_IMPORT(name) __attribute__((import_module("win32"), import_name(name)))
+#endif
+
+#define PRINTER_ENUM_DEFAULT       0x00000001
+#define PRINTER_ENUM_LOCAL         0x00000002
+#define PRINTER_ENUM_CONNECTIONS   0x00000004
+#define PRINTER_ENUM_FAVORITE      0x00000004
+#define PRINTER_ENUM_NAME          0x00000008
+#define PRINTER_ENUM_REMOTE        0x00000010
+#define PRINTER_ENUM_SHARED        0x00000020
+#define PRINTER_ENUM_NETWORK       0x00000040
+
+typedef struct _PRINTER_INFO_4A {
+    LPSTR   pPrinterName;
+    LPSTR   pServerName;
+    DWORD   Attributes;
+} PRINTER_INFO_4A, *PPRINTER_INFO_4A, *LPPRINTER_INFO_4A;
+typedef PRINTER_INFO_4A PRINTER_INFO_4;
+
+typedef struct _PRINTER_INFO_5A {
+    LPSTR   pPrinterName;
+    LPSTR   pPortName;
+    DWORD   Attributes;
+    DWORD   DeviceNotSelectedTimeout;
+    DWORD   TransmissionRetryTimeout;
+} PRINTER_INFO_5A, *PPRINTER_INFO_5A, *LPPRINTER_INFO_5A;
+typedef PRINTER_INFO_5A PRINTER_INFO_5;
+
+WIN32_IMPORT("EnumPrintersA")
+BOOL WINAPI EnumPrintersA(
+    DWORD   Flags,
+    LPSTR   Name,
+    DWORD   Level,
+    LPBYTE  pPrinterEnum,
+    DWORD   cbBuf,
+    LPDWORD pcbNeeded,
+    LPDWORD pcReturned
+);
+#ifndef EnumPrinters
+#define EnumPrinters EnumPrintersA
+#endif
+
+WIN32_IMPORT("OpenPrinterA")
+BOOL WINAPI OpenPrinterA(
+    LPSTR   pPrinterName,
+    LPHANDLE phPrinter,
+    LPVOID  pDefault
+);
+#ifndef OpenPrinter
+#define OpenPrinter OpenPrinterA
+#endif
+
+WIN32_IMPORT("ClosePrinter")
+BOOL WINAPI ClosePrinter(HANDLE hPrinter);
+
+WIN32_IMPORT("PrinterProperties")
+BOOL WINAPI PrinterProperties(HWND hWnd, HANDLE hPrinter);
 
 #ifdef __cplusplus
 }
