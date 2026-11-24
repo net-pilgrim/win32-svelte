@@ -3285,6 +3285,131 @@ BOOL WINAPI PlayEnhMetaFileRecord(HDC hdc, HANDLETABLE *lpht, const ENHMETARECOR
 WIN32_IMPORT("EnumEnhMetaFile")
 BOOL WINAPI EnumEnhMetaFile(HDC hdc, HENHMETAFILE hemf, ENHMFENUMPROC lpEnhMetaFunc, LPVOID lpData, const RECT *lpRect);
 
+// ============================================================================
+// Multiple Document Interface (MDI), Heap, and Window Hierarchy (Chapter 19)
+// ============================================================================
+
+#ifndef GW_HWNDFIRST
+#define GW_HWNDFIRST        0
+#define GW_HWNDLAST         1
+#define GW_HWNDNEXT         2
+#define GW_HWNDPREV         3
+#define GW_OWNER            4
+#define GW_CHILD            5
+#define GW_MAX              5
+#endif
+
+#ifndef SIZE_RESTORED
+#define SIZE_RESTORED       0
+#define SIZE_MINIMIZED      1
+#define SIZE_MAXIMIZED      2
+#define SIZE_MAXSHOW        3
+#define SIZE_MAXHIDE        4
+#endif
+
+#ifndef WM_MDICREATE
+#define WM_MDICREATE        0x0220
+#define WM_MDIDESTROY       0x0221
+#define WM_MDIACTIVATE      0x0222
+#define WM_MDIRESTORE       0x0223
+#define WM_MDINEXT          0x0224
+#define WM_MDIMAXIMIZE      0x0225
+#define WM_MDITILE          0x0226
+#define WM_MDICASCADE       0x0227
+#define WM_MDIICONARRANGE   0x0228
+#define WM_MDIGETACTIVE     0x0229
+#define WM_MDISETMENU       0x0230
+#define WM_MDIOVERLAY       0x0231
+#define WM_MDIREFRESHMENU   0x0234
+
+#define MDITILE_VERTICAL    0x0000
+#define MDITILE_HORIZONTAL  0x0001
+#define MDITILE_SKIPDISABLED 0x0002
+#endif
+
+typedef struct tagCLIENTCREATESTRUCT {
+    HMENU hWindowMenu;
+    UINT  idFirstChild;
+} CLIENTCREATESTRUCT, *LPCLIENTCREATESTRUCT;
+
+typedef struct tagMDICREATESTRUCTA {
+    LPCSTR  szClass;
+    LPCSTR  szTitle;
+    HANDLE  hOwner;
+    int     x;
+    int     y;
+    int     cx;
+    int     cy;
+    DWORD   style;
+    LPARAM  lParam;
+} MDICREATESTRUCTA, *LPMDICREATESTRUCTA;
+typedef MDICREATESTRUCTA MDICREATESTRUCT;
+typedef LPMDICREATESTRUCTA LPMDICREATESTRUCT;
+
+#ifndef WNDENUMPROC
+typedef BOOL (CALLBACK* WNDENUMPROC)(HWND, LPARAM);
+#endif
+
+WIN32_IMPORT("GetWindow")
+HWND WINAPI GetWindow(HWND hWnd, UINT uCmd);
+
+WIN32_IMPORT("IsWindow")
+BOOL WINAPI IsWindow(HWND hWnd);
+
+WIN32_IMPORT("EnumChildWindows")
+BOOL WINAPI EnumChildWindows(HWND hWndParent, WNDENUMPROC lpEnumFunc, LPARAM lParam);
+
+WIN32_IMPORT("TranslateMDISysAccel")
+BOOL WINAPI TranslateMDISysAccel(HWND hWndClient, LPMSG lpMsg);
+
+WIN32_IMPORT("DefFrameProcA")
+LRESULT WINAPI DefFrameProcA(HWND hWnd, HWND hWndMDIClient, UINT uMsg, WPARAM wParam, LPARAM lParam);
+#ifndef DefFrameProc
+#define DefFrameProc DefFrameProcA
+#endif
+
+WIN32_IMPORT("DefMDIChildProcA")
+LRESULT WINAPI DefMDIChildProcA(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+#ifndef DefMDIChildProc
+#define DefMDIChildProc DefMDIChildProcA
+#endif
+
+WIN32_IMPORT("DrawMenuBar")
+BOOL WINAPI DrawMenuBar(HWND hWnd);
+
+// Process Heap APIs
+#ifndef HEAP_NO_SERIALIZE
+#define HEAP_NO_SERIALIZE          0x00000001
+#define HEAP_GENERATE_EXCEPTIONS   0x00000004
+#define HEAP_ZERO_MEMORY           0x00000008
+#endif
+
+static unsigned char _wasm_heap_buffer[65536];
+static size_t _wasm_heap_idx = 0;
+
+static inline HANDLE WINAPI GetProcessHeap(void) {
+    return (HANDLE)1;
+}
+
+static inline LPVOID WINAPI HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
+    (void)hHeap;
+    if (_wasm_heap_idx + dwBytes > sizeof(_wasm_heap_buffer)) return NULL;
+    unsigned char *ptr = &_wasm_heap_buffer[_wasm_heap_idx];
+    _wasm_heap_idx = (_wasm_heap_idx + dwBytes + 7) & ~7;
+    if (dwFlags & 0x00000008 /* HEAP_ZERO_MEMORY */) {
+        for (SIZE_T i = 0; i < dwBytes; i++) ptr[i] = 0;
+    }
+    return (LPVOID)ptr;
+}
+
+static inline BOOL WINAPI HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
+    (void)hHeap;
+    (void)dwFlags;
+    (void)lpMem;
+    return TRUE;
+}
+
+
 #ifdef __cplusplus
 }
 #endif

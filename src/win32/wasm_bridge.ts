@@ -652,7 +652,23 @@ export class Win32WasmRuntime {
           const win = kernel.getWindow(hwnd);
           if (win) {
             win.menuId = hMenu;
-            if (!hWndParent || localWndProc) {
+            if (className.toUpperCase() === "MDICLIENT") {
+              const parent = kernel.getWindow(hWndParent);
+              if (parent) {
+                win.width = parent.width;
+                win.height = parent.height;
+              }
+              if (lpParam && this.memory) {
+                const view = new DataView(this.memory.buffer);
+                const hWindowMenu = view.getUint32(lpParam, true);
+                const idFirstChild = view.getUint32(lpParam + 4, true);
+                win.customProps = {
+                  ...(win.customProps ?? {}),
+                  hWindowMenu,
+                  idFirstChild,
+                };
+              }
+            } else if (!hWndParent || localWndProc) {
               win.customProps = {
                 ...(win.customProps ?? {}),
                 hasCanvas: true,
@@ -724,6 +740,60 @@ export class Win32WasmRuntime {
           return DefWindowProc(hwnd, Msg, wParam, lParam);
         },
 
+        DefFrameProcA: (
+          hWnd: number,
+          hWndMDIClient: number,
+          uMsg: number,
+          wParam: number,
+          lParam: number
+        ) => {
+          if (uMsg === 0x0005 /* WM_SIZE */) {
+            const frame = kernel.getWindow(hWnd);
+            if (frame && hWndMDIClient) {
+              kernel.MoveWindow(hWndMDIClient, 0, 0, frame.width, frame.height, true);
+            }
+            return 0;
+          }
+          if (uMsg === 0x0111 /* WM_COMMAND */) {
+            const cmdId = wParam & 0xffff;
+            const clientWin = kernel.getWindow(hWndMDIClient);
+            const idFirstChild = clientWin?.customProps?.idFirstChild ?? 50000;
+            if (cmdId >= idFirstChild) {
+              const children = kernel.windows.filter((w) => w.parentHwnd === hWndMDIClient);
+              const child = children[cmdId - idFirstChild];
+              if (child) {
+                (win32Imports as any).SendMessageA(hWndMDIClient, 0x0222 /* WM_MDIACTIVATE */, child.hwnd, 0);
+              }
+              return 0;
+            }
+          }
+          return (win32Imports as any).DefWindowProcA(hWnd, uMsg, wParam, lParam);
+        },
+        DefFrameProc: (...args: any[]) => (win32Imports as any).DefFrameProcA(...args),
+
+        DefMDIChildProcA: (
+          hWnd: number,
+          uMsg: number,
+          wParam: number,
+          lParam: number
+        ) => {
+          if (uMsg === 0x0010 /* WM_CLOSE */) {
+            const child = kernel.getWindow(hWnd);
+            if (child?.parentHwnd) {
+              (win32Imports as any).SendMessageA(child.parentHwnd, 0x0221 /* WM_MDIDESTROY */, hWnd, 0);
+              return 0;
+            }
+          }
+          if (uMsg === 0x0011 /* WM_QUERYENDSESSION */) {
+            return 1;
+          }
+          if (uMsg === 0x0222 /* WM_MDIACTIVATE */) {
+            return 0;
+          }
+          return (win32Imports as any).DefWindowProcA(hWnd, uMsg, wParam, lParam);
+        },
+        DefMDIChildProc: (...args: any[]) => (win32Imports as any).DefMDIChildProcA(...args),
+
         PostQuitMessage: (nExitCode: number) => {
           PostQuitMessage(nExitCode);
         },
@@ -734,6 +804,138 @@ export class Win32WasmRuntime {
           wParam: number,
           lParam: number
         ) => {
+          const win = kernel.getWindow(hwnd);
+          if (win && win.className.toUpperCase() === "MDICLIENT") {
+            if (Msg === 0x0220 /* WM_MDICREATE */) {
+              if (this.memory && lParam) {
+                const view = new DataView(this.memory.buffer);
+                const lpSzClass = view.getUint32(lParam, true);
+                const lpSzTitle = view.getUint32(lParam + 4, true);
+                const _hOwner = view.getUint32(lParam + 8, true);
+                let x = view.getInt32(lParam + 12, true);
+                let y = view.getInt32(lParam + 16, true);
+                let cx = view.getInt32(lParam + 20, true);
+                let cy = view.getInt32(lParam + 24, true);
+                const style = view.getUint32(lParam + 28, true);
+                const childLParam = view.getUint32(lParam + 32, true);
+
+                const className = this.readCString(lpSzClass);
+                const title = this.readCString(lpSzTitle);
+                const localWndProc = this.registeredClasses.get(className.toUpperCase());
+
+                const CW_USEDEFAULT = -2147483648;
+                const children = kernel.windows.filter((w) => w.parentHwnd === hwnd);
+                const cascadeIdx = children.length;
+                if (x === CW_USEDEFAULT || x === 0x80000000) x = 20 + (cascadeIdx * 24) % 200;
+                if (y === CW_USEDEFAULT || y === 0x80000000) y = 20 + (cascadeIdx * 24) % 150;
+                if (cx === CW_USEDEFAULT || cx === 0x80000000 || cx <= 0) cx = 300;
+                if (cy === CW_USEDEFAULT || cy === 0x80000000 || cy <= 0) cy = 200;
+
+                const childHwnd = kernel.CreateWindowEx(
+                  0,
+                  className,
+                  title,
+                  0x40000000 /* WS_CHILD */ | 0x10000000 /* WS_VISIBLE */ | style,
+                  x,
+                  y,
+                  cx,
+                  cy,
+                  hwnd,
+                  null,
+                  null,
+                  childLParam,
+                  localWndProc
+                );
+
+                const childWin = kernel.getWindow(childHwnd);
+                if (childWin) {
+                  childWin.customProps = {
+                    ...(childWin.customProps ?? {}),
+                    hasCanvas: true,
+                  };
+                }
+
+                // Activate new child
+                const prevActive = win.customProps?.activeChild ?? 0;
+                win.customProps = {
+                  ...(win.customProps ?? {}),
+                  activeChild: childHwnd,
+                };
+                if (prevActive && prevActive !== childHwnd) {
+                  (win32Imports as any).SendMessageA(prevActive, 0x0222 /* WM_MDIACTIVATE */, prevActive, childHwnd);
+                }
+                (win32Imports as any).SendMessageA(childHwnd, 0x0222 /* WM_MDIACTIVATE */, prevActive, childHwnd);
+
+                return childHwnd;
+              }
+              return 0;
+            } else if (Msg === 0x0221 /* WM_MDIDESTROY */) {
+              const childToDestroy = wParam;
+              (win32Imports as any).SendMessageA(childToDestroy, 0x0222 /* WM_MDIACTIVATE */, childToDestroy, 0);
+              kernel.DestroyWindow(childToDestroy);
+              const remaining = kernel.windows.filter((w) => w.parentHwnd === hwnd && w.hwnd !== childToDestroy);
+              const nextChild = remaining[remaining.length - 1]?.hwnd ?? 0;
+              win.customProps = {
+                ...(win.customProps ?? {}),
+                activeChild: nextChild,
+              };
+              if (nextChild) {
+                (win32Imports as any).SendMessageA(nextChild, 0x0222 /* WM_MDIACTIVATE */, 0, nextChild);
+              }
+              return 0;
+            } else if (Msg === 0x0222 /* WM_MDIACTIVATE */) {
+              const targetChild = wParam;
+              const prev = win.customProps?.activeChild ?? 0;
+              win.customProps = {
+                ...(win.customProps ?? {}),
+                activeChild: targetChild,
+              };
+              if (prev && prev !== targetChild) {
+                (win32Imports as any).SendMessageA(prev, 0x0222 /* WM_MDIACTIVATE */, prev, targetChild);
+              }
+              if (targetChild) {
+                const targetWin = kernel.getWindow(targetChild);
+                if (targetWin) targetWin.zIndex = ++(kernel as any).topZIndex;
+                (win32Imports as any).SendMessageA(targetChild, 0x0222 /* WM_MDIACTIVATE */, prev, targetChild);
+              }
+              return 0;
+            } else if (Msg === 0x0229 /* WM_MDIGETACTIVE */) {
+              if (lParam && this.memory) {
+                const view = new DataView(this.memory.buffer);
+                view.setUint32(lParam, 0, true);
+              }
+              return win.customProps?.activeChild ?? 0;
+            } else if (Msg === 0x0226 /* WM_MDITILE */) {
+              const children = kernel.windows.filter((w) => w.parentHwnd === hwnd && w.visible);
+              if (children.length > 0) {
+                const cols = Math.ceil(Math.sqrt(children.length));
+                const rows = Math.ceil(children.length / cols);
+                const tileW = Math.floor(win.width / cols);
+                const tileH = Math.floor(win.height / rows);
+                children.forEach((c, i) => {
+                  const col = i % cols;
+                  const row = Math.floor(i / cols);
+                  kernel.MoveWindow(c.hwnd, col * tileW, row * tileH, tileW, tileH, true);
+                });
+              }
+              return 1;
+            } else if (Msg === 0x0227 /* WM_MDICASCADE */) {
+              const children = kernel.windows.filter((w) => w.parentHwnd === hwnd && w.visible);
+              if (children.length > 0) {
+                const cascadeW = Math.floor(win.width * 0.75);
+                const cascadeH = Math.floor(win.height * 0.75);
+                children.forEach((c, i) => {
+                  const offset = (i * 24) % Math.max(1, (win.width - cascadeW));
+                  kernel.MoveWindow(c.hwnd, offset, offset, cascadeW, cascadeH, true);
+                });
+              }
+              return 1;
+            } else if (Msg === 0x0223 /* WM_MDIRESTORE */) {
+              return 0;
+            } else if (Msg === 0x0230 /* WM_MDISETMENU */) {
+              return 1;
+            }
+          }
           return SendMessage(hwnd, Msg, wParam, lParam);
         },
 
@@ -1413,7 +1615,6 @@ export class Win32WasmRuntime {
         ShowCaret: (_hWnd: number) => 1,
         HideCaret: (_hWnd: number) => 1,
         DestroyCaret: () => 1,
-        GetFocus: () => 1,
 
         SetBkMode: (hdcHandle: number, mode: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
@@ -1949,6 +2150,54 @@ export class Win32WasmRuntime {
           const win = kernel.getWindow(hWnd);
           return win ? (win.parentHwnd ?? win.ownerHwnd ?? 0) : 0;
         },
+
+        GetWindow: (hWnd: number, uCmd: number) => {
+          const win = kernel.getWindow(hWnd);
+          if (!win) return 0;
+          if (uCmd === 5 /* GW_CHILD */) {
+            const child = kernel.windows.find((w) => w.parentHwnd === hWnd);
+            return child ? child.hwnd : 0;
+          }
+          if (uCmd === 4 /* GW_OWNER */) {
+            return win.ownerHwnd ?? 0;
+          }
+          const siblings = kernel.windows.filter((w) => w.parentHwnd === win.parentHwnd);
+          if (uCmd === 0 /* GW_HWNDFIRST */) {
+            return siblings[0]?.hwnd ?? 0;
+          }
+          if (uCmd === 1 /* GW_HWNDLAST */) {
+            return siblings[siblings.length - 1]?.hwnd ?? 0;
+          }
+          if (uCmd === 2 /* GW_HWNDNEXT */) {
+            const idx = siblings.findIndex((w) => w.hwnd === hWnd);
+            return idx >= 0 && idx + 1 < siblings.length ? siblings[idx + 1].hwnd : 0;
+          }
+          if (uCmd === 3 /* GW_HWNDPREV */) {
+            const idx = siblings.findIndex((w) => w.hwnd === hWnd);
+            return idx > 0 ? siblings[idx - 1].hwnd : 0;
+          }
+          return 0;
+        },
+
+        IsWindow: (hWnd: number) => (kernel.getWindow(hWnd) ? 1 : 0),
+
+        EnumChildWindows: (hWndParent: number, lpEnumFunc: number, lParam: number) => {
+          if (!lpEnumFunc || !this.table) return 0;
+          const cb = this.table.get(lpEnumFunc);
+          if (!cb) return 0;
+          const children = kernel.windows.filter((w) => w.parentHwnd === hWndParent);
+          for (const child of [...children]) {
+            if (kernel.getWindow(child.hwnd)) {
+              const res = cb(child.hwnd, lParam);
+              if (!res) break;
+            }
+          }
+          return 1;
+        },
+
+        TranslateMDISysAccel: (_hWndClient: number, _lpMsg: number) => 0,
+
+        DrawMenuBar: (_hWnd: number) => 1,
 
         SetPixel: (hdcHandle: number, x: number, y: number, crColor: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
@@ -2982,15 +3231,7 @@ export class Win32WasmRuntime {
             ctx = canvas.getContext("2d");
           }
           const handle = ++this.nextHdcHandle;
-          const memHdc: HDC = {
-            canvas,
-            ctx,
-            currentPoint: { x: 0, y: 0 },
-            currentBrush: { type: "brush", color: "#ffffff" },
-            currentPen: { type: "pen", width: 1, color: "#000000" },
-            textColor: "#000000",
-            bkColor: "#ffffff",
-          };
+          const memHdc = new HDC(0 as any, canvas, ctx);
           this.hdcMap.set(handle, memHdc);
           return handle;
         },

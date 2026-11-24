@@ -682,6 +682,22 @@ class Win32Kernel {
     this.RegisterClassEx({ className: "CDIALOG", lpfnWndProc: dialogProc });
     this.RegisterClassEx({ className: "DIALOG", lpfnWndProc: dialogProc });
     this.RegisterClassEx({ className: "#32770", lpfnWndProc: dialogProc });
+
+    // MDICLIENT window class
+    const mdiClientProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      const win = this.getWindow(hwnd);
+      if (!win) return 0;
+      switch (msg) {
+        case 0x0229: /* WM_MDIGETACTIVE */
+          return (win.customProps?.activeChild ?? 0) as any;
+        case 0x0222: /* WM_MDIACTIVATE */
+          if (!win.customProps) win.customProps = {};
+          win.customProps.activeChild = wParam;
+          return 0;
+      }
+      return this.DefWindowProc(hwnd, msg, wParam, lParam);
+    };
+    this.RegisterClassEx({ className: "MDICLIENT", lpfnWndProc: mdiClientProc });
   }
 
   public getWindow(hwnd: HWND): WindowRecord | undefined {
@@ -963,6 +979,8 @@ class Win32Kernel {
       case WM_CLOSE:
         this.DestroyWindow(hwnd);
         return 0;
+      case 0x0011: // WM_QUERYENDSESSION
+        return 1;
       case WM_SETTEXT: {
         const win = this.getWindow(hwnd);
         if (!win) return 0;

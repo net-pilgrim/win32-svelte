@@ -864,4 +864,76 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     await closeBtn.click();
     await expect(windowEl).toBeHidden();
   });
+
+  test("Chapter 19: MDIDemo creates MDI frame, client, and manages MDI child windows", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap19/MDIDemo/MDIDemo.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap19' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const result = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 50, initialY: 50 });
+      await runtime.instantiate(bytes);
+      const exitCode = runtime.runWinMain(1);
+
+      // Find frame window
+      const frameWin = win32.kernel.windows.find((w: any) => w.title === "MDI Demonstration");
+      if (!frameWin) return { error: "Frame window not found" };
+
+      // Find client window
+      const clientWin = win32.kernel.windows.find((w: any) => w.parentHwnd === frameWin.hwnd && w.className.toUpperCase() === "MDICLIENT");
+      if (!clientWin) return { error: "MDICLIENT window not found" };
+
+      // Create Hello child
+      win32.kernel.SendMessage(frameWin.hwnd, 0x0111 /* WM_COMMAND */, 40001 /* IDM_FILE_NEWHELLO */, 0);
+      const helloChild = win32.kernel.windows.find((w: any) => w.parentHwnd === clientWin.hwnd && w.title === "Hello");
+
+      // Create Rect child
+      win32.kernel.SendMessage(frameWin.hwnd, 0x0111 /* WM_COMMAND */, 40002 /* IDM_FILE_NEWRECT */, 0);
+      const rectChild = win32.kernel.windows.find((w: any) => w.parentHwnd === clientWin.hwnd && w.title === "Rectangles");
+
+      // Check active child
+      const activeChildHwnd = win32.kernel.SendMessage(clientWin.hwnd, 0x0229 /* WM_MDIGETACTIVE */, 0, 0);
+
+      // Tile windows
+      win32.kernel.SendMessage(frameWin.hwnd, 0x0111 /* WM_COMMAND */, 40011 /* IDM_WINDOW_TILE */, 0);
+
+      // Close all children
+      win32.kernel.SendMessage(frameWin.hwnd, 0x0111 /* WM_COMMAND */, 40013 /* IDM_WINDOW_CLOSEALL */, 0);
+      const remainingChildren = win32.kernel.windows.filter((w: any) => w.parentHwnd === clientWin.hwnd);
+
+      return {
+        exitCode,
+        frameHwnd: frameWin.hwnd,
+        clientHwnd: clientWin.hwnd,
+        helloCreated: !!helloChild,
+        rectCreated: !!rectChild,
+        activeChildHwnd,
+        rectHwnd: rectChild?.hwnd,
+        remainingChildrenCount: remainingChildren.length,
+      };
+    }, wasmBase64);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.helloCreated).toBe(true);
+    expect(result.rectCreated).toBe(true);
+    expect(result.activeChildHwnd).toBe(result.rectHwnd);
+    expect(result.remainingChildrenCount).toBe(0);
+
+    // Locate the frame window on desktop
+    const frameEl = page.locator(".win32-window").filter({ hasText: "MDI Demonstration" });
+    await expect(frameEl).toBeVisible();
+  });
 });

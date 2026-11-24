@@ -21,6 +21,28 @@ export class HDC {
   public currentPen: HPEN = { type: "pen", width: 1, color: "#000000" };
   public textColor: string = "#000000";
   public bkColor: string = "#ffffff";
+  public bkMode: number = 1;
+
+  public get penColor(): string {
+    return this.currentPen.color;
+  }
+  public set penColor(c: string) {
+    this.currentPen.color = c;
+  }
+
+  public get penWidth(): number {
+    return this.currentPen.width;
+  }
+  public set penWidth(w: number) {
+    this.currentPen.width = w;
+  }
+
+  public get brushColor(): string {
+    return this.currentBrush.color;
+  }
+  public set brushColor(c: string) {
+    this.currentBrush.color = c;
+  }
 
   constructor(hwnd: HWND, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     this.hwnd = hwnd;

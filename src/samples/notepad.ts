@@ -148,7 +148,7 @@ function NotepadWndProc(
           const filePath = (file as any).path || `C:\\My Documents\\${file.name}`;
           state.filePath = filePath;
           if (file.content !== undefined) {
-            SetWindowText(state.hwndEdit, file.content);
+            SetWindowText(state.hwndEdit, typeof file.content === "string" ? file.content : new TextDecoder().decode(file.content));
           } else {
             vfs.readTextFile(filePath)
               .then((content) => SetWindowText(state.hwndEdit, content))

@@ -222,9 +222,12 @@ CHAP18_BINS = \
 	$(BUILD_DIR)/Chap18/Emf13/Emf13.wasm \
 	$(BUILD_DIR)/Chap18/EmfView/EmfView.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18
+CHAP19_BINS = \
+	$(BUILD_DIR)/Chap19/MDIDemo/MDIDemo.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19
 
 scan:
 	python3 scan_chapters.py
@@ -428,6 +431,7 @@ chap15: $(CHAP15_BINS)
 chap16: $(CHAP16_BINS)
 chap17: $(CHAP17_BINS)
 chap18: $(CHAP18_BINS)
+chap19: $(CHAP19_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)
