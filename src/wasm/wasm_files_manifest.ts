@@ -1,4 +1,4 @@
-// Auto-generated WASM files manifest
+// Auto-generated WASM files manifest - DO NOT EDIT MANUALLY
 export interface WasmManifestEntry {
   name: string;
   size: number;
@@ -744,6 +744,48 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 14793,
     "chapter": "Chap05",
     "description": "WhatSize"
+  },
+  {
+    "name": "emf11.emf",
+    "size": 4168,
+    "chapter": "Chap18",
+    "description": "EMF Demo 11 - Metric Ruler Vector Metafile"
+  },
+  {
+    "name": "emf12.emf",
+    "size": 4144,
+    "chapter": "Chap18",
+    "description": "EMF Demo 12 - Inch Ruler Vector Metafile"
+  },
+  {
+    "name": "emf2.emf",
+    "size": 252,
+    "chapter": "Chap18",
+    "description": "EMF Demo 2 - Vector Cross & Rectangle"
+  },
+  {
+    "name": "emf3.emf",
+    "size": 404,
+    "chapter": "Chap18",
+    "description": "EMF Demo 3 - Colored Vector Cross & Pen"
+  },
+  {
+    "name": "emf4.emf",
+    "size": 4188,
+    "chapter": "Chap18",
+    "description": "EMF Demo 4 - Vector Stretch Image"
+  },
+  {
+    "name": "emf7.emf",
+    "size": 828,
+    "chapter": "Chap18",
+    "description": "EMF Demo 7 - Transformed Vector Metafile"
+  },
+  {
+    "name": "emf8.emf",
+    "size": 4140,
+    "chapter": "Chap18",
+    "description": "EMF Demo 8 - Vector Inch Ruler with Text & Ticks"
   },
   {
     "name": "head.wasm",

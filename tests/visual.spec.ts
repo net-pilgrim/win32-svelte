@@ -133,4 +133,32 @@ test.describe("Win32 Svelte Desktop & Start Menu Visual Tests", () => {
     await win.screenshot({ path: path.join(screenshotsDir, "04-window-frame-bevel.png") });
     await page.screenshot({ path: path.join(screenshotsDir, "05-desktop-windows-overview.png") });
   });
+
+  test("Vector Metafile SVG Viewer renders scalable vector graphics and rulers", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForSelector(".win32-window");
+
+    // Wait for window.__WIN32__.StartMetafileViewer to be available
+    await page.waitForFunction(() => typeof (window as any).__WIN32__?.StartMetafileViewer === "function");
+
+    // Launch Metafile Viewer via window.__WIN32__
+    await page.evaluate(() => {
+      (window as any).__WIN32__.StartMetafileViewer(180, 80, "C:\\wasm-files\\emf8.emf");
+    });
+
+    // Wait for Metafile Viewer window
+    const viewerWin = page.locator(".win32-window:has-text('emf8.emf - Vector Metafile Viewer (SVG)')");
+    await expect(viewerWin).toBeVisible({ timeout: 5000 });
+
+    // Verify canvas is registered and painted
+    const canvas = viewerWin.locator("canvas.win32-client-canvas");
+    await expect(canvas).toBeVisible();
+
+    // Verify status bar displays vector metafile stats
+    const statusBar = viewerWin.locator(".status-bar");
+    await expect(statusBar).toBeVisible();
+
+    // Capture screenshot of Vector Metafile Viewer
+    await viewerWin.screenshot({ path: path.join(screenshotsDir, "06-vector-metafile-svg-viewer.png") });
+  });
 });

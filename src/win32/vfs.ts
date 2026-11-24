@@ -1000,7 +1000,7 @@ export class Win32VFS {
       // Fallback
     }
 
-    // Special handling for C:\wasm-files\<file>.wasm
+    // Special handling for C:\wasm-files\<file>
     if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-files") {
       const fileName = parts[1];
       if (typeof fetch !== "undefined") {
@@ -1010,6 +1010,7 @@ export class Win32VFS {
           if (!contentType.includes("text/html")) {
             const buf = await resp.arrayBuffer();
             const bytes = new Uint8Array(buf);
+            const lower = fileName.toLowerCase();
             if (
               bytes.length >= 4 &&
               bytes[0] === 0x00 &&
@@ -1017,6 +1018,9 @@ export class Win32VFS {
               bytes[2] === 0x73 &&
               bytes[3] === 0x6d
             ) {
+              return bytes;
+            }
+            if (lower.endsWith(".emf") || lower.endsWith(".wmf") || lower.endsWith(".bmp") || lower.endsWith(".bin")) {
               return bytes;
             }
           }
@@ -1094,6 +1098,15 @@ export class Win32VFS {
     if (drive === "C" && dirParts.length === 1 && dirParts[0].toLowerCase() === "wasm-files") {
       for (const entry of WASM_FILES_MANIFEST) {
         if (!results.some((r) => r.name.toLowerCase() === entry.name.toLowerCase())) {
+          const lower = entry.name.toLowerCase();
+          const isEmf = lower.endsWith(".emf");
+          const isWmf = lower.endsWith(".wmf");
+          const icon = isEmf || isWmf ? "🖼️" : "⚡";
+          const typeDesc = isEmf
+            ? `Enhanced Metafile (${entry.chapter})`
+            : isWmf
+              ? `Windows Metafile (${entry.chapter})`
+              : `WebAssembly App (${entry.chapter})`;
           results.push({
             name: entry.name,
             path: `C:\\wasm-files\\${entry.name}`,
@@ -1101,8 +1114,8 @@ export class Win32VFS {
             size: entry.size,
             modified: Date.now(),
             attributes: FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE,
-            icon: "⚡",
-            typeDesc: `WebAssembly App (${entry.chapter})`,
+            icon,
+            typeDesc,
           });
         }
       }
@@ -1153,6 +1166,9 @@ export class Win32VFS {
       case "PNG":
       case "JPG":
         return "🎨";
+      case "EMF":
+      case "WMF":
+        return "🖼️";
       case "WAV":
       case "MID":
         return "🎵";
@@ -1185,6 +1201,10 @@ export class Win32VFS {
         return "Text Document";
       case "BMP":
         return "Bitmap Image";
+      case "EMF":
+        return "Enhanced Metafile Vector Image";
+      case "WMF":
+        return "Windows Metafile Vector Image";
       default:
         return ext ? `${ext} File` : "File";
     }

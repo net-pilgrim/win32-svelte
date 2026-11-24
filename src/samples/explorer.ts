@@ -387,6 +387,10 @@ function ExplorerWndProc(
             }
           } else if (ext === "WASM") {
             StartWasmApp(260, 90, targetPath);
+          } else if (ext === "EMF" || ext === "WMF") {
+            import("./metafile_viewer").then(({ StartMetafileViewer }) => {
+              StartMetafileViewer(260, 90, targetPath);
+            });
           } else if (ext === "WAD") {
             import("./doom").then(({ StartDoom }) => {
               StartDoom(100, 50);

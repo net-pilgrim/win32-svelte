@@ -37,6 +37,13 @@ import { StartNotepad } from "../samples/notepad";
 import { comRuntime } from "./com/runtime";
 import { S_OK, E_POINTER, E_NOINTERFACE, CLSCTX_ALL } from "./com/types";
 import { IID_IUnknown } from "./com/guid";
+import {
+  SvgMetafile,
+  MetafileSvgRecorder,
+  parseEmfToSvg,
+  parseWmfToSvg,
+  type MetafileBounds,
+} from "./metafile_svg";
 
 export interface WasmBridgeOptions {
   initialX?: number;
@@ -313,43 +320,129 @@ export class Win32WasmRuntime {
     return name.toLowerCase().replace(/\\/g, "/").split("/").pop() || name.toLowerCase();
   }
 
+  public static registerEmf(name: string, data: Uint8Array | SvgMetafile): void {
+    const norm = name.toLowerCase().replace(/\\/g, "/").split("/").pop() || name.toLowerCase();
+    const metafile = data instanceof SvgMetafile ? data : parseEmfToSvg(data, norm);
+    Win32WasmRuntime.sharedEmfFiles.set(norm, {
+      type: "enhmetafile",
+      name: norm,
+      description: metafile.description,
+      bounds: metafile.bounds,
+      frame: metafile.frame,
+      metafile,
+      canvas: metafile.canvas,
+      ctx: metafile.ctx,
+      toSvg: (w?: number, h?: number) => metafile.toSvg(w, h),
+    });
+  }
+
   private createSampleEmf(name: string): any {
-    const canvas = typeof document !== "undefined" ? document.createElement("canvas") : ({} as any);
-    canvas.width = 600;
-    canvas.height = 200;
-    const ctx = canvas.getContext ? canvas.getContext("2d") : null;
-    if (ctx) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, 600, 200);
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(10, 10, 580, 180);
-      if (name.includes("3")) {
-        ctx.fillStyle = "#0000ff";
-        ctx.fillRect(100, 50, 100, 100);
-        ctx.strokeStyle = "#ff0000";
-        ctx.beginPath();
-        ctx.moveTo(100, 50); ctx.lineTo(200, 150);
-        ctx.moveTo(200, 50); ctx.lineTo(100, 150);
-        ctx.stroke();
-      } else {
-        for (let i = 1; i < 96; i++) {
-          const x = 10 + (i * 580) / 96;
-          const h = i % 16 === 0 ? 50 : i % 8 === 0 ? 35 : i % 4 === 0 ? 25 : 15;
-          ctx.beginPath();
-          ctx.moveTo(x, 10);
-          ctx.lineTo(x, 10 + h);
-          ctx.stroke();
+    // If in Node environment, try reading candidate files directly
+    if (typeof process !== "undefined" && process.versions?.node) {
+      try {
+        const fs = require("fs");
+        const path = require("path");
+        const candidates = [
+          path.resolve(process.cwd(), "public/wasm-files", name),
+          path.resolve(process.cwd(), "harness/src/Chap18", name.replace(/\.emf$/i, ""), name),
+          path.resolve(process.cwd(), "harness/src/Chap18", name.toLowerCase().replace(/\.emf$/i, ""), name.toLowerCase()),
+          path.resolve(process.cwd(), name),
+        ];
+        for (const cand of candidates) {
+          if (fs.existsSync(cand)) {
+            const buf = fs.readFileSync(cand);
+            const parsed = parseEmfToSvg(new Uint8Array(buf), name);
+            return {
+              type: "enhmetafile",
+              name,
+              description: parsed.description,
+              bounds: parsed.bounds,
+              frame: parsed.frame,
+              metafile: parsed,
+              canvas: parsed.canvas,
+              ctx: parsed.ctx,
+              toSvg: (w?: number, h?: number) => parsed.toSvg(w, h),
+            };
+          }
         }
+      } catch {}
+    }
+
+    // Resolution-independent SVG Metafile sample
+    const metafile = new SvgMetafile(
+      "enhmetafile",
+      { left: 0, top: 0, right: 600, bottom: 200 },
+      { left: 0, top: 0, right: 15240, bottom: 5080 },
+      name,
+      "EMF Demo Vector Metafile"
+    );
+
+    metafile.commands.push({
+      type: "rect",
+      x: 10,
+      y: 10,
+      w: 580,
+      h: 180,
+      fill: "#ffffff",
+      stroke: "#000000",
+      strokeWidth: 2,
+    });
+
+    if (name.includes("3")) {
+      metafile.commands.push({
+        type: "rect",
+        x: 100,
+        y: 50,
+        w: 100,
+        h: 100,
+        fill: "#0000ff",
+        stroke: "#ff0000",
+        strokeWidth: 2,
+      });
+      metafile.commands.push({
+        type: "line",
+        x1: 100,
+        y1: 50,
+        x2: 200,
+        y2: 150,
+        stroke: "#ff0000",
+        strokeWidth: 2,
+      });
+      metafile.commands.push({
+        type: "line",
+        x1: 200,
+        y1: 50,
+        x2: 100,
+        y2: 150,
+        stroke: "#ff0000",
+        strokeWidth: 2,
+      });
+    } else {
+      for (let i = 1; i < 96; i++) {
+        const x = 10 + (i * 580) / 96;
+        const h = i % 16 === 0 ? 50 : i % 8 === 0 ? 35 : i % 4 === 0 ? 25 : 15;
+        metafile.commands.push({
+          type: "line",
+          x1: x,
+          y1: 10,
+          x2: x,
+          y2: 10 + h,
+          stroke: "#000000",
+          strokeWidth: 1,
+        });
       }
     }
+
     return {
       type: "enhmetafile",
       name,
-      canvas,
-      ctx,
-      bounds: { left: 0, top: 0, right: 600, bottom: 200 },
-      frame: { left: 0, top: 0, right: 15240, bottom: 5080 },
+      description: metafile.description,
+      bounds: metafile.bounds,
+      frame: metafile.frame,
+      metafile,
+      canvas: metafile.canvas,
+      ctx: metafile.ctx,
+      toSvg: (w?: number, h?: number) => metafile.toSvg(w, h),
     };
   }
 
@@ -1253,6 +1346,9 @@ export class Win32WasmRuntime {
         MoveToEx: (hdcHandle: number, x: number, y: number, _lppt: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
+          if ((hdc as any).svgRecorder) {
+            (hdc as any).svgRecorder.recordMoveTo(x, y);
+          }
           if ((hdc as any).pathActive && hdc.ctx) {
             hdc.ctx.moveTo(x, y);
             hdc.currentPoint.x = x;
@@ -1412,6 +1508,14 @@ export class Win32WasmRuntime {
           if (!ctx) return 1;
 
           const view = new DataView(this.memory.buffer);
+          if ((hdc as any).svgRecorder) {
+            const pts: { x: number; y: number }[] = [];
+            for (let i = 0; i < cpt; i++) {
+              pts.push({ x: view.getInt32(apt + i * 8, true), y: view.getInt32(apt + i * 8 + 4, true) });
+            }
+            (hdc as any).svgRecorder.recordPolyline(pts);
+          }
+
           ctx.beginPath();
           const startX = view.getInt32(apt, true);
           const startY = view.getInt32(apt + 4, true);
@@ -1435,6 +1539,14 @@ export class Win32WasmRuntime {
           if (!ctx) return 1;
 
           const view = new DataView(this.memory.buffer);
+          if ((hdc as any).svgRecorder) {
+            const pts: { x: number; y: number }[] = [];
+            for (let i = 0; i < cpt; i++) {
+              pts.push({ x: view.getInt32(apt + i * 8, true), y: view.getInt32(apt + i * 8 + 4, true) });
+            }
+            (hdc as any).svgRecorder.recordPolygon(pts);
+          }
+
           ctx.beginPath();
           const startX = view.getInt32(apt, true);
           const startY = view.getInt32(apt + 4, true);
@@ -1475,6 +1587,14 @@ export class Win32WasmRuntime {
           if (!ctx) return 1;
 
           const view = new DataView(this.memory.buffer);
+          if ((hdc as any).svgRecorder) {
+            const pts: { x: number; y: number }[] = [];
+            for (let i = 0; i < cpt; i++) {
+              pts.push({ x: view.getInt32(apt + i * 8, true), y: view.getInt32(apt + i * 8 + 4, true) });
+            }
+            (hdc as any).svgRecorder.recordPolyBezier(pts);
+          }
+
           ctx.beginPath();
           const startX = view.getInt32(apt, true);
           const startY = view.getInt32(apt + 4, true);
@@ -1638,6 +1758,9 @@ export class Win32WasmRuntime {
         LineTo: (hdcHandle: number, x: number, y: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
+          if ((hdc as any).svgRecorder) {
+            (hdc as any).svgRecorder.recordLineTo(x, y);
+          }
           if ((hdc as any).pathActive && hdc.ctx) {
             hdc.ctx.lineTo(x, y);
             hdc.currentPoint.x = x;
@@ -1656,6 +1779,9 @@ export class Win32WasmRuntime {
         ) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
+          if ((hdc as any).svgRecorder) {
+            (hdc as any).svgRecorder.recordRectangle(left, top, right, bottom);
+          }
           return Rectangle(hdc, left, top, right, bottom) ? 1 : 0;
         },
 
@@ -1668,6 +1794,9 @@ export class Win32WasmRuntime {
         ) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
+          if ((hdc as any).svgRecorder) {
+            (hdc as any).svgRecorder.recordEllipse(left, top, right, bottom);
+          }
           return Ellipse(hdc, left, top, right, bottom) ? 1 : 0;
         },
 
@@ -1684,6 +1813,9 @@ export class Win32WasmRuntime {
           if (c >= 0 && text.length > c) {
             text = text.substring(0, c);
           }
+          if ((hdc as any).svgRecorder) {
+            (hdc as any).svgRecorder.recordTextOut(x, y, text);
+          }
           if ((hdc as any).pathActive) {
             if (!(hdc as any).pathText) (hdc as any).pathText = [];
             (hdc as any).pathText.push({ text, x, y });
@@ -1695,7 +1827,11 @@ export class Win32WasmRuntime {
         SetTextColor: (hdcHandle: number, color: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
-          SetTextColor(hdc, this.colorRefToRgb(color));
+          const rgb = this.colorRefToRgb(color);
+          if ((hdc as any).svgRecorder) {
+            (hdc as any).svgRecorder.setTextColor(rgb);
+          }
+          SetTextColor(hdc, rgb);
           return color;
         },
 
@@ -1788,12 +1924,18 @@ export class Win32WasmRuntime {
             const prev = (hdc as any).selectedPenHandle || 6;
             (hdc as any).selectedPenHandle = hObj;
             hdc.currentPen = obj;
+            if ((hdc as any).svgRecorder) {
+              (hdc as any).svgRecorder.setPen(obj.color || "#000000", obj.width || 1);
+            }
             return prev;
           }
           if (obj.type === "brush") {
             const prev = (hdc as any).selectedBrushHandle || 0;
             (hdc as any).selectedBrushHandle = hObj;
             hdc.currentBrush = obj;
+            if ((hdc as any).svgRecorder) {
+              (hdc as any).svgRecorder.setBrush(obj.color || "#ffffff");
+            }
             return prev;
           }
           SelectObject(hdc, obj);
@@ -4063,6 +4205,7 @@ export class Win32WasmRuntime {
           const hdc = new HDC(0 as any, canvas, ctx as any);
           (hdc as any).isMetafile = true;
           (hdc as any).metafileName = name;
+          (hdc as any).svgRecorder = new MetafileSvgRecorder("metafile", name);
           const handle = ++this.nextHdcHandle;
           this.hdcMap.set(handle, hdc);
           return handle;
@@ -4072,11 +4215,15 @@ export class Win32WasmRuntime {
         CloseMetaFile: (hdcHandle: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           const handle = ++this.nextGdiHandle;
+          const recorder = (hdc as any)?.svgRecorder as MetafileSvgRecorder | undefined;
+          const metafile = recorder ? recorder.close() : new SvgMetafile("metafile", undefined, undefined, (hdc as any)?.metafileName);
           const hmfObj = {
             type: "metafile",
-            canvas: hdc?.canvas,
-            ctx: hdc?.ctx,
+            canvas: metafile.canvas,
+            ctx: metafile.ctx,
             name: (hdc as any)?.metafileName,
+            metafile,
+            toSvg: (w?: number, h?: number) => metafile.toSvg(w, h),
           };
           this.gdiMap.set(handle, hmfObj);
           this.metafileMap.set(handle, hmfObj);
@@ -4090,8 +4237,12 @@ export class Win32WasmRuntime {
         PlayMetaFile: (hdcHandle: number, hmfHandle: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           const hmf = this.metafileMap.get(hmfHandle) || this.gdiMap.get(hmfHandle);
-          if (hdc?.ctx && hmf?.canvas) {
-            hdc.ctx.drawImage(hmf.canvas, 0, 0);
+          if (hdc?.ctx && hmf) {
+            if (hmf.metafile) {
+              hmf.metafile.renderToCanvas(hdc.ctx);
+            } else if (hmf.canvas) {
+              hdc.ctx.drawImage(hmf.canvas, 0, 0);
+            }
           }
           return 1;
         },
@@ -4110,14 +4261,25 @@ export class Win32WasmRuntime {
         ) => {
           const name = lpFilename ? this.readCString(lpFilename) : null;
           const desc = lpDescription ? this.readCString(lpDescription) : null;
+          let bounds: MetafileBounds = { left: 0, top: 0, right: 1024, bottom: 768 };
+          if (lpRect && this.memory) {
+            const dv = new DataView(this.memory.buffer);
+            bounds = {
+              left: dv.getInt32(lpRect + 0, true),
+              top: dv.getInt32(lpRect + 4, true),
+              right: dv.getInt32(lpRect + 8, true),
+              bottom: dv.getInt32(lpRect + 12, true),
+            };
+          }
           const canvas = typeof document !== "undefined" ? document.createElement("canvas") : ({} as any);
-          canvas.width = 1024;
-          canvas.height = 768;
+          canvas.width = Math.max(1, Math.abs(bounds.right - bounds.left)) || 1024;
+          canvas.height = Math.max(1, Math.abs(bounds.bottom - bounds.top)) || 768;
           const ctx = canvas.getContext ? canvas.getContext("2d") : null;
           const hdc = new HDC(0 as any, canvas, ctx as any);
           (hdc as any).isEnhMetafile = true;
           (hdc as any).emfName = name;
           (hdc as any).emfDescription = desc;
+          (hdc as any).svgRecorder = new MetafileSvgRecorder("enhmetafile", name, desc, bounds);
           const handle = ++this.nextHdcHandle;
           this.hdcMap.set(handle, hdc);
           return handle;
@@ -4127,14 +4289,18 @@ export class Win32WasmRuntime {
         CloseEnhMetaFile: (hdcHandle: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           const handle = ++this.nextGdiHandle;
+          const recorder = (hdc as any)?.svgRecorder as MetafileSvgRecorder | undefined;
+          const metafile = recorder ? recorder.close() : new SvgMetafile("enhmetafile", undefined, undefined, (hdc as any)?.emfName, (hdc as any)?.emfDescription);
           const hemfObj = {
             type: "enhmetafile",
-            canvas: hdc?.canvas,
-            ctx: hdc?.ctx,
+            canvas: metafile.canvas,
+            ctx: metafile.ctx,
             name: (hdc as any)?.emfName,
             description: (hdc as any)?.emfDescription,
-            bounds: { left: 0, top: 0, right: 600, bottom: 200 },
-            frame: { left: 0, top: 0, right: 15240, bottom: 5080 },
+            bounds: metafile.bounds,
+            frame: metafile.frame,
+            metafile,
+            toSvg: (w?: number, h?: number) => metafile.toSvg(w, h),
           };
           this.gdiMap.set(handle, hemfObj);
           this.metafileMap.set(handle, hemfObj);
@@ -4148,18 +4314,24 @@ export class Win32WasmRuntime {
         PlayEnhMetaFile: (hdcHandle: number, hemfHandle: number, lpRect: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           const hemf = this.metafileMap.get(hemfHandle) || this.gdiMap.get(hemfHandle);
-          if (hdc?.ctx && hemf?.canvas) {
+          if (hdc?.ctx && hemf) {
+            let destRect: MetafileBounds | undefined;
             if (lpRect && this.memory) {
               const dv = new DataView(this.memory.buffer);
               const left = dv.getInt32(lpRect + 0, true);
               const top = dv.getInt32(lpRect + 4, true);
               const right = dv.getInt32(lpRect + 8, true);
               const bottom = dv.getInt32(lpRect + 12, true);
-              const w = right - left;
-              const h = bottom - top;
-              hdc.ctx.drawImage(hemf.canvas, left, top, w, h);
-            } else {
-              hdc.ctx.drawImage(hemf.canvas, 0, 0);
+              destRect = { left, top, right, bottom };
+            }
+            if (hemf.metafile) {
+              hemf.metafile.renderToCanvas(hdc.ctx, destRect);
+            } else if (hemf.canvas) {
+              if (destRect) {
+                hdc.ctx.drawImage(hemf.canvas, destRect.left, destRect.top, destRect.right - destRect.left, destRect.bottom - destRect.top);
+              } else {
+                hdc.ctx.drawImage(hemf.canvas, 0, 0);
+              }
             }
           }
           return 1;
@@ -4192,12 +4364,12 @@ export class Win32WasmRuntime {
           const dv = new DataView(this.memory.buffer);
           dv.setUint32(lpemh + 0, 1, true); // iType: EMR_HEADER
           dv.setUint32(lpemh + 4, 108, true); // nSize: 108
-          const b = hemf?.bounds || { left: 0, top: 0, right: 600, bottom: 200 };
+          const b = hemf?.bounds || hemf?.metafile?.bounds || { left: 0, top: 0, right: 600, bottom: 200 };
           dv.setInt32(lpemh + 8, b.left, true);
           dv.setInt32(lpemh + 12, b.top, true);
           dv.setInt32(lpemh + 16, b.right, true);
           dv.setInt32(lpemh + 20, b.bottom, true);
-          const f = hemf?.frame || { left: 0, top: 0, right: 15240, bottom: 5080 };
+          const f = hemf?.frame || hemf?.metafile?.frame || { left: 0, top: 0, right: 15240, bottom: 5080 };
           dv.setInt32(lpemh + 24, f.left, true);
           dv.setInt32(lpemh + 28, f.top, true);
           dv.setInt32(lpemh + 32, f.right, true);
@@ -4219,11 +4391,12 @@ export class Win32WasmRuntime {
         },
 
         GetEnhMetaFileDescriptionA: (
-          _hemfHandle: number,
+          hemfHandle: number,
           cchBuffer: number,
           lpDescription: number
         ) => {
-          const desc = "EMF Demo\0Charles Petzold\0";
+          const hemf = this.metafileMap.get(hemfHandle) || this.gdiMap.get(hemfHandle);
+          const desc = hemf?.description || hemf?.metafile?.description || "EMF Demo\0Charles Petzold\0";
           if (!lpDescription || cchBuffer === 0) return desc.length;
           if (this.memory) {
             const bytes = new TextEncoder().encode(desc);
@@ -4256,7 +4429,7 @@ export class Win32WasmRuntime {
 
         EnumEnhMetaFile: (
           hdcHandle: number,
-          _hemfHandle: number,
+          hemfHandle: number,
           lpEnhMetaFunc: number,
           lpData: number,
           _lpRect: number
@@ -4264,6 +4437,33 @@ export class Win32WasmRuntime {
           if (!this.table) return 1;
           const fn = this.table.get(lpEnhMetaFunc);
           if (typeof fn !== "function") return 1;
+
+          const hemf = this.metafileMap.get(hemfHandle) || this.gdiMap.get(hemfHandle);
+          const rawBytes: Uint8Array | undefined = hemf?.metafile?.rawBytes;
+
+          if (rawBytes && rawBytes.byteLength >= 8) {
+            const dv = new DataView(rawBytes.buffer, rawBytes.byteOffset, rawBytes.byteLength);
+            const handleTableBuf = this.allocateMemory(256);
+            let off = 0;
+            while (off + 8 <= rawBytes.byteLength) {
+              const recType = dv.getUint32(off + 0, true);
+              const recSize = dv.getUint32(off + 4, true);
+              if (recSize < 8 || off + recSize > rawBytes.byteLength) break;
+
+              const recordBuf = this.allocateMemory(recSize);
+              if (this.memory) {
+                new Uint8Array(this.memory.buffer).set(
+                  rawBytes.subarray(off, off + recSize),
+                  recordBuf
+                );
+              }
+              const cont = fn(hdcHandle, handleTableBuf, recordBuf, 1, lpData);
+              if (!cont || recType === 14 /* EMR_EOF */) break;
+              off += recSize;
+            }
+            return 1;
+          }
+
           const recordBuf = this.allocateMemory(64);
           const handleTableBuf = this.allocateMemory(32);
           const dv = new DataView(this.memory!.buffer);
@@ -4302,6 +4502,7 @@ export class Win32WasmRuntime {
           const iType = dv.getUint32(lpmr + 0, true);
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 1;
+
           if (iType === 43 /* EMR_RECTANGLE */) {
             const left = dv.getInt32(lpmr + 8, true);
             const top = dv.getInt32(lpmr + 12, true);
@@ -4314,6 +4515,37 @@ export class Win32WasmRuntime {
             const right = dv.getInt32(lpmr + 16, true);
             const bottom = dv.getInt32(lpmr + 20, true);
             Ellipse(hdc, left, top, right, bottom);
+          } else if (iType === 27 /* EMR_MOVETOEX */) {
+            const x = dv.getInt32(lpmr + 8, true);
+            const y = dv.getInt32(lpmr + 12, true);
+            MoveToEx(hdc, x, y);
+          } else if (iType === 54 /* EMR_LINETO */) {
+            const x = dv.getInt32(lpmr + 8, true);
+            const y = dv.getInt32(lpmr + 12, true);
+            LineTo(hdc, x, y);
+          } else if (iType === 24 /* EMR_SETTEXTCOLOR */) {
+            const crColor = dv.getUint32(lpmr + 8, true);
+            SetTextColor(hdc, this.colorRefToRgb(crColor));
+          } else if (iType === 84 /* EMR_EXTTEXTOUTW */ || iType === 83 /* EMR_EXTTEXTOUTA */) {
+            const x = dv.getInt32(lpmr + 36, true);
+            const y = dv.getInt32(lpmr + 40, true);
+            const cChars = dv.getUint32(lpmr + 44, true);
+            const offString = dv.getUint32(lpmr + 48, true);
+            if (cChars > 0 && offString > 0) {
+              const strStart = lpmr + offString;
+              let text = "";
+              if (iType === 84) {
+                const chars: string[] = [];
+                for (let i = 0; i < cChars; i++) {
+                  chars.push(String.fromCharCode(dv.getUint16(strStart + i * 2, true)));
+                }
+                text = chars.join("");
+              } else {
+                const bytes = new Uint8Array(this.memory.buffer, strStart, cChars);
+                text = new TextDecoder().decode(bytes);
+              }
+              TextOut(hdc, x, y, text);
+            }
           }
           return 1;
         },

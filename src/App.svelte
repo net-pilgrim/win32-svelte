@@ -7,6 +7,7 @@
   import { StartPaintDemo } from "./samples/paint_demo";
   import { StartWasmApp } from "./samples/wasm_app";
   import { StartExplorer } from "./samples/explorer";
+  import { StartMetafileViewer } from "./samples/metafile_viewer";
 
   onMount(() => {
     if (typeof window !== "undefined") {
@@ -16,6 +17,7 @@
         Win32WasmRuntime,
         StartWasmApp,
         StartExplorer,
+        StartMetafileViewer,
       };
     }
 

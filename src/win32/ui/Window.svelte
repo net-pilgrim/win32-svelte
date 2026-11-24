@@ -227,7 +227,7 @@
     if (droppedFiles.length > 0) {
       for (const file of droppedFiles) {
         const ext = file.name.split(".").pop()?.toUpperCase() ?? "";
-        const isBinary = ["WASM", "WAD", "EXE", "DLL", "BIN", "PNG", "JPG", "JPEG", "BMP", "ICO", "DAT"].includes(ext);
+        const isBinary = ["WASM", "WAD", "EXE", "DLL", "BIN", "PNG", "JPG", "JPEG", "BMP", "ICO", "DAT", "EMF", "WMF"].includes(ext);
         let content: string | Uint8Array = "";
         if (isBinary) {
           const buf = await file.arrayBuffer();
