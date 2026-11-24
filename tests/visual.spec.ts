@@ -20,9 +20,9 @@ test.describe("Win32 Svelte Desktop & Start Menu Visual Tests", () => {
     await expect(startFlag).toBeVisible();
     await expect(startFlag).toHaveText("🪟");
 
-    // Verify Quick Launch icons: all 7 buttons render icons
+    // Verify Quick Launch icons: all 8 buttons render icons
     const quickLaunchIcons = page.locator(".quick-launch .quick-btn");
-    await expect(quickLaunchIcons).toHaveCount(7);
+    await expect(quickLaunchIcons).toHaveCount(8);
 
     // Verify System Tray audio speaker button
     const traySpeaker = page.locator(".tray-btn");

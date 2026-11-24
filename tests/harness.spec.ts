@@ -936,4 +936,37 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     const frameEl = page.locator(".win32-window").filter({ hasText: "MDI Demonstration" });
     await expect(frameEl).toBeVisible();
   });
+
+  test("Windows Explorer: wasm-files directory displays all compiled WASM files and launches on double click", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    // Launch Explorer via page evaluate
+    await page.evaluate(() => {
+      const win32 = (window as any).__WIN32__;
+      win32.StartExplorer(120, 60);
+    });
+
+    const explorerWin = page.locator(".win32-window").filter({ hasText: "Exploring" });
+    await expect(explorerWin).toBeVisible();
+
+    // Click on wasm-files in the tree view
+    const wasmFilesNode = explorerWin.locator("ul.tree-view a", { hasText: "wasm-files" });
+    await expect(wasmFilesNode).toBeVisible();
+    await wasmFilesNode.click();
+
+    // Check that ListView is populated with wasm files
+    const listRows = explorerWin.locator("tbody tr");
+    await expect(listRows.filter({ hasText: "MDIDemo.wasm" })).toBeVisible();
+    await expect(listRows.filter({ hasText: "Bounce.wasm" })).toBeVisible();
+    await expect(listRows.filter({ hasText: "HelloWin.wasm" })).toBeVisible();
+
+    // Double-click MDIDemo.wasm in the list
+    const mdiRow = listRows.filter({ hasText: "MDIDemo.wasm" });
+    await mdiRow.dblclick();
+
+    // Verify MDIDemo window appears
+    const mdiWin = page.locator(".win32-window").filter({ hasText: "MDI Demonstration" });
+    await expect(mdiWin).toBeVisible({ timeout: 5000 });
+  });
 });

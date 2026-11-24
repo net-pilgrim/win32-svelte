@@ -436,7 +436,7 @@ chap19: $(CHAP19_BINS)
 copy-wasm-files:
 	@mkdir -p $(ROOT_DIR)/public/wasm-files
 	@find $(BUILD_DIR) -name "*.wasm" -exec cp {} $(ROOT_DIR)/public/wasm-files/ \;
-	@echo "✓ Copied WASM binaries to public/wasm-files"
+	@python3 $(ROOT_DIR)/scripts/generate_wasm_manifest.py
 
 clean:
 	rm -rf $(BUILD_DIR)

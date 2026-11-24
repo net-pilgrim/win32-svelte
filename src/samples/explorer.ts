@@ -359,7 +359,7 @@ function ExplorerWndProc(
         const name = row.text;
         const targetPath = itemInfo?.path || `${ctx.currentPath}\\${name}`;
 
-        if (itemInfo?.isDirectory || !row.subItems?.[0]) {
+        if (itemInfo ? itemInfo.isDirectory : !name.includes(".")) {
           // Navigate into subdirectory
           PopulateListView(ctx, targetPath);
         } else {

@@ -6,6 +6,7 @@
   import { StartMinesweeper } from "./samples/minesweeper";
   import { StartPaintDemo } from "./samples/paint_demo";
   import { StartWasmApp } from "./samples/wasm_app";
+  import { StartExplorer } from "./samples/explorer";
 
   onMount(() => {
     if (typeof window !== "undefined") {
@@ -14,6 +15,7 @@
         vfs,
         Win32WasmRuntime,
         StartWasmApp,
+        StartExplorer,
       };
     }
 

@@ -21,6 +21,10 @@ export async function StartWasmApp(
       try {
         const resp = await fetch(pathOrVfsPath);
         if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+        const contentType = resp.headers.get("content-type") || "";
+        if (contentType.includes("text/html")) {
+          throw new Error("Server returned HTML page instead of WebAssembly binary.");
+        }
         const buf = await resp.arrayBuffer();
         wasmBytes = new Uint8Array(buf);
       } catch (err: any) {
@@ -44,9 +48,12 @@ export async function StartWasmApp(
           try {
             const resp = await fetch(`/wasm-files/${fileName}`);
             if (resp.ok) {
-              const buf = await resp.arrayBuffer();
-              wasmBytes = new Uint8Array(buf);
-              fetched = true;
+              const contentType = resp.headers.get("content-type") || "";
+              if (!contentType.includes("text/html")) {
+                const buf = await resp.arrayBuffer();
+                wasmBytes = new Uint8Array(buf);
+                fetched = true;
+              }
             }
           } catch {
             // ignore fetch error and report original error
@@ -68,7 +75,33 @@ export async function StartWasmApp(
     wasmBytes = getSampleAppWasmBytes();
   }
 
-  if (!wasmBytes) return;
+  if (!wasmBytes || wasmBytes.length < 8) {
+    MessageBox(
+      null,
+      `Cannot launch WebAssembly file:\n${pathOrVfsPath || "sample_app.wasm"}\n\nBinary is empty or truncated (${wasmBytes?.length || 0} bytes).`,
+      "Invalid WASM Binary",
+      MB_ICONERROR
+    );
+    return;
+  }
+
+  // Validate WASM magic word: 0x00, 0x61, 0x73, 0x6D ('\0asm')
+  if (
+    wasmBytes[0] !== 0x00 ||
+    wasmBytes[1] !== 0x61 ||
+    wasmBytes[2] !== 0x73 ||
+    wasmBytes[3] !== 0x6d
+  ) {
+    MessageBox(
+      null,
+      `Cannot launch WebAssembly file:\n${pathOrVfsPath || "sample_app.wasm"}\n\nInvalid WASM magic header.\nExpected \\0asm (00 61 73 6d), but received:\n${Array.from(wasmBytes.slice(0, 4))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join(" ")}`,
+      "Invalid WASM Binary",
+      MB_ICONERROR
+    );
+    return;
+  }
 
   const prevWindows = new Set(kernel.windows.map((w) => w.hwnd));
 

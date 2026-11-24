@@ -34,6 +34,7 @@ import {
   OBJBASE_H_SOURCE,
   getSampleAppWasmBytes,
 } from "../wasm/sample_app_wasm";
+import { WASM_FILES_MANIFEST } from "../wasm/wasm_files_manifest";
 
 // --- OPFS In-Memory Shim for Node.js / Fallback Environments ---
 interface MockEntry {
@@ -899,6 +900,16 @@ export class Win32VFS {
       return FILE_ATTRIBUTE_DIRECTORY;
     }
 
+    if (drive === "C" && parts.length === 1 && parts[0].toLowerCase() === "wasm-files") {
+      return FILE_ATTRIBUTE_DIRECTORY;
+    }
+    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-files") {
+      const fileName = parts[1].toLowerCase();
+      if (WASM_FILES_MANIFEST.some((e) => e.name.toLowerCase() === fileName)) {
+        return FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE;
+      }
+    }
+
     const name = parts[parts.length - 1];
     const parentParts = parts.slice(0, parts.length - 1);
 
@@ -929,6 +940,13 @@ export class Win32VFS {
   // --- High-Level Convenience Methods ---
 
   async FileExists(filePath: string): Promise<boolean> {
+    const { drive, parts } = this.normalizePath(filePath);
+    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-files") {
+      const fileName = parts[1].toLowerCase();
+      if (WASM_FILES_MANIFEST.some((e) => e.name.toLowerCase() === fileName)) {
+        return true;
+      }
+    }
     const attr = await this.GetFileAttributes(filePath);
     return attr !== -1 && (attr & FILE_ATTRIBUTE_DIRECTORY) === 0;
   }
@@ -963,16 +981,50 @@ export class Win32VFS {
   }
 
   async readBinaryFile(filePath: string): Promise<Uint8Array> {
-    const hFile = await this.CreateFile(filePath, GENERIC_READ, 0, null, OPEN_EXISTING);
-    if (hFile === INVALID_HANDLE_VALUE) {
-      throw new Error(`Cannot open file for reading: ${filePath}`);
-    }
+    const { drive, parts } = this.normalizePath(filePath);
+
+    // Try normal OPFS CreateFile first
     try {
-      const { buffer } = await this.ReadFile(hFile);
-      return buffer;
-    } finally {
-      await this.CloseHandle(hFile);
+      const hFile = await this.CreateFile(filePath, GENERIC_READ, 0, null, OPEN_EXISTING);
+      if (hFile !== INVALID_HANDLE_VALUE) {
+        try {
+          const { buffer } = await this.ReadFile(hFile);
+          if (buffer && buffer.length > 0) {
+            return buffer;
+          }
+        } finally {
+          await this.CloseHandle(hFile);
+        }
+      }
+    } catch {
+      // Fallback
     }
+
+    // Special handling for C:\wasm-files\<file>.wasm
+    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-files") {
+      const fileName = parts[1];
+      if (typeof fetch !== "undefined") {
+        const resp = await fetch(`/wasm-files/${fileName}`);
+        if (resp.ok) {
+          const contentType = resp.headers.get("content-type") || "";
+          if (!contentType.includes("text/html")) {
+            const buf = await resp.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            if (
+              bytes.length >= 4 &&
+              bytes[0] === 0x00 &&
+              bytes[1] === 0x61 &&
+              bytes[2] === 0x73 &&
+              bytes[3] === 0x6d
+            ) {
+              return bytes;
+            }
+          }
+        }
+      }
+    }
+
+    throw new Error(`Cannot open file for reading: ${filePath}`);
   }
 
   async writeBinaryFile(filePath: string, content: Uint8Array): Promise<boolean> {
@@ -999,34 +1051,72 @@ export class Win32VFS {
     drive: string,
     dirParts: string[]
   ): Promise<VFSFileInfo[]> {
-    const dirHandle = await this.getDirectoryHandleForParts(drive, dirParts, false);
     const results: VFSFileInfo[] = [];
     const basePath = `${drive}:\\${dirParts.join("\\")}${dirParts.length > 0 ? "\\" : ""}`;
 
-    for await (const [name, handle] of dirHandle.entries()) {
-      if (handle.kind === "directory") {
+    try {
+      const dirHandle = await this.getDirectoryHandleForParts(drive, dirParts, false);
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind === "directory") {
+          results.push({
+            name,
+            path: `${basePath}${name}`,
+            isDirectory: true,
+            size: 0,
+            modified: Date.now(),
+            attributes: FILE_ATTRIBUTE_DIRECTORY,
+            icon: "📁",
+            typeDesc: "File Folder",
+          });
+        } else if (handle.kind === "file") {
+          const file = await handle.getFile();
+          const ext = name.includes(".") ? name.split(".").pop()?.toUpperCase() || "" : "";
+          results.push({
+            name,
+            path: `${basePath}${name}`,
+            isDirectory: false,
+            size: file.size,
+            modified: file.lastModified || Date.now(),
+            attributes: FILE_ATTRIBUTE_ARCHIVE,
+            icon: this.getIconForExt(ext),
+            typeDesc: this.getTypeDescForExt(ext),
+          });
+        }
+      }
+    } catch (err) {
+      // If C:\wasm-files does not exist in OPFS yet, we still populate it virtually
+      if (!(drive === "C" && dirParts.length === 1 && dirParts[0].toLowerCase() === "wasm-files")) {
+        throw err;
+      }
+    }
+
+    // Virtual directory support for C:\wasm-files
+    if (drive === "C" && dirParts.length === 1 && dirParts[0].toLowerCase() === "wasm-files") {
+      for (const entry of WASM_FILES_MANIFEST) {
+        if (!results.some((r) => r.name.toLowerCase() === entry.name.toLowerCase())) {
+          results.push({
+            name: entry.name,
+            path: `C:\\wasm-files\\${entry.name}`,
+            isDirectory: false,
+            size: entry.size,
+            modified: Date.now(),
+            attributes: FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE,
+            icon: "⚡",
+            typeDesc: `WebAssembly App (${entry.chapter})`,
+          });
+        }
+      }
+    } else if (drive === "C" && dirParts.length === 0) {
+      if (!results.some((r) => r.name.toLowerCase() === "wasm-files")) {
         results.push({
-          name,
-          path: `${basePath}${name}`,
+          name: "wasm-files",
+          path: "C:\\wasm-files",
           isDirectory: true,
           size: 0,
           modified: Date.now(),
           attributes: FILE_ATTRIBUTE_DIRECTORY,
           icon: "📁",
           typeDesc: "File Folder",
-        });
-      } else if (handle.kind === "file") {
-        const file = await handle.getFile();
-        const ext = name.includes(".") ? name.split(".").pop()?.toUpperCase() || "" : "";
-        results.push({
-          name,
-          path: `${basePath}${name}`,
-          isDirectory: false,
-          size: file.size,
-          modified: file.lastModified || Date.now(),
-          attributes: FILE_ATTRIBUTE_ARCHIVE,
-          icon: this.getIconForExt(ext),
-          typeDesc: this.getTypeDescForExt(ext),
         });
       }
     }
@@ -1045,6 +1135,8 @@ export class Win32VFS {
     switch (ext) {
       case "EXE":
         return "🗂️";
+      case "WASM":
+        return "⚡";
       case "BAT":
       case "COM":
         return "📟";
@@ -1073,6 +1165,8 @@ export class Win32VFS {
     switch (ext) {
       case "EXE":
         return "Application";
+      case "WASM":
+        return "WebAssembly Application";
       case "BAT":
         return "MS-DOS Batch File";
       case "COM":
