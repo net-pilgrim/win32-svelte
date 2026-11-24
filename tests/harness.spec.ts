@@ -778,4 +778,90 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     await closeBtn.click();
     await expect(windowEl).toBeHidden();
   });
+
+  test("Chapter 18: Metafile records and replays 16-bit GDI metafile drawing", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap18/Metafile/Metafile.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap18' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 310, initialY: 130 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    // Locate the newly created window titled "Metafile Demonstration"
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Metafile Demonstration" });
+    await expect(windowEl).toBeVisible();
+
+    const title = windowEl.locator(".title-bar-text");
+    await expect(title).toHaveText("Metafile Demonstration");
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // Close window
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 18: Emf1 creates and plays 32-bit Enhanced Metafile (EMF)", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap18/Emf1/Emf1.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap18' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 330, initialY: 140 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    // Locate the newly created window titled "Enhanced Metafile Demo #1"
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Enhanced Metafile Demo #1" });
+    await expect(windowEl).toBeVisible();
+
+    const title = windowEl.locator(".title-bar-text");
+    await expect(title).toHaveText("Enhanced Metafile Demo #1");
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // Close window
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
 });

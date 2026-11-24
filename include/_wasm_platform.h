@@ -2318,6 +2318,24 @@ DWORD WINAPI GetVersion(VOID);
 #ifndef ZeroMemory
 #define ZeroMemory(Destination,Length) memset((Destination),0,(Length))
 #endif
+#ifndef FillMemory
+#define FillMemory(Destination,Length,Fill) memset((Destination),(Fill),(Length))
+#endif
+#ifndef MoveMemory
+#define MoveMemory(Destination,Source,Length) memmove((Destination),(Source),(Length))
+#endif
+
+#ifndef OBM_CLOSE
+#define OBM_CLOSE           32754
+#define OBM_UPARROW         32753
+#define OBM_DNARROW         32752
+#define OBM_RGARROW         32751
+#define OBM_LFARROW         32750
+#define OBM_REDUCE          32749
+#define OBM_ZOOM            32748
+#define OBM_RESTORE         32747
+#define OBM_CHECK           32760
+#endif
 
 #ifndef _BITMAP_DEFINED
 #define _BITMAP_DEFINED
@@ -3107,6 +3125,165 @@ DWORD WINAPI SetMapperFlags(HDC hdc, DWORD flags);
 
 WIN32_IMPORT("TextOutW")
 BOOL WINAPI TextOutW(HDC hdc, int x, int y, LPCWSTR lpString, int c);
+
+// ==============================================================================
+// Chapter 18: Metafiles and Enhanced Metafiles (EMF)
+// ==============================================================================
+
+#ifndef _RECTL_DEFINED
+#define _RECTL_DEFINED
+typedef struct _RECTL {
+    LONG    left;
+    LONG    top;
+    LONG    right;
+    LONG    bottom;
+} RECTL, *PRECTL, *LPRECTL;
+#endif
+
+#ifndef _SIZEL_DEFINED
+#define _SIZEL_DEFINED
+typedef struct tagSIZEL {
+    LONG    cx;
+    LONG    cy;
+} SIZEL, *PSIZEL, *LPSIZEL;
+#endif
+
+#ifndef ENHMETA_SIGNATURE
+#define ENHMETA_SIGNATURE       0x464D4520
+#endif
+
+#ifndef _ENHMETAHEADER_DEFINED
+#define _ENHMETAHEADER_DEFINED
+typedef struct tagENHMETAHEADER {
+    DWORD   iType;
+    DWORD   nSize;
+    RECTL   rclBounds;
+    RECTL   rclFrame;
+    DWORD   dSignature;
+    DWORD   nVersion;
+    DWORD   nBytes;
+    DWORD   nRecords;
+    WORD    nHandles;
+    WORD    sReserved;
+    DWORD   nDescription;
+    DWORD   offDescription;
+    DWORD   nPalEntries;
+    SIZEL   szlDevice;
+    SIZEL   szlMillimeters;
+    DWORD   cbPixelFormat;
+    DWORD   offPixelFormat;
+    DWORD   bOpenGL;
+    SIZEL   szMicrometers;
+} ENHMETAHEADER, *PENHMETAHEADER, *LPENHMETAHEADER;
+#endif
+
+#ifndef _ENHMETARECORD_DEFINED
+#define _ENHMETARECORD_DEFINED
+typedef struct tagENHMETARECORD {
+    DWORD   iType;
+    DWORD   nSize;
+    DWORD   dParm[1];
+} ENHMETARECORD, *PENHMETARECORD, *LPENHMETARECORD;
+#endif
+
+#ifndef _HANDLETABLE_DEFINED
+#define _HANDLETABLE_DEFINED
+typedef struct tagHANDLETABLE {
+    HGDIOBJ objectHandle[1];
+} HANDLETABLE, *PHANDLETABLE, *LPHANDLETABLE;
+#endif
+
+#ifndef EMR_HEADER
+#define EMR_HEADER                      1
+#define EMR_POLYBEZIER                  2
+#define EMR_POLYGON                     3
+#define EMR_POLYLINE                    4
+#define EMR_EOF                         14
+#define EMR_SETMAPMODE                  17
+#define EMR_SETBKMODE                   18
+#define EMR_SETTEXTALIGN                22
+#define EMR_SETTEXTCOLOR                24
+#define EMR_SETBKCOLOR                  25
+#define EMR_MOVETOEX                    27
+#define EMR_SAVEDC                      33
+#define EMR_RESTOREDC                   34
+#define EMR_SELECTOBJECT                37
+#define EMR_CREATEPEN                   38
+#define EMR_ELLIPSE                     42
+#define EMR_RECTANGLE                   43
+#define EMR_LINETO                      54
+#define EMR_EXTTEXTOUTA                 83
+#define EMR_EXTTEXTOUTW                 84
+#define EMR_EXTCREATEPEN                95
+#endif
+
+typedef int (CALLBACK *ENHMFENUMPROC)(
+    HDC                     hdc,
+    HANDLETABLE            *lpht,
+    const ENHMETARECORD    *lpmr,
+    int                     nHandles,
+    LPARAM                  lParam
+);
+
+WIN32_IMPORT("CreateMetaFileA")
+HDC WINAPI CreateMetaFileA(LPCSTR lpFilename);
+#ifndef CreateMetaFile
+#define CreateMetaFile CreateMetaFileA
+#endif
+
+WIN32_IMPORT("CloseMetaFile")
+HMETAFILE WINAPI CloseMetaFile(HDC hdc);
+
+WIN32_IMPORT("PlayMetaFile")
+BOOL WINAPI PlayMetaFile(HDC hdc, HMETAFILE hmf);
+
+WIN32_IMPORT("DeleteMetaFile")
+BOOL WINAPI DeleteMetaFile(HMETAFILE hmf);
+
+WIN32_IMPORT("CreateEnhMetaFileA")
+HDC WINAPI CreateEnhMetaFileA(HDC hdcRef, LPCSTR lpFilename, const RECT *lpRect, LPCSTR lpDescription);
+#ifndef CreateEnhMetaFile
+#define CreateEnhMetaFile CreateEnhMetaFileA
+#endif
+
+WIN32_IMPORT("CloseEnhMetaFile")
+HENHMETAFILE WINAPI CloseEnhMetaFile(HDC hdc);
+
+WIN32_IMPORT("PlayEnhMetaFile")
+BOOL WINAPI PlayEnhMetaFile(HDC hdc, HENHMETAFILE hemf, const RECT *lpRect);
+
+WIN32_IMPORT("DeleteEnhMetaFile")
+BOOL WINAPI DeleteEnhMetaFile(HENHMETAFILE hemf);
+
+WIN32_IMPORT("GetEnhMetaFileA")
+HENHMETAFILE WINAPI GetEnhMetaFileA(LPCSTR lpFilename);
+#ifndef GetEnhMetaFile
+#define GetEnhMetaFile GetEnhMetaFileA
+#endif
+
+WIN32_IMPORT("GetEnhMetaFileHeader")
+UINT WINAPI GetEnhMetaFileHeader(HENHMETAFILE hemf, UINT cbBuffer, LPENHMETAHEADER lpemh);
+
+WIN32_IMPORT("GetEnhMetaFileDescriptionA")
+UINT WINAPI GetEnhMetaFileDescriptionA(HENHMETAFILE hemf, UINT cchBuffer, LPSTR lpDescription);
+#ifndef GetEnhMetaFileDescription
+#define GetEnhMetaFileDescription GetEnhMetaFileDescriptionA
+#endif
+
+WIN32_IMPORT("GetEnhMetaFilePaletteEntries")
+UINT WINAPI GetEnhMetaFilePaletteEntries(HENHMETAFILE hemf, UINT cEntries, LPPALETTEENTRY ppe);
+
+WIN32_IMPORT("CopyEnhMetaFileA")
+HENHMETAFILE WINAPI CopyEnhMetaFileA(HENHMETAFILE hemfSrc, LPCSTR lpFilename);
+#ifndef CopyEnhMetaFile
+#define CopyEnhMetaFile CopyEnhMetaFileA
+#endif
+
+WIN32_IMPORT("PlayEnhMetaFileRecord")
+BOOL WINAPI PlayEnhMetaFileRecord(HDC hdc, HANDLETABLE *lpht, const ENHMETARECORD *lpmr, UINT cht);
+
+WIN32_IMPORT("EnumEnhMetaFile")
+BOOL WINAPI EnumEnhMetaFile(HDC hdc, HENHMETAFILE hemf, ENHMFENUMPROC lpEnhMetaFunc, LPVOID lpData, const RECT *lpRect);
 
 #ifdef __cplusplus
 }

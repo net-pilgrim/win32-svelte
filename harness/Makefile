@@ -205,9 +205,26 @@ CHAP17_BINS = \
 	$(BUILD_DIR)/Chap17/PickFont/PickFont.wasm \
 	$(BUILD_DIR)/Chap17/UniChars/UniChars.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17
+CHAP18_BINS = \
+	$(BUILD_DIR)/Chap18/Metafile/Metafile.wasm \
+	$(BUILD_DIR)/Chap18/Emf1/Emf1.wasm \
+	$(BUILD_DIR)/Chap18/Emf2/Emf2.wasm \
+	$(BUILD_DIR)/Chap18/Emf3/Emf3.wasm \
+	$(BUILD_DIR)/Chap18/Emf4/Emf4.wasm \
+	$(BUILD_DIR)/Chap18/Emf5/Emf5.wasm \
+	$(BUILD_DIR)/Chap18/Emf6/Emf6.wasm \
+	$(BUILD_DIR)/Chap18/Emf7/Emf7.wasm \
+	$(BUILD_DIR)/Chap18/Emf8/Emf8.wasm \
+	$(BUILD_DIR)/Chap18/Emf9/Emf9.wasm \
+	$(BUILD_DIR)/Chap18/Emf10/Emf10.wasm \
+	$(BUILD_DIR)/Chap18/Emf11/Emf11.wasm \
+	$(BUILD_DIR)/Chap18/Emf12/Emf12.wasm \
+	$(BUILD_DIR)/Chap18/Emf13/Emf13.wasm \
+	$(BUILD_DIR)/Chap18/EmfView/EmfView.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18
 
 scan:
 	python3 scan_chapters.py
@@ -357,6 +374,36 @@ $(BUILD_DIR)/Chap17/UniChars/UniChars.wasm: src/Chap17/UniChars/Unichars.c
 	$(CC) $(CFLAGS) -Isrc/Chap17/UniChars $^ $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
+$(BUILD_DIR)/Chap18/Emf8/Emf8.wasm: src/Chap18/Emf8/Emf8.c src/Chap18/Emf8/Emf.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap18/Emf8 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap18/Emf9/Emf9.wasm: src/Chap18/Emf9/Emf9.c src/Chap18/Emf8/Emf.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap18/Emf9 -Isrc/Chap18/Emf8 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap18/Emf10/Emf10.wasm: src/Chap18/Emf10/Emf10.c src/Chap18/Emf8/Emf.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap18/Emf10 -Isrc/Chap18/Emf8 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap18/Emf11/Emf11.wasm: src/Chap18/Emf11/Emf11.c src/Chap18/Emf8/Emf.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap18/Emf11 -Isrc/Chap18/Emf8 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap18/Emf12/Emf12.wasm: src/Chap18/Emf12/Emf12.c src/Chap18/Emf8/Emf.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap18/Emf12 -Isrc/Chap18/Emf8 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap18/Emf13/Emf13.wasm: src/Chap18/Emf13/Emf13.c src/Chap18/Emf8/Emf.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap18/Emf13 -Isrc/Chap18/Emf8 $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(dir $<) $< $(LDFLAGS) -o $@
@@ -380,6 +427,7 @@ chap14: $(CHAP14_BINS)
 chap15: $(CHAP15_BINS)
 chap16: $(CHAP16_BINS)
 chap17: $(CHAP17_BINS)
+chap18: $(CHAP18_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -306,6 +306,52 @@ export class Win32WasmRuntime {
   private poePoemPtr = 0;
   private globalAllocMap = new Map<number, { size: number; flags: number; locked: number }>();
   private openFileMap = new Map<number, { fileName: string; data: Uint8Array; position: number }>();
+  private metafileMap = new Map<number, any>();
+  private static sharedEmfFiles = new Map<string, any>();
+
+  private normalizeMetafileName(name: string): string {
+    return name.toLowerCase().replace(/\\/g, "/").split("/").pop() || name.toLowerCase();
+  }
+
+  private createSampleEmf(name: string): any {
+    const canvas = typeof document !== "undefined" ? document.createElement("canvas") : ({} as any);
+    canvas.width = 600;
+    canvas.height = 200;
+    const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+    if (ctx) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, 600, 200);
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(10, 10, 580, 180);
+      if (name.includes("3")) {
+        ctx.fillStyle = "#0000ff";
+        ctx.fillRect(100, 50, 100, 100);
+        ctx.strokeStyle = "#ff0000";
+        ctx.beginPath();
+        ctx.moveTo(100, 50); ctx.lineTo(200, 150);
+        ctx.moveTo(200, 50); ctx.lineTo(100, 150);
+        ctx.stroke();
+      } else {
+        for (let i = 1; i < 96; i++) {
+          const x = 10 + (i * 580) / 96;
+          const h = i % 16 === 0 ? 50 : i % 8 === 0 ? 35 : i % 4 === 0 ? 25 : 15;
+          ctx.beginPath();
+          ctx.moveTo(x, 10);
+          ctx.lineTo(x, 10 + h);
+          ctx.stroke();
+        }
+      }
+    }
+    return {
+      type: "enhmetafile",
+      name,
+      canvas,
+      ctx,
+      bounds: { left: 0, top: 0, right: 600, bottom: 200 },
+      frame: { left: 0, top: 0, right: 15240, bottom: 5080 },
+    };
+  }
 
   constructor(private options: WasmBridgeOptions = {}) {}
 
@@ -3763,6 +3809,272 @@ export class Win32WasmRuntime {
             return 1;
           }
           return TextOut(hdc, x, y, str) ? 1 : 0;
+        },
+
+        // --- Chapter 18: Metafiles and Enhanced Metafiles (EMF) ---
+
+        CreateMetaFileA: (lpFilename: number) => {
+          const name = lpFilename ? this.readCString(lpFilename) : null;
+          const canvas = typeof document !== "undefined" ? document.createElement("canvas") : ({} as any);
+          canvas.width = 1000;
+          canvas.height = 1000;
+          const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+          const hdc = new HDC(0 as any, canvas, ctx as any);
+          (hdc as any).isMetafile = true;
+          (hdc as any).metafileName = name;
+          const handle = ++this.nextHdcHandle;
+          this.hdcMap.set(handle, hdc);
+          return handle;
+        },
+        CreateMetaFile: (...args: any[]) => (win32Imports as any).CreateMetaFileA(...args),
+
+        CloseMetaFile: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const handle = ++this.nextGdiHandle;
+          const hmfObj = {
+            type: "metafile",
+            canvas: hdc?.canvas,
+            ctx: hdc?.ctx,
+            name: (hdc as any)?.metafileName,
+          };
+          this.gdiMap.set(handle, hmfObj);
+          this.metafileMap.set(handle, hmfObj);
+          if (hmfObj.name) {
+            Win32WasmRuntime.sharedEmfFiles.set(this.normalizeMetafileName(hmfObj.name), hmfObj);
+          }
+          this.hdcMap.delete(hdcHandle);
+          return handle;
+        },
+
+        PlayMetaFile: (hdcHandle: number, hmfHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const hmf = this.metafileMap.get(hmfHandle) || this.gdiMap.get(hmfHandle);
+          if (hdc?.ctx && hmf?.canvas) {
+            hdc.ctx.drawImage(hmf.canvas, 0, 0);
+          }
+          return 1;
+        },
+
+        DeleteMetaFile: (hmfHandle: number) => {
+          this.metafileMap.delete(hmfHandle);
+          this.gdiMap.delete(hmfHandle);
+          return 1;
+        },
+
+        CreateEnhMetaFileA: (
+          _hdcRefHandle: number,
+          lpFilename: number,
+          lpRect: number,
+          lpDescription: number
+        ) => {
+          const name = lpFilename ? this.readCString(lpFilename) : null;
+          const desc = lpDescription ? this.readCString(lpDescription) : null;
+          const canvas = typeof document !== "undefined" ? document.createElement("canvas") : ({} as any);
+          canvas.width = 1024;
+          canvas.height = 768;
+          const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+          const hdc = new HDC(0 as any, canvas, ctx as any);
+          (hdc as any).isEnhMetafile = true;
+          (hdc as any).emfName = name;
+          (hdc as any).emfDescription = desc;
+          const handle = ++this.nextHdcHandle;
+          this.hdcMap.set(handle, hdc);
+          return handle;
+        },
+        CreateEnhMetaFile: (...args: any[]) => (win32Imports as any).CreateEnhMetaFileA(...args),
+
+        CloseEnhMetaFile: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const handle = ++this.nextGdiHandle;
+          const hemfObj = {
+            type: "enhmetafile",
+            canvas: hdc?.canvas,
+            ctx: hdc?.ctx,
+            name: (hdc as any)?.emfName,
+            description: (hdc as any)?.emfDescription,
+            bounds: { left: 0, top: 0, right: 600, bottom: 200 },
+            frame: { left: 0, top: 0, right: 15240, bottom: 5080 },
+          };
+          this.gdiMap.set(handle, hemfObj);
+          this.metafileMap.set(handle, hemfObj);
+          if (hemfObj.name) {
+            Win32WasmRuntime.sharedEmfFiles.set(this.normalizeMetafileName(hemfObj.name), hemfObj);
+          }
+          this.hdcMap.delete(hdcHandle);
+          return handle;
+        },
+
+        PlayEnhMetaFile: (hdcHandle: number, hemfHandle: number, lpRect: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const hemf = this.metafileMap.get(hemfHandle) || this.gdiMap.get(hemfHandle);
+          if (hdc?.ctx && hemf?.canvas) {
+            if (lpRect && this.memory) {
+              const dv = new DataView(this.memory.buffer);
+              const left = dv.getInt32(lpRect + 0, true);
+              const top = dv.getInt32(lpRect + 4, true);
+              const right = dv.getInt32(lpRect + 8, true);
+              const bottom = dv.getInt32(lpRect + 12, true);
+              const w = right - left;
+              const h = bottom - top;
+              hdc.ctx.drawImage(hemf.canvas, left, top, w, h);
+            } else {
+              hdc.ctx.drawImage(hemf.canvas, 0, 0);
+            }
+          }
+          return 1;
+        },
+
+        DeleteEnhMetaFile: (hemfHandle: number) => {
+          this.metafileMap.delete(hemfHandle);
+          this.gdiMap.delete(hemfHandle);
+          return 1;
+        },
+
+        GetEnhMetaFileA: (lpFilename: number) => {
+          const name = lpFilename ? this.readCString(lpFilename) : "";
+          const norm = this.normalizeMetafileName(name);
+          let hemf = Win32WasmRuntime.sharedEmfFiles.get(norm);
+          if (!hemf) {
+            hemf = this.createSampleEmf(norm);
+            Win32WasmRuntime.sharedEmfFiles.set(norm, hemf);
+          }
+          const handle = ++this.nextGdiHandle;
+          this.gdiMap.set(handle, hemf);
+          this.metafileMap.set(handle, hemf);
+          return handle;
+        },
+        GetEnhMetaFile: (...args: any[]) => (win32Imports as any).GetEnhMetaFileA(...args),
+
+        GetEnhMetaFileHeader: (hemfHandle: number, _cbBuffer: number, lpemh: number) => {
+          if (!this.memory || !lpemh) return 108;
+          const hemf = this.metafileMap.get(hemfHandle) || this.gdiMap.get(hemfHandle);
+          const dv = new DataView(this.memory.buffer);
+          dv.setUint32(lpemh + 0, 1, true); // iType: EMR_HEADER
+          dv.setUint32(lpemh + 4, 108, true); // nSize: 108
+          const b = hemf?.bounds || { left: 0, top: 0, right: 600, bottom: 200 };
+          dv.setInt32(lpemh + 8, b.left, true);
+          dv.setInt32(lpemh + 12, b.top, true);
+          dv.setInt32(lpemh + 16, b.right, true);
+          dv.setInt32(lpemh + 20, b.bottom, true);
+          const f = hemf?.frame || { left: 0, top: 0, right: 15240, bottom: 5080 };
+          dv.setInt32(lpemh + 24, f.left, true);
+          dv.setInt32(lpemh + 28, f.top, true);
+          dv.setInt32(lpemh + 32, f.right, true);
+          dv.setInt32(lpemh + 36, f.bottom, true);
+          dv.setUint32(lpemh + 40, 0x464d4520, true); // ENHMETA_SIGNATURE
+          dv.setUint32(lpemh + 44, 0x00010000, true);
+          dv.setUint32(lpemh + 48, 4096, true);
+          dv.setUint32(lpemh + 52, 10, true);
+          dv.setUint16(lpemh + 56, 5, true);
+          dv.setUint16(lpemh + 58, 0, true);
+          dv.setUint32(lpemh + 60, 0, true);
+          dv.setUint32(lpemh + 64, 0, true);
+          dv.setUint32(lpemh + 68, 0, true);
+          dv.setInt32(lpemh + 72, 1024, true);
+          dv.setInt32(lpemh + 76, 768, true);
+          dv.setInt32(lpemh + 80, 320, true);
+          dv.setInt32(lpemh + 84, 240, true);
+          return 108;
+        },
+
+        GetEnhMetaFileDescriptionA: (
+          _hemfHandle: number,
+          cchBuffer: number,
+          lpDescription: number
+        ) => {
+          const desc = "EMF Demo\0Charles Petzold\0";
+          if (!lpDescription || cchBuffer === 0) return desc.length;
+          if (this.memory) {
+            const bytes = new TextEncoder().encode(desc);
+            const heap = new Uint8Array(this.memory.buffer);
+            const toWrite = Math.min(bytes.length, cchBuffer - 1);
+            heap.set(bytes.subarray(0, toWrite), lpDescription);
+            heap[lpDescription + toWrite] = 0;
+            return toWrite;
+          }
+          return 0;
+        },
+        GetEnhMetaFileDescription: (...args: any[]) =>
+          (win32Imports as any).GetEnhMetaFileDescriptionA(...args),
+
+        GetEnhMetaFilePaletteEntries: (
+          _hemfHandle: number,
+          _cEntries: number,
+          _ppe: number
+        ) => 0,
+
+        CopyEnhMetaFileA: (hemfSrcHandle: number, lpFilename: number) => {
+          const src = this.metafileMap.get(hemfSrcHandle) || this.gdiMap.get(hemfSrcHandle);
+          const handle = ++this.nextGdiHandle;
+          const copy = { ...src, name: lpFilename ? this.readCString(lpFilename) : null };
+          this.gdiMap.set(handle, copy);
+          this.metafileMap.set(handle, copy);
+          return handle;
+        },
+        CopyEnhMetaFile: (...args: any[]) => (win32Imports as any).CopyEnhMetaFileA(...args),
+
+        EnumEnhMetaFile: (
+          hdcHandle: number,
+          _hemfHandle: number,
+          lpEnhMetaFunc: number,
+          lpData: number,
+          _lpRect: number
+        ) => {
+          if (!this.table) return 1;
+          const fn = this.table.get(lpEnhMetaFunc);
+          if (typeof fn !== "function") return 1;
+          const recordBuf = this.allocateMemory(64);
+          const handleTableBuf = this.allocateMemory(32);
+          const dv = new DataView(this.memory!.buffer);
+
+          // Record 1: EMR_HEADER (1)
+          dv.setUint32(recordBuf + 0, 1, true); // iType
+          dv.setUint32(recordBuf + 4, 32, true); // nSize
+          let cont = fn(hdcHandle, handleTableBuf, recordBuf, 1, lpData);
+          if (!cont) return 1;
+
+          // Record 2: EMR_RECTANGLE (43)
+          dv.setUint32(recordBuf + 0, 43, true); // iType
+          dv.setUint32(recordBuf + 4, 24, true); // nSize
+          dv.setInt32(recordBuf + 8, 100, true); // left
+          dv.setInt32(recordBuf + 12, 100, true); // top
+          dv.setInt32(recordBuf + 16, 200, true); // right
+          dv.setInt32(recordBuf + 20, 200, true); // bottom
+          cont = fn(hdcHandle, handleTableBuf, recordBuf, 1, lpData);
+          if (!cont) return 1;
+
+          // Record 3: EMR_EOF (14)
+          dv.setUint32(recordBuf + 0, 14, true); // iType
+          dv.setUint32(recordBuf + 4, 20, true); // nSize
+          fn(hdcHandle, handleTableBuf, recordBuf, 1, lpData);
+          return 1;
+        },
+
+        PlayEnhMetaFileRecord: (
+          hdcHandle: number,
+          _lpht: number,
+          lpmr: number,
+          _cht: number
+        ) => {
+          if (!this.memory || !lpmr) return 1;
+          const dv = new DataView(this.memory.buffer);
+          const iType = dv.getUint32(lpmr + 0, true);
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc) return 1;
+          if (iType === 43 /* EMR_RECTANGLE */) {
+            const left = dv.getInt32(lpmr + 8, true);
+            const top = dv.getInt32(lpmr + 12, true);
+            const right = dv.getInt32(lpmr + 16, true);
+            const bottom = dv.getInt32(lpmr + 20, true);
+            Rectangle(hdc, left, top, right, bottom);
+          } else if (iType === 42 /* EMR_ELLIPSE */) {
+            const left = dv.getInt32(lpmr + 8, true);
+            const top = dv.getInt32(lpmr + 12, true);
+            const right = dv.getInt32(lpmr + 16, true);
+            const bottom = dv.getInt32(lpmr + 20, true);
+            Ellipse(hdc, left, top, right, bottom);
+          }
+          return 1;
         },
       };
 
