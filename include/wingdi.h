@@ -61,6 +61,19 @@ typedef struct tagPAINTSTRUCT {
     BYTE rgbReserved[32];
 } PAINTSTRUCT, *PPAINTSTRUCT, *NPPAINTSTRUCT, *LPPAINTSTRUCT;
 
+#ifndef _BITMAP_DEFINED
+#define _BITMAP_DEFINED
+typedef struct tagBITMAP {
+    LONG        bmType;
+    LONG        bmWidth;
+    LONG        bmHeight;
+    LONG        bmWidthBytes;
+    WORD        bmPlanes;
+    WORD        bmBitsPixel;
+    LPVOID      bmBits;
+} BITMAP, *PBITMAP, *NPBITMAP, *LPBITMAP;
+#endif
+
 // GDI Import Functions
 WIN32_IMPORT("BeginPaint")
 HDC WINAPI BeginPaint(HWND hWnd, LPPAINTSTRUCT lpPaint);

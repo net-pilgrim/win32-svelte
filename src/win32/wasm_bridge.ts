@@ -1137,6 +1137,10 @@ export class Win32WasmRuntime {
           const hdc = this.hdcMap.get(hdcHandle);
           const obj = this.gdiMap.get(hObj);
           if (!hdc || !obj) return 0;
+          if (obj.type === "bitmap" && obj.canvas) {
+            hdc.canvas = obj.canvas;
+            hdc.ctx = obj.ctx;
+          }
           SelectObject(hdc, obj);
           return hObj;
         },
@@ -2000,7 +2004,27 @@ export class Win32WasmRuntime {
         CreateFontIndirectA: (_lplf: number) => ++this.nextGdiHandle,
         CreateFontIndirect: (...args: any[]) => (win32Imports as any).CreateFontIndirectA(...args),
 
-        GetObjectA: (_hgdiobj: number, _cbBuffer: number, _lpvObject: number) => 0,
+        GetObjectA: (hgdiobj: number, cbBuffer: number, lpvObject: number) => {
+          if (!this.memory || !lpvObject) return 0;
+          const obj = this.gdiMap.get(hgdiobj);
+          if (obj && (obj.type === "bitmap" || obj.width !== undefined)) {
+            const width = obj.width || 64;
+            const height = obj.height || 64;
+            const widthBytes = Math.ceil(width / 8);
+            const view = new DataView(this.memory.buffer);
+            if (cbBuffer >= 24) {
+              view.setInt32(lpvObject + 0, 0, true);          // bmType
+              view.setInt32(lpvObject + 4, width, true);      // bmWidth
+              view.setInt32(lpvObject + 8, height, true);     // bmHeight
+              view.setInt32(lpvObject + 12, widthBytes, true);// bmWidthBytes
+              view.setUint16(lpvObject + 16, 1, true);        // bmPlanes
+              view.setUint16(lpvObject + 18, 1, true);        // bmBitsPixel
+              view.setUint32(lpvObject + 20, 0, true);        // bmBits
+              return 24;
+            }
+          }
+          return 0;
+        },
         GetObject: (...args: any[]) => (win32Imports as any).GetObjectA(...args),
 
         WriteFile: (
@@ -2310,6 +2334,219 @@ export class Win32WasmRuntime {
         EndDoc: (_hdcHandle: number) => 1,
         AbortDoc: (_hdcHandle: number) => 1,
         SetAbortProc: (_hdcHandle: number, _lpAbortProc: number) => 1,
+
+        // --- Chapter 14: Bitmaps & Bitblts ---
+        BitBlt: (
+          hdcDestHandle: number,
+          xDest: number,
+          yDest: number,
+          wDest: number,
+          hDest: number,
+          hdcSrcHandle: number,
+          xSrc: number,
+          ySrc: number,
+          _rop: number
+        ) => {
+          const hdcDest = this.hdcMap.get(hdcDestHandle);
+          const hdcSrc = this.hdcMap.get(hdcSrcHandle);
+          if (hdcDest?.ctx && hdcSrc?.canvas) {
+            try {
+              hdcDest.ctx.drawImage(
+                hdcSrc.canvas,
+                xSrc, ySrc, wDest, hDest,
+                xDest, yDest, wDest, hDest
+              );
+            } catch {
+              // ignore
+            }
+          }
+          return 1;
+        },
+
+        StretchBlt: (
+          hdcDestHandle: number,
+          xDest: number,
+          yDest: number,
+          wDest: number,
+          hDest: number,
+          hdcSrcHandle: number,
+          xSrc: number,
+          ySrc: number,
+          wSrc: number,
+          hSrc: number,
+          _rop: number
+        ) => {
+          const hdcDest = this.hdcMap.get(hdcDestHandle);
+          const hdcSrc = this.hdcMap.get(hdcSrcHandle);
+          if (hdcDest?.ctx && hdcSrc?.canvas) {
+            try {
+              hdcDest.ctx.drawImage(
+                hdcSrc.canvas,
+                xSrc, ySrc, wSrc, hSrc,
+                xDest, yDest, wDest, hDest
+              );
+            } catch {
+              // ignore
+            }
+          }
+          return 1;
+        },
+
+        PatBlt: (
+          hdcHandle: number,
+          x: number,
+          y: number,
+          w: number,
+          h: number,
+          _rop: number
+        ) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx) {
+            hdc.ctx.save();
+            hdc.ctx.fillStyle = "#ffffff";
+            hdc.ctx.fillRect(x, y, w, h);
+            hdc.ctx.restore();
+          }
+          return 1;
+        },
+
+        CreateCompatibleDC: (hdcHandle: number) => {
+          const srcHdc = this.hdcMap.get(hdcHandle);
+          const width = srcHdc?.canvas?.width || 800;
+          const height = srcHdc?.canvas?.height || 600;
+          let canvas: any = null;
+          let ctx: any = null;
+          if (typeof document !== "undefined") {
+            canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            ctx = canvas.getContext("2d");
+          }
+          const handle = ++this.nextHdcHandle;
+          const memHdc: HDC = {
+            canvas,
+            ctx,
+            currentPoint: { x: 0, y: 0 },
+            currentBrush: { type: "brush", color: "#ffffff" },
+            currentPen: { type: "pen", width: 1, color: "#000000" },
+            textColor: "#000000",
+            bkColor: "#ffffff",
+          };
+          this.hdcMap.set(handle, memHdc);
+          return handle;
+        },
+
+        CreateCompatibleBitmap: (_hdcHandle: number, cx: number, cy: number) => {
+          const handle = ++this.nextGdiHandle;
+          let canvas: any = null;
+          let ctx: any = null;
+          if (typeof document !== "undefined") {
+            canvas = document.createElement("canvas");
+            canvas.width = cx || 1;
+            canvas.height = cy || 1;
+            ctx = canvas.getContext("2d");
+          }
+          this.gdiMap.set(handle, {
+            type: "bitmap",
+            width: cx,
+            height: cy,
+            canvas,
+            ctx,
+          });
+          return handle;
+        },
+
+        CreateBitmap: (nWidth: number, nHeight: number, nPlanes: number, nBitCount: number, _lpBits: number) => {
+          const handle = ++this.nextGdiHandle;
+          this.gdiMap.set(handle, {
+            type: "bitmap",
+            width: nWidth,
+            height: nHeight,
+            planes: nPlanes,
+            bitsPixel: nBitCount,
+          });
+          return handle;
+        },
+
+        CreateBitmapIndirect: (pbm: number) => {
+          const handle = ++this.nextGdiHandle;
+          let width = 64;
+          let height = 64;
+          if (this.memory && pbm) {
+            const view = new DataView(this.memory.buffer);
+            width = view.getInt32(pbm + 4, true) || 64;
+            height = view.getInt32(pbm + 8, true) || 64;
+          }
+          this.gdiMap.set(handle, {
+            type: "bitmap",
+            width,
+            height,
+          });
+          return handle;
+        },
+
+        GetWindowDC: (hWnd: number) => (win32Imports as any).GetDC(hWnd),
+        GetDCEx: (hWnd: number, _hrgnClip: number, _flags: number) => (win32Imports as any).GetDC(hWnd),
+
+        LoadBitmapA: (_hInstance: number, _lpBitmapName: number) => {
+          const handle = ++this.nextGdiHandle;
+          let canvas: any = null;
+          let ctx: any = null;
+          if (typeof document !== "undefined") {
+            canvas = document.createElement("canvas");
+            canvas.width = 32;
+            canvas.height = 32;
+            ctx = canvas.getContext("2d");
+          }
+          this.gdiMap.set(handle, { type: "bitmap", width: 32, height: 32, canvas, ctx });
+          return handle;
+        },
+        LoadBitmap: (...args: any[]) => (win32Imports as any).LoadBitmapA(...args),
+
+        CreateHatchBrush: (_iHatch: number, color: number) => (win32Imports as any).CreateSolidBrush(color),
+        CreatePatternBrush: (_hbm: number) => (win32Imports as any).CreateSolidBrush(0x008080),
+
+        SetStretchBltMode: (_hdcHandle: number, _mode: number) => 1,
+        GetStretchBltMode: (_hdcHandle: number) => 1,
+
+        LockWindowUpdate: (_hWndLock: number) => 1,
+        GetDesktopWindow: () => 0,
+
+        EnumDisplaySettingsA: (_lpszDeviceName: number, iModeNum: number, lpDevMode: number) => {
+          if (iModeNum > 0 || !this.memory || !lpDevMode) return 0;
+          const dv = new DataView(this.memory.buffer);
+          dv.setUint32(lpDevMode + 108, 1024, true); // dmPelsWidth
+          dv.setUint32(lpDevMode + 112, 768, true);  // dmPelsHeight
+          return 1;
+        },
+        EnumDisplaySettings: (...args: any[]) => (win32Imports as any).EnumDisplaySettingsA(...args),
+
+        GetTextExtentPoint32A: (_hdcHandle: number, _lpString: number, c: number, lpsz: number) => {
+          if (this.memory && lpsz) {
+            const dv = new DataView(this.memory.buffer);
+            dv.setInt32(lpsz + 0, (c > 0 ? c : 1) * 8, true); // cx
+            dv.setInt32(lpsz + 4, 16, true);                   // cy
+          }
+          return 1;
+        },
+        GetTextExtentPoint32: (...args: any[]) => (win32Imports as any).GetTextExtentPoint32A(...args),
+
+        GetTickCount: () => Date.now() & 0xffffffff,
+
+        GetMenuItemInfoA: (
+          _hMenu: number,
+          _item: number,
+          _fByPosition: number,
+          lpmii: number
+        ) => {
+          if (this.memory && lpmii) {
+            const dv = new DataView(this.memory.buffer);
+            dv.setUint32(lpmii + 20, 0, true); // hSubMenu
+            dv.setUint32(lpmii + 36, ++this.nextGdiHandle, true); // dwTypeData
+          }
+          return 1;
+        },
+        GetMenuItemInfo: (...args: any[]) => (win32Imports as any).GetMenuItemInfoA(...args),
       };
 
     return {

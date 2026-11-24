@@ -143,6 +143,11 @@ typedef struct tagPOINT {
     LONG y;
 } POINT, *PPOINT, *NPPOINT, *LPPOINT;
 
+typedef struct _POINTL {
+    LONG x;
+    LONG y;
+} POINTL, *PPOINTL;
+
 typedef struct tagSIZE {
     LONG cx;
     LONG cy;

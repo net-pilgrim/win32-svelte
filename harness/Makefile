@@ -147,9 +147,24 @@ CHAP13_BINS := \
 	$(BUILD_DIR)/Chap13/Print3/Print3.wasm \
 	$(BUILD_DIR)/Chap13/PopPad/PopPad.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13
+# --- Chapter 14 ---
+CHAP14_BINS := \
+	$(BUILD_DIR)/Chap14/BitBlt/BitBlt.wasm \
+	$(BUILD_DIR)/Chap14/BitMask/BitMask.wasm \
+	$(BUILD_DIR)/Chap14/Blowup/Blowup.wasm \
+	$(BUILD_DIR)/Chap14/Bounce/Bounce.wasm \
+	$(BUILD_DIR)/Chap14/Bricks1/Bricks1.wasm \
+	$(BUILD_DIR)/Chap14/Bricks2/Bricks2.wasm \
+	$(BUILD_DIR)/Chap14/Bricks3/Bricks3.wasm \
+	$(BUILD_DIR)/Chap14/GrafMenu/GrafMenu.wasm \
+	$(BUILD_DIR)/Chap14/HelloBit/HelloBit.wasm \
+	$(BUILD_DIR)/Chap14/Scramble/Scramble.wasm \
+	$(BUILD_DIR)/Chap14/Sketch/Sketch.wasm \
+	$(BUILD_DIR)/Chap14/Stretch/Stretch.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14
 
 scan:
 	python3 scan_chapters.py
@@ -184,6 +199,11 @@ $(BUILD_DIR)/Chap13/PopPad/PopPad.wasm: $(CHAP13_POPPAD_SRCS)
 	$(CC) $(CFLAGS) -Isrc/Chap13/PopPad $(CHAP13_POPPAD_SRCS) $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
+$(BUILD_DIR)/Chap14/Bricks3/Bricks3.wasm: src/Chap14/Bricks3/BRICKS3.C
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap14/Bricks3 $< $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(dir $<) $< $(LDFLAGS) -o $@
@@ -203,6 +223,7 @@ chap10: $(CHAP10_BINS)
 chap11: $(CHAP11_BINS)
 chap12: $(CHAP12_BINS)
 chap13: $(CHAP13_BINS)
+chap14: $(CHAP14_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)

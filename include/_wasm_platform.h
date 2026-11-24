@@ -2198,6 +2198,268 @@ int WINAPI GetMenuStringA(HMENU hMenu, UINT uIDItem, LPSTR lpString, int cchMax,
 WIN32_IMPORT("GetVersion")
 DWORD WINAPI GetVersion(VOID);
 
+// --- Chapter 14: Bitmaps & Bitblts ---
+
+#ifndef ZeroMemory
+#define ZeroMemory(Destination,Length) memset((Destination),0,(Length))
+#endif
+
+#ifndef _BITMAP_DEFINED
+#define _BITMAP_DEFINED
+typedef struct tagBITMAP {
+    LONG        bmType;
+    LONG        bmWidth;
+    LONG        bmHeight;
+    LONG        bmWidthBytes;
+    WORD        bmPlanes;
+    WORD        bmBitsPixel;
+    LPVOID      bmBits;
+} BITMAP, *PBITMAP, *NPBITMAP, *LPBITMAP;
+#endif
+
+#ifndef CCHDEVICENAME
+#define CCHDEVICENAME 32
+#define CCHFORMNAME 32
+
+typedef struct _devicemodeA {
+    BYTE   dmDeviceName[CCHDEVICENAME];
+    WORD   dmSpecVersion;
+    WORD   dmDriverVersion;
+    WORD   dmSize;
+    WORD   dmDriverExtra;
+    DWORD  dmFields;
+    union {
+      struct {
+        short dmOrientation;
+        short dmPaperSize;
+        short dmPaperLength;
+        short dmPaperWidth;
+        short dmScale;
+        short dmCopies;
+        short dmDefaultSource;
+        short dmPrintQuality;
+      };
+      struct {
+        POINTL dmPosition;
+        DWORD  dmDisplayOrientation;
+        DWORD  dmDisplayFixedOutput;
+      };
+    };
+    short  dmColor;
+    short  dmDuplex;
+    short  dmYResolution;
+    short  dmTTOption;
+    short  dmCollate;
+    BYTE   dmFormName[CCHFORMNAME];
+    WORD   dmLogPixels;
+    DWORD  dmBitsPerPel;
+    DWORD  dmPelsWidth;
+    DWORD  dmPelsHeight;
+    union {
+        DWORD  dmDisplayFlags;
+        DWORD  dmNup;
+    };
+    DWORD  dmDisplayFrequency;
+    DWORD  dmICMMethod;
+    DWORD  dmICMIntent;
+    DWORD  dmMediaType;
+    DWORD  dmDitherType;
+    DWORD  dmReserved1;
+    DWORD  dmReserved2;
+    DWORD  dmPanningWidth;
+    DWORD  dmPanningHeight;
+} DEVMODEA, *PDEVMODEA, *NPDEVMODEA, *LPDEVMODEA;
+typedef DEVMODEA DEVMODE;
+typedef LPDEVMODEA LPDEVMODE;
+#endif
+
+#ifndef SRCCOPY
+#define SRCCOPY             (DWORD)0x00CC0020
+#define SRCPAINT            (DWORD)0x00EE0086
+#define SRCAND              (DWORD)0x008800C6
+#define SRCINVERT           (DWORD)0x00660046
+#define SRCERASE            (DWORD)0x00440328
+#define NOTSRCCOPY          (DWORD)0x00330008
+#define NOTSRCERASE         (DWORD)0x001100A6
+#define MERGECOPY           (DWORD)0x00C000CA
+#define MERGEPAINT          (DWORD)0x00BB0226
+#define PATCOPY             (DWORD)0x00F00021
+#define PATPAINT            (DWORD)0x00FB0A09
+#define PATINVERT           (DWORD)0x005A0049
+#define DSTINVERT           (DWORD)0x00550009
+#define BLACKNESS           (DWORD)0x00000042
+#define WHITENESS           (DWORD)0x00FF0062
+#endif
+
+#ifndef HS_HORIZONTAL
+#define HS_HORIZONTAL       0
+#define HS_VERTICAL         1
+#define HS_FDIAGONAL        2
+#define HS_BDIAGONAL        3
+#define HS_CROSS            4
+#define HS_DIAGCROSS        5
+#endif
+
+#ifndef DCX_WINDOW
+#define DCX_WINDOW           0x00000001L
+#define DCX_CACHE            0x00000002L
+#define DCX_NORESETATTRS     0x00000004L
+#define DCX_CLIPCHILDREN     0x00000008L
+#define DCX_CLIPSIBLINGS     0x00000010L
+#define DCX_PARENTCLIP       0x00000020L
+#define DCX_EXCLUDERGN       0x00000040L
+#define DCX_INTERSECTRGN     0x00000080L
+#define DCX_EXCLUDEUPDATE    0x00000100L
+#define DCX_INTERSECTUPDATE  0x00000200L
+#define DCX_LOCKWINDOWUPDATE 0x00000400L
+#define DCX_VALIDATE         0x00200000L
+#endif
+
+#ifndef BLACKONWHITE
+#define BLACKONWHITE        1
+#define WHITEONBLACK        2
+#define COLORONCOLOR        3
+#define HALFTONE            4
+#define STRETCH_ANDSCANS    BLACKONWHITE
+#define STRETCH_ORSCANS     WHITEONBLACK
+#define STRETCH_DELETESCANS COLORONCOLOR
+#define STRETCH_HALFTONE    HALFTONE
+#endif
+
+WIN32_IMPORT("BitBlt")
+BOOL WINAPI BitBlt(
+    HDC hdc,
+    int x,
+    int y,
+    int cx,
+    int cy,
+    HDC hdcSrc,
+    int x1,
+    int y1,
+    DWORD rop
+);
+
+WIN32_IMPORT("StretchBlt")
+BOOL WINAPI StretchBlt(
+    HDC hdcDest,
+    int xDest,
+    int yDest,
+    int wDest,
+    int hDest,
+    HDC hdcSrc,
+    int xSrc,
+    int ySrc,
+    int wSrc,
+    int hSrc,
+    DWORD rop
+);
+
+WIN32_IMPORT("PatBlt")
+BOOL WINAPI PatBlt(
+    HDC hdc,
+    int x,
+    int y,
+    int w,
+    int h,
+    DWORD rop
+);
+
+WIN32_IMPORT("CreateCompatibleDC")
+HDC WINAPI CreateCompatibleDC(HDC hdc);
+
+WIN32_IMPORT("CreateCompatibleBitmap")
+HBITMAP WINAPI CreateCompatibleBitmap(HDC hdc, int cx, int cy);
+
+WIN32_IMPORT("CreateBitmap")
+HBITMAP WINAPI CreateBitmap(int nWidth, int nHeight, UINT nPlanes, UINT nBitCount, const void *lpBits);
+
+WIN32_IMPORT("CreateBitmapIndirect")
+HBITMAP WINAPI CreateBitmapIndirect(const BITMAP *pbm);
+
+WIN32_IMPORT("GetWindowDC")
+HDC WINAPI GetWindowDC(HWND hWnd);
+
+WIN32_IMPORT("GetDCEx")
+HDC WINAPI GetDCEx(HWND hWnd, HRGN hrgnClip, DWORD flags);
+
+WIN32_IMPORT("LoadBitmapA")
+HBITMAP WINAPI LoadBitmapA(HINSTANCE hInstance, LPCSTR lpBitmapName);
+#ifndef LoadBitmap
+#define LoadBitmap LoadBitmapA
+#endif
+
+WIN32_IMPORT("CreateHatchBrush")
+HBRUSH WINAPI CreateHatchBrush(int iHatch, COLORREF color);
+
+WIN32_IMPORT("CreatePatternBrush")
+HBRUSH WINAPI CreatePatternBrush(HBITMAP hbm);
+
+WIN32_IMPORT("SetStretchBltMode")
+int WINAPI SetStretchBltMode(HDC hdc, int mode);
+
+WIN32_IMPORT("GetStretchBltMode")
+int WINAPI GetStretchBltMode(HDC hdc);
+
+WIN32_IMPORT("LockWindowUpdate")
+BOOL WINAPI LockWindowUpdate(HWND hWndLock);
+
+WIN32_IMPORT("GetDesktopWindow")
+HWND WINAPI GetDesktopWindow(VOID);
+
+WIN32_IMPORT("EnumDisplaySettingsA")
+BOOL WINAPI EnumDisplaySettingsA(LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA *lpDevMode);
+#ifndef EnumDisplaySettings
+#define EnumDisplaySettings EnumDisplaySettingsA
+#endif
+
+WIN32_IMPORT("GetTextExtentPoint32A")
+BOOL WINAPI GetTextExtentPoint32A(HDC hdc, LPCSTR lpString, int c, LPSIZE lpsz);
+#ifndef GetTextExtentPoint32
+#define GetTextExtentPoint32 GetTextExtentPoint32A
+#endif
+
+WIN32_IMPORT("GetTickCount")
+DWORD WINAPI GetTickCount(VOID);
+
+#ifndef GetCurrentTime
+#define GetCurrentTime() GetTickCount()
+#endif
+
+#ifndef MIIM_STATE
+#define MIIM_STATE       0x00000001
+#define MIIM_ID          0x00000002
+#define MIIM_SUBMENU     0x00000004
+#define MIIM_CHECKMARKS  0x00000008
+#define MIIM_TYPE        0x00000010
+#define MIIM_DATA        0x00000020
+#define MIIM_STRING      0x00000040
+#define MIIM_BITMAP      0x00000080
+#define MIIM_FTYPE       0x00000100
+#endif
+
+typedef struct tagMENUITEMINFOA {
+    UINT      cbSize;
+    UINT      fMask;
+    UINT      fType;
+    UINT      fState;
+    UINT      wID;
+    HMENU     hSubMenu;
+    HBITMAP   hbmpChecked;
+    HBITMAP   hbmpUnchecked;
+    ULONG_PTR dwItemData;
+    LPSTR     dwTypeData;
+    UINT      cch;
+    HBITMAP   hbmpItem;
+} MENUITEMINFOA, *LPMENUITEMINFOA;
+typedef MENUITEMINFOA MENUITEMINFO;
+typedef LPMENUITEMINFOA LPMENUITEMINFO;
+
+WIN32_IMPORT("GetMenuItemInfoA")
+BOOL WINAPI GetMenuItemInfoA(HMENU hMenu, UINT item, BOOL fByPosition, LPMENUITEMINFOA lpmii);
+#ifndef GetMenuItemInfo
+#define GetMenuItemInfo GetMenuItemInfoA
+#endif
+
 #ifdef __cplusplus
 }
 #endif
