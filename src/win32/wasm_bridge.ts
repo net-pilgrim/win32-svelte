@@ -884,17 +884,27 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        GetTextMetricsA: (_hdcHandle: number, lpTm: number) => {
+        GetTextMetricsA: (hdcHandle: number, lpTm: number) => {
           if (!this.memory || !lpTm) return 0;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const fontObj = (hdc as any)?.selectedFont;
+          const height = fontObj && Math.abs(fontObj.height) ? Math.abs(fontObj.height) : 16;
+          const ascent = Math.round(height * 0.8);
+          const descent = height - ascent;
+          const aveWidth = Math.round(height * 0.5);
+          const maxWidth = height;
+          const weight = fontObj?.weight || 400;
+          const italic = fontObj?.italic ? 1 : 0;
+
           const view = new DataView(this.memory.buffer);
-          view.setInt32(lpTm + 0, 16, true);  // tmHeight
-          view.setInt32(lpTm + 4, 13, true);  // tmAscent
-          view.setInt32(lpTm + 8, 3, true);   // tmDescent
+          view.setInt32(lpTm + 0, height, true);  // tmHeight
+          view.setInt32(lpTm + 4, ascent, true);  // tmAscent
+          view.setInt32(lpTm + 8, descent, true); // tmDescent
           view.setInt32(lpTm + 12, 3, true);  // tmInternalLeading
           view.setInt32(lpTm + 16, 0, true);  // tmExternalLeading
-          view.setInt32(lpTm + 20, 8, true);  // tmAveCharWidth
-          view.setInt32(lpTm + 24, 16, true); // tmMaxCharWidth
-          view.setInt32(lpTm + 28, 400, true);// tmWeight (FW_NORMAL)
+          view.setInt32(lpTm + 20, aveWidth, true);  // tmAveCharWidth
+          view.setInt32(lpTm + 24, maxWidth, true); // tmMaxCharWidth
+          view.setInt32(lpTm + 28, weight, true);// tmWeight (FW_NORMAL)
           view.setInt32(lpTm + 32, 0, true);  // tmOverhang
           view.setInt32(lpTm + 36, 96, true); // tmDigitizedAspectX
           view.setInt32(lpTm + 40, 96, true); // tmDigitizedAspectY
@@ -902,7 +912,7 @@ export class Win32WasmRuntime {
           view.setUint8(lpTm + 45, 126);      // tmLastChar
           view.setUint8(lpTm + 46, 32);       // tmDefaultChar
           view.setUint8(lpTm + 47, 32);       // tmBreakChar
-          view.setUint8(lpTm + 48, 0);        // tmItalic
+          view.setUint8(lpTm + 48, italic);   // tmItalic
           view.setUint8(lpTm + 49, 0);        // tmUnderlined
           view.setUint8(lpTm + 50, 0);        // tmStruckOut
           view.setUint8(lpTm + 51, 1);        // tmPitchAndFamily (variable pitch)
@@ -910,9 +920,10 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        GetTextFaceA: (_hdcHandle: number, c: number, lpName: number) => {
+        GetTextFaceA: (hdcHandle: number, c: number, lpName: number) => {
           if (this.memory && lpName && c > 0) {
-            const face = "MS Sans Serif";
+            const hdc = this.hdcMap.get(hdcHandle);
+            const face = (hdc as any)?.selectedFont?.faceName || "MS Sans Serif";
             const bytes = new TextEncoder().encode(face);
             const heap = new Uint8Array(this.memory.buffer);
             const toWrite = Math.min(bytes.length, c - 1);
@@ -923,8 +934,11 @@ export class Win32WasmRuntime {
           return 0;
         },
 
-        SetTextAlign: (_hdcHandle: number, _align: number) => {
-          return 0; // Previous alignment TA_LEFT | TA_TOP
+        SetTextAlign: (hdcHandle: number, align: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const old = (hdc as any)?.textAlign || 0;
+          if (hdc) (hdc as any).textAlign = align;
+          return old;
         },
 
         ScrollWindow: (_hWnd: number, _xAmount: number, _yAmount: number, _lpRect: number, _lpClipRect: number) => {
@@ -991,6 +1005,12 @@ export class Win32WasmRuntime {
         MoveToEx: (hdcHandle: number, x: number, y: number, _lppt: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
+          if ((hdc as any).pathActive && hdc.ctx) {
+            hdc.ctx.moveTo(x, y);
+            hdc.currentPoint.x = x;
+            hdc.currentPoint.y = y;
+            return 1;
+          }
           return MoveToEx(hdc, x, y) ? 1 : 0;
         },
 
@@ -1036,12 +1056,106 @@ export class Win32WasmRuntime {
 
         SetMapMode: (_hdcHandle: number, _iMode: number) => 1,
         GetMapMode: (_hdcHandle: number) => 1,
-        SetWindowExtEx: (_hdcHandle: number, _x: number, _y: number, _lpsz: number) => 1,
-        SetViewportExtEx: (_hdcHandle: number, _x: number, _y: number, _lpsz: number) => 1,
-        SetWindowOrgEx: (_hdcHandle: number, _x: number, _y: number, _lppt: number) => 1,
-        SetViewportOrgEx: (_hdcHandle: number, _x: number, _y: number, _lppt: number) => 1,
-        DPtoLP: (_hdcHandle: number, _lppt: number, _c: number) => 1,
-        LPtoDP: (_hdcHandle: number, _lppt: number, _c: number) => 1,
+        SetWindowExtEx: (hdcHandle: number, x: number, y: number, lpsz: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            if (this.memory && lpsz) {
+              const dv = new DataView(this.memory.buffer);
+              dv.setInt32(lpsz + 0, (hdc as any).windowExtX || 1, true);
+              dv.setInt32(lpsz + 4, (hdc as any).windowExtY || 1, true);
+            }
+            (hdc as any).windowExtX = x;
+            (hdc as any).windowExtY = y;
+          }
+          return 1;
+        },
+        SetViewportExtEx: (hdcHandle: number, x: number, y: number, lpsz: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            if (this.memory && lpsz) {
+              const dv = new DataView(this.memory.buffer);
+              dv.setInt32(lpsz + 0, (hdc as any).viewportExtX || 1, true);
+              dv.setInt32(lpsz + 4, (hdc as any).viewportExtY || 1, true);
+            }
+            (hdc as any).viewportExtX = x;
+            (hdc as any).viewportExtY = y;
+          }
+          return 1;
+        },
+        SetWindowOrgEx: (hdcHandle: number, x: number, y: number, lppt: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            if (this.memory && lppt) {
+              const dv = new DataView(this.memory.buffer);
+              dv.setInt32(lppt + 0, (hdc as any).windowOrgX || 0, true);
+              dv.setInt32(lppt + 4, (hdc as any).windowOrgY || 0, true);
+            }
+            (hdc as any).windowOrgX = x;
+            (hdc as any).windowOrgY = y;
+          }
+          return 1;
+        },
+        SetViewportOrgEx: (hdcHandle: number, x: number, y: number, lppt: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            if (this.memory && lppt) {
+              const dv = new DataView(this.memory.buffer);
+              dv.setInt32(lppt + 0, (hdc as any).viewportOrgX || 0, true);
+              dv.setInt32(lppt + 4, (hdc as any).viewportOrgY || 0, true);
+            }
+            (hdc as any).viewportOrgX = x;
+            (hdc as any).viewportOrgY = y;
+          }
+          return 1;
+        },
+        DPtoLP: (hdcHandle: number, lppt: number, c: number) => {
+          if (!this.memory || !lppt || c <= 0) return 1;
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc) return 1;
+          const wExtX = (hdc as any).windowExtX || 1;
+          const wExtY = (hdc as any).windowExtY || 1;
+          const vExtX = (hdc as any).viewportExtX || 1;
+          const vExtY = (hdc as any).viewportExtY || 1;
+          const wOrgX = (hdc as any).windowOrgX || 0;
+          const wOrgY = (hdc as any).windowOrgY || 0;
+          const vOrgX = (hdc as any).viewportOrgX || 0;
+          const vOrgY = (hdc as any).viewportOrgY || 0;
+
+          const dv = new DataView(this.memory.buffer);
+          for (let i = 0; i < c; i++) {
+            const x = dv.getInt32(lppt + i * 8, true);
+            const y = dv.getInt32(lppt + i * 8 + 4, true);
+            const lx = Math.round(((x - vOrgX) * wExtX) / vExtX + wOrgX);
+            const ly = Math.round(((y - vOrgY) * wExtY) / vExtY + wOrgY);
+            dv.setInt32(lppt + i * 8, lx, true);
+            dv.setInt32(lppt + i * 8 + 4, ly, true);
+          }
+          return 1;
+        },
+        LPtoDP: (hdcHandle: number, lppt: number, c: number) => {
+          if (!this.memory || !lppt || c <= 0) return 1;
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc) return 1;
+          const wExtX = (hdc as any).windowExtX || 1;
+          const wExtY = (hdc as any).windowExtY || 1;
+          const vExtX = (hdc as any).viewportExtX || 1;
+          const vExtY = (hdc as any).viewportExtY || 1;
+          const wOrgX = (hdc as any).windowOrgX || 0;
+          const wOrgY = (hdc as any).windowOrgY || 0;
+          const vOrgX = (hdc as any).viewportOrgX || 0;
+          const vOrgY = (hdc as any).viewportOrgY || 0;
+
+          const dv = new DataView(this.memory.buffer);
+          for (let i = 0; i < c; i++) {
+            const lx = dv.getInt32(lppt + i * 8, true);
+            const ly = dv.getInt32(lppt + i * 8 + 4, true);
+            const x = Math.round(((lx - wOrgX) * vExtX) / wExtX + vOrgX);
+            const y = Math.round(((ly - wOrgY) * vExtY) / wExtY + vOrgY);
+            dv.setInt32(lppt + i * 8, x, true);
+            dv.setInt32(lppt + i * 8 + 4, y, true);
+          }
+          return 1;
+        },
 
         Polyline: (hdcHandle: number, apt: number, cpt: number) => {
           if (!this.memory || cpt <= 1) return 0;
@@ -1206,13 +1320,45 @@ export class Win32WasmRuntime {
 
         SaveDC: (hdcHandle: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
-          hdc?.ctx.save();
+          if (hdc) {
+            hdc.ctx?.save();
+            if (!(hdc as any).stateStack) (hdc as any).stateStack = [];
+            (hdc as any).stateStack.push({
+              selectedFontHandle: (hdc as any).selectedFontHandle,
+              selectedFont: (hdc as any).selectedFont,
+              selectedPenHandle: (hdc as any).selectedPenHandle,
+              currentPen: hdc.currentPen,
+              selectedBrushHandle: (hdc as any).selectedBrushHandle,
+              currentBrush: hdc.currentBrush,
+              textColor: hdc.textColor,
+              bkColor: hdc.bkColor,
+              textAlign: (hdc as any).textAlign,
+              graphicsMode: (hdc as any).graphicsMode,
+              windowExtX: (hdc as any).windowExtX,
+              windowExtY: (hdc as any).windowExtY,
+              viewportExtX: (hdc as any).viewportExtX,
+              viewportExtY: (hdc as any).viewportExtY,
+              windowOrgX: (hdc as any).windowOrgX,
+              windowOrgY: (hdc as any).windowOrgY,
+              viewportOrgX: (hdc as any).viewportOrgX,
+              viewportOrgY: (hdc as any).viewportOrgY,
+            });
+            return (hdc as any).stateStack.length;
+          }
           return 1;
         },
 
         RestoreDC: (hdcHandle: number, _nSavedDC: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
-          hdc?.ctx.restore();
+          if (hdc) {
+            hdc.ctx?.restore();
+            if ((hdc as any).stateStack?.length > 0) {
+              const state = (hdc as any).stateStack.pop();
+              if (state) {
+                Object.assign(hdc, state);
+              }
+            }
+          }
           return 1;
         },
 
@@ -1245,6 +1391,12 @@ export class Win32WasmRuntime {
         LineTo: (hdcHandle: number, x: number, y: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
+          if ((hdc as any).pathActive && hdc.ctx) {
+            hdc.ctx.lineTo(x, y);
+            hdc.currentPoint.x = x;
+            hdc.currentPoint.y = y;
+            return 1;
+          }
           return LineTo(hdc, x, y) ? 1 : 0;
         },
 
@@ -1277,11 +1429,19 @@ export class Win32WasmRuntime {
           x: number,
           y: number,
           lpString: number,
-          _c: number
+          c: number
         ) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
-          const text = this.readCString(lpString);
+          let text = this.readCString(lpString);
+          if (c >= 0 && text.length > c) {
+            text = text.substring(0, c);
+          }
+          if ((hdc as any).pathActive) {
+            if (!(hdc as any).pathText) (hdc as any).pathText = [];
+            (hdc as any).pathText.push({ text, x, y });
+            return 1;
+          }
           return TextOut(hdc, x, y, text) ? 1 : 0;
         },
 
@@ -1335,6 +1495,14 @@ export class Win32WasmRuntime {
             case 7: // BLACK_PEN
               obj = CreatePen(0, 1, "#000000");
               break;
+            case 10: // OEM_FIXED_FONT
+            case 11: // ANSI_FIXED_FONT
+            case 12: // ANSI_VAR_FONT
+            case 13: // SYSTEM_FONT
+            case 14: // DEVICE_DEFAULT_FONT
+            case 16: // SYSTEM_FIXED_FONT
+              obj = { type: "font" as const, faceName: "MS Sans Serif", height: 16, weight: 400, italic: false };
+              break;
             default:
               obj = CreateSolidBrush("#ffffff");
           }
@@ -1356,6 +1524,30 @@ export class Win32WasmRuntime {
             }
             hdc.canvas = obj.canvas;
             hdc.ctx = obj.ctx;
+          }
+          if (obj.type === "font") {
+            const prev = (hdc as any).selectedFontHandle || 10;
+            (hdc as any).selectedFontHandle = hObj;
+            (hdc as any).selectedFont = obj;
+            if (hdc.ctx) {
+              const fontStyle = obj.italic ? "italic " : "";
+              const fontWeight = obj.weight >= 700 ? "bold " : "";
+              const fontSize = Math.abs(obj.height) || 12;
+              hdc.ctx.font = `${fontStyle}${fontWeight}${fontSize}px "${obj.faceName || "MS Sans Serif"}", sans-serif`;
+            }
+            return prev;
+          }
+          if (obj.type === "pen") {
+            const prev = (hdc as any).selectedPenHandle || 6;
+            (hdc as any).selectedPenHandle = hObj;
+            hdc.currentPen = obj;
+            return prev;
+          }
+          if (obj.type === "brush") {
+            const prev = (hdc as any).selectedBrushHandle || 0;
+            (hdc as any).selectedBrushHandle = hObj;
+            hdc.currentBrush = obj;
+            return prev;
           }
           SelectObject(hdc, obj);
           return hObj;
@@ -1829,13 +2021,16 @@ export class Win32WasmRuntime {
         GetLocaleInfo: (_Locale: number, LCType: number, lpLCData: number, cchData: number) =>
           (win32Imports as any).GetLocaleInfoA(_Locale, LCType, lpLCData, cchData),
 
-        CreateICA: () => {
-          return ++this.nextHdcHandle;
-        },
+        CreateICA: () => (win32Imports as any).CreateDCA(),
         CreateIC: () => (win32Imports as any).CreateICA(),
 
         CreateDCA: () => {
-          return ++this.nextHdcHandle;
+          const canvas = typeof document !== "undefined" ? document.createElement("canvas") : ({} as any);
+          const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+          const hdc = new HDC(0 as any, canvas, ctx as any);
+          const handle = ++this.nextHdcHandle;
+          this.hdcMap.set(handle, hdc);
+          return handle;
         },
         CreateDC: () => (win32Imports as any).CreateDCA(),
 
@@ -2239,7 +2434,33 @@ export class Win32WasmRuntime {
         ) => 0,
         SendDlgItemMessage: (...args: any[]) => (win32Imports as any).SendDlgItemMessageA(...args),
 
-        CreateFontIndirectA: (_lplf: number) => ++this.nextGdiHandle,
+        CreateFontIndirectA: (lplf: number) => {
+          const handle = ++this.nextGdiHandle;
+          let logFontBytes: Uint8Array | null = null;
+          let faceName = "MS Sans Serif";
+          let height = 16;
+          let weight = 400;
+          let italic = false;
+          if (this.memory && lplf) {
+            logFontBytes = new Uint8Array(60);
+            logFontBytes.set(new Uint8Array(this.memory.buffer, lplf, 60));
+            const dv = new DataView(this.memory.buffer);
+            height = dv.getInt32(lplf + 0, true);
+            weight = dv.getInt32(lplf + 16, true);
+            italic = dv.getUint8(lplf + 20) !== 0;
+            faceName = this.readCString(lplf + 28) || "MS Sans Serif";
+          }
+          const fontObj = {
+            type: "font" as const,
+            faceName,
+            height,
+            weight,
+            italic,
+            raw: logFontBytes,
+          };
+          this.gdiMap.set(handle, fontObj);
+          return handle;
+        },
         CreateFontIndirect: (...args: any[]) => (win32Imports as any).CreateFontIndirectA(...args),
 
         GetObjectA: (hgdiobj: number, cbBuffer: number, lpvObject: number) => {
@@ -2260,6 +2481,11 @@ export class Win32WasmRuntime {
               view.setUint32(lpvObject + 20, obj.pBits || 0, true);        // bmBits
               return 24;
             }
+          }
+          if (obj && obj.type === "font" && obj.raw) {
+            const copyLen = Math.min(cbBuffer, obj.raw.length);
+            new Uint8Array(this.memory.buffer, lpvObject, copyLen).set(obj.raw.subarray(0, copyLen));
+            return copyLen;
           }
           return 0;
         },
@@ -2605,7 +2831,7 @@ export class Win32WasmRuntime {
           if (!this.memory || !lppd) return 1;
           const dv = new DataView(this.memory.buffer);
           const flags = dv.getUint32(lppd + 20, true);
-          if (flags & 0x00000100 /* PD_RETURNDC */) {
+          if ((flags & 0x00000100 /* PD_RETURNDC */) || (flags & 0x00000200 /* PD_RETURNIC */)) {
             const printerHdc = (win32Imports as any).CreateDCA();
             dv.setUint32(lppd + 16, printerHdc, true);
           }
@@ -2808,11 +3034,16 @@ export class Win32WasmRuntime {
         },
         EnumDisplaySettings: (...args: any[]) => (win32Imports as any).EnumDisplaySettingsA(...args),
 
-        GetTextExtentPoint32A: (_hdcHandle: number, _lpString: number, c: number, lpsz: number) => {
+        GetTextExtentPoint32A: (hdcHandle: number, _lpString: number, c: number, lpsz: number) => {
           if (this.memory && lpsz) {
+            const hdc = this.hdcMap.get(hdcHandle);
+            const fontObj = (hdc as any)?.selectedFont;
+            const height = fontObj && Math.abs(fontObj.height) ? Math.abs(fontObj.height) : 16;
+            const charWidth = Math.round(height * 0.5) || 8;
+            const count = c > 0 ? c : 1;
             const dv = new DataView(this.memory.buffer);
-            dv.setInt32(lpsz + 0, (c > 0 ? c : 1) * 8, true); // cx
-            dv.setInt32(lpsz + 4, 16, true);                   // cy
+            dv.setInt32(lpsz + 0, count * charWidth, true); // cx
+            dv.setInt32(lpsz + 4, height, true);            // cy
           }
           return 1;
         },
@@ -3236,6 +3467,302 @@ export class Win32WasmRuntime {
             view.setInt32(lppt + 4, 0, true);
           }
           return 1;
+        },
+
+        // --- Chapter 17: Text, Fonts, Paths, and Advanced GDI ---
+
+        ExtCreatePen: (
+          iPenStyle: number,
+          cWidth: number,
+          plbrush: number,
+          _cStyle: number,
+          _pstyle: number
+        ) => {
+          let color = "#000000";
+          if (this.memory && plbrush) {
+            const dv = new DataView(this.memory.buffer);
+            const lbColor = dv.getUint32(plbrush + 4, true);
+            color = this.colorRefToRgb(lbColor);
+          }
+          let lineCap: CanvasLineCap = "round";
+          const endcap = iPenStyle & 0x00000f00;
+          if (endcap === 0x00000100) lineCap = "square";
+          else if (endcap === 0x00000200) lineCap = "butt";
+
+          let lineJoin: CanvasLineJoin = "round";
+          const join = iPenStyle & 0x0000f000;
+          if (join === 0x00001000) lineJoin = "bevel";
+          else if (join === 0x00002000) lineJoin = "miter";
+
+          const pen = {
+            type: "pen" as const,
+            style: iPenStyle,
+            width: cWidth,
+            color,
+            lineCap,
+            lineJoin,
+          };
+          const handle = ++this.nextGdiHandle;
+          this.gdiMap.set(handle, pen);
+          return handle;
+        },
+
+        BeginPath: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            (hdc as any).pathActive = true;
+            (hdc as any).pathText = [];
+            hdc.ctx?.beginPath();
+          }
+          return 1;
+        },
+
+        EndPath: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            (hdc as any).pathActive = false;
+          }
+          return 1;
+        },
+
+        StrokePath: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx) {
+            hdc.ctx.save();
+            if (hdc.currentPen) {
+              hdc.ctx.strokeStyle = hdc.currentPen.color || "#000000";
+              hdc.ctx.lineWidth = hdc.currentPen.width || 1;
+              if ((hdc.currentPen as any).lineCap) hdc.ctx.lineCap = (hdc.currentPen as any).lineCap;
+              if ((hdc.currentPen as any).lineJoin) hdc.ctx.lineJoin = (hdc.currentPen as any).lineJoin;
+            }
+            hdc.ctx.stroke();
+            if ((hdc as any).pathText) {
+              for (const item of (hdc as any).pathText) {
+                hdc.ctx.save();
+                const fontObj = (hdc as any).selectedFont;
+                if (fontObj) {
+                  const fontStyle = fontObj.italic ? "italic " : "";
+                  const fontWeight = fontObj.weight >= 700 ? "bold " : "";
+                  const fontSize = Math.abs(fontObj.height) || 12;
+                  hdc.ctx.font = `${fontStyle}${fontWeight}${fontSize}px "${fontObj.faceName || "MS Sans Serif"}", sans-serif`;
+                }
+                hdc.ctx.strokeStyle = hdc.currentPen?.color || "#000000";
+                hdc.ctx.lineWidth = hdc.currentPen?.width || 1;
+                hdc.ctx.strokeText(item.text, item.x, item.y);
+                hdc.ctx.restore();
+              }
+              (hdc as any).pathText = [];
+            }
+            hdc.ctx.restore();
+          }
+          return 1;
+        },
+
+        FillPath: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx) {
+            hdc.ctx.save();
+            if (hdc.currentBrush) {
+              hdc.ctx.fillStyle = hdc.currentBrush.color || "#000000";
+            }
+            hdc.ctx.fill();
+            if ((hdc as any).pathText) {
+              for (const item of (hdc as any).pathText) {
+                hdc.ctx.save();
+                const fontObj = (hdc as any).selectedFont;
+                if (fontObj) {
+                  const fontStyle = fontObj.italic ? "italic " : "";
+                  const fontWeight = fontObj.weight >= 700 ? "bold " : "";
+                  const fontSize = Math.abs(fontObj.height) || 12;
+                  hdc.ctx.font = `${fontStyle}${fontWeight}${fontSize}px "${fontObj.faceName || "MS Sans Serif"}", sans-serif`;
+                }
+                hdc.ctx.fillStyle = hdc.currentBrush?.color || "#000000";
+                hdc.ctx.fillText(item.text, item.x, item.y);
+                hdc.ctx.restore();
+              }
+              (hdc as any).pathText = [];
+            }
+            hdc.ctx.restore();
+          }
+          return 1;
+        },
+
+        StrokeAndFillPath: (hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx) {
+            hdc.ctx.save();
+            if (hdc.currentBrush) {
+              hdc.ctx.fillStyle = hdc.currentBrush.color || "#000000";
+            }
+            hdc.ctx.fill();
+            if (hdc.currentPen) {
+              hdc.ctx.strokeStyle = hdc.currentPen.color || "#000000";
+              hdc.ctx.lineWidth = hdc.currentPen.width || 1;
+              if ((hdc.currentPen as any).lineCap) hdc.ctx.lineCap = (hdc.currentPen as any).lineCap;
+              if ((hdc.currentPen as any).lineJoin) hdc.ctx.lineJoin = (hdc.currentPen as any).lineJoin;
+            }
+            hdc.ctx.stroke();
+            if ((hdc as any).pathText) {
+              for (const item of (hdc as any).pathText) {
+                hdc.ctx.save();
+                const fontObj = (hdc as any).selectedFont;
+                if (fontObj) {
+                  const fontStyle = fontObj.italic ? "italic " : "";
+                  const fontWeight = fontObj.weight >= 700 ? "bold " : "";
+                  const fontSize = Math.abs(fontObj.height) || 12;
+                  hdc.ctx.font = `${fontStyle}${fontWeight}${fontSize}px "${fontObj.faceName || "MS Sans Serif"}", sans-serif`;
+                }
+                hdc.ctx.fillStyle = hdc.currentBrush?.color || "#000000";
+                hdc.ctx.fillText(item.text, item.x, item.y);
+                hdc.ctx.strokeStyle = hdc.currentPen?.color || "#000000";
+                hdc.ctx.lineWidth = hdc.currentPen?.width || 1;
+                hdc.ctx.strokeText(item.text, item.x, item.y);
+                hdc.ctx.restore();
+              }
+              (hdc as any).pathText = [];
+            }
+            hdc.ctx.restore();
+          }
+          return 1;
+        },
+
+        SelectClipPath: (hdcHandle: number, _iMode: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx) {
+            hdc.ctx.clip();
+          }
+          return 1;
+        },
+
+        SetGraphicsMode: (hdcHandle: number, iMode: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const old = (hdc as any)?.graphicsMode || 1;
+          if (hdc) (hdc as any).graphicsMode = iMode;
+          return old;
+        },
+
+        ModifyWorldTransform: (hdcHandle: number, lpXform: number, iMode: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc?.ctx) return 1;
+          if (iMode === 1 || !lpXform) {
+            hdc.ctx.resetTransform ? hdc.ctx.resetTransform() : hdc.ctx.setTransform(1, 0, 0, 1, 0, 0);
+          } else if (this.memory && lpXform) {
+            const dv = new DataView(this.memory.buffer);
+            const eM11 = dv.getFloat32(lpXform + 0, true);
+            const eM12 = dv.getFloat32(lpXform + 4, true);
+            const eM21 = dv.getFloat32(lpXform + 8, true);
+            const eM22 = dv.getFloat32(lpXform + 12, true);
+            const eDx = dv.getFloat32(lpXform + 16, true);
+            const eDy = dv.getFloat32(lpXform + 20, true);
+            hdc.ctx.transform(eM11, eM12, eM21, eM22, eDx, eDy);
+          }
+          return 1;
+        },
+
+        SetWorldTransform: (hdcHandle: number, lpXform: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc?.ctx && this.memory && lpXform) {
+            const dv = new DataView(this.memory.buffer);
+            const eM11 = dv.getFloat32(lpXform + 0, true);
+            const eM12 = dv.getFloat32(lpXform + 4, true);
+            const eM21 = dv.getFloat32(lpXform + 8, true);
+            const eM22 = dv.getFloat32(lpXform + 12, true);
+            const eDx = dv.getFloat32(lpXform + 16, true);
+            const eDy = dv.getFloat32(lpXform + 20, true);
+            hdc.ctx.setTransform(eM11, eM12, eM21, eM22, eDx, eDy);
+          }
+          return 1;
+        },
+
+        GetWorldTransform: (_hdcHandle: number, lpXform: number) => {
+          if (this.memory && lpXform) {
+            const dv = new DataView(this.memory.buffer);
+            dv.setFloat32(lpXform + 0, 1.0, true);
+            dv.setFloat32(lpXform + 4, 0.0, true);
+            dv.setFloat32(lpXform + 8, 0.0, true);
+            dv.setFloat32(lpXform + 12, 1.0, true);
+            dv.setFloat32(lpXform + 16, 0.0, true);
+            dv.setFloat32(lpXform + 20, 0.0, true);
+          }
+          return 1;
+        },
+
+        SetTextJustification: (hdcHandle: number, nBreakExtra: number, nBreakCount: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            (hdc as any).breakExtra = nBreakExtra;
+            (hdc as any).breakCount = nBreakCount;
+          }
+          return 1;
+        },
+
+        GetCurrentObject: (hdcHandle: number, uObjectType: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            if (uObjectType === 6) return (hdc as any).selectedFontHandle || 10;
+            if (uObjectType === 1) return (hdc as any).selectedPenHandle || 6;
+            if (uObjectType === 2) return (hdc as any).selectedBrushHandle || 0;
+            if (uObjectType === 7) return (hdc as any).selectedBitmapHandle || 0;
+          }
+          return 0;
+        },
+
+        GetOutlineTextMetricsA: (_hdcHandle: number, _cjCopy: number, potm: number) => {
+          if (!this.memory || !potm) return 204;
+          const view = new DataView(this.memory.buffer);
+          view.setUint32(potm + 0, 204, true);  // otmSize
+          view.setInt32(potm + 4, 16, true);    // tmHeight
+          view.setInt32(potm + 8, 13, true);    // tmAscent
+          view.setInt32(potm + 12, 3, true);    // tmDescent
+          view.setUint32(potm + 92, 2048, true);// otmEMSquare
+          view.setInt32(potm + 96, 1854, true); // otmAscent
+          view.setInt32(potm + 100, -434, true);// otmDescent
+          view.setUint32(potm + 104, 0, true);  // otmLineGap
+          view.setUint32(potm + 108, 1456, true);// otmsCapEmHeight
+          view.setUint32(potm + 112, 1062, true);// otmsXHeight
+          return 204;
+        },
+        GetOutlineTextMetrics: (...args: any[]) => (win32Imports as any).GetOutlineTextMetricsA(...args),
+
+        GetCharWidthA: (_hdcHandle: number, uFirst: number, uLast: number, piWidths: number) => {
+          if (!this.memory || !piWidths || uLast < uFirst) return 0;
+          const dv = new DataView(this.memory.buffer);
+          const count = uLast - uFirst + 1;
+          for (let i = 0; i < count; i++) {
+            const ch = uFirst + i;
+            let width = 1000;
+            if (ch === 32) width = 500;
+            else if (ch === 105 || ch === 108 || ch === 106 || ch === 46 || ch === 44 || ch === 58 || ch === 59 || ch === 33) width = 500;
+            else if (ch === 109 || ch === 119 || ch === 77 || ch === 87) width = 1600;
+            else if (ch >= 65 && ch <= 90) width = 1200;
+            dv.setInt32(piWidths + i * 4, width, true);
+          }
+          return 1;
+        },
+        GetCharWidth: (...args: any[]) => (win32Imports as any).GetCharWidthA(...args),
+
+        SetMapperFlags: (hdcHandle: number, flags: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          const old = (hdc as any)?.mapperFlags || 0;
+          if (hdc) (hdc as any).mapperFlags = flags;
+          return old;
+        },
+
+        TextOutW: (hdcHandle: number, x: number, y: number, lpString: number, c: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc || !this.memory || !lpString) return 0;
+          const dv = new DataView(this.memory.buffer);
+          let str = "";
+          const len = c >= 0 ? c : 0;
+          for (let i = 0; i < len; i++) {
+            str += String.fromCharCode(dv.getUint16(lpString + i * 2, true));
+          }
+          if ((hdc as any).pathActive) {
+            if (!(hdc as any).pathText) (hdc as any).pathText = [];
+            (hdc as any).pathText.push({ text: str, x, y });
+            return 1;
+          }
+          return TextOut(hdc, x, y, str) ? 1 : 0;
         },
       };
 

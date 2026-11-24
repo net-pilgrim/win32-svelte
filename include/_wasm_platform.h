@@ -64,6 +64,57 @@ extern "C" {
 #ifndef LF_FACESIZE
 #define LF_FACESIZE         32
 #endif
+#ifndef LF_FULLFACESIZE
+#define LF_FULLFACESIZE     64
+#endif
+
+// Font precision, quality, and pitch constants
+#ifndef OUT_DEFAULT_PRECIS
+#define OUT_DEFAULT_PRECIS          0
+#define OUT_STRING_PRECIS           1
+#define OUT_CHARACTER_PRECIS        2
+#define OUT_STROKE_PRECIS           3
+#define OUT_TT_PRECIS               4
+#define OUT_DEVICE_PRECIS           5
+#define OUT_RASTER_PRECIS           6
+#define OUT_TT_ONLY_PRECIS          7
+#define OUT_OUTLINE_PRECIS          8
+#define OUT_SCREEN_OUTLINE_PRECIS   9
+#define OUT_PS_ONLY_PRECIS          10
+
+#define CLIP_DEFAULT_PRECIS         0
+#define CLIP_CHARACTER_PRECIS       1
+#define CLIP_STROKE_PRECIS          2
+#define CLIP_MASK                   0x0f
+#define CLIP_LH_ANGLES              (1<<4)
+#define CLIP_TT_ALWAYS              (2<<4)
+#define CLIP_DFA_DISABLE            (4<<4)
+#define CLIP_EMBEDDED               (8<<4)
+
+#define DEFAULT_QUALITY             0
+#define DRAFT_QUALITY               1
+#define PROOF_QUALITY               2
+#define NONANTIALIASED_QUALITY      3
+#define ANTIALIASED_QUALITY         4
+#define CLEARTYPE_QUALITY           5
+
+#define DEFAULT_PITCH               0
+#define FIXED_PITCH                 1
+#define VARIABLE_PITCH              2
+#define MONO_FONT                   8
+
+#define FF_DONTCARE                 (0<<4)
+#define FF_ROMAN                    (1<<4)
+#define FF_SWISS                    (2<<4)
+#define FF_MODERN                   (3<<4)
+#define FF_SCRIPT                   (4<<4)
+#define FF_DECORATIVE               (5<<4)
+
+#define TMPF_FIXED_PITCH            0x01
+#define TMPF_VECTOR                 0x02
+#define TMPF_DEVICE                 0x08
+#define TMPF_TRUETYPE               0x04
+#endif
 
 WIN32_IMPORT("GetTextFaceA")
 int WINAPI GetTextFaceA(HDC hdc, int c, LPSTR lpName);
@@ -1826,6 +1877,57 @@ void WINAPI Sleep(DWORD dwMilliseconds);
 #ifndef LF_FACESIZE
 #define LF_FACESIZE         32
 #endif
+#ifndef LF_FULLFACESIZE
+#define LF_FULLFACESIZE     64
+#endif
+
+// Font precision, quality, and pitch constants
+#ifndef OUT_DEFAULT_PRECIS
+#define OUT_DEFAULT_PRECIS          0
+#define OUT_STRING_PRECIS           1
+#define OUT_CHARACTER_PRECIS        2
+#define OUT_STROKE_PRECIS           3
+#define OUT_TT_PRECIS               4
+#define OUT_DEVICE_PRECIS           5
+#define OUT_RASTER_PRECIS           6
+#define OUT_TT_ONLY_PRECIS          7
+#define OUT_OUTLINE_PRECIS          8
+#define OUT_SCREEN_OUTLINE_PRECIS   9
+#define OUT_PS_ONLY_PRECIS          10
+
+#define CLIP_DEFAULT_PRECIS         0
+#define CLIP_CHARACTER_PRECIS       1
+#define CLIP_STROKE_PRECIS          2
+#define CLIP_MASK                   0x0f
+#define CLIP_LH_ANGLES              (1<<4)
+#define CLIP_TT_ALWAYS              (2<<4)
+#define CLIP_DFA_DISABLE            (4<<4)
+#define CLIP_EMBEDDED               (8<<4)
+
+#define DEFAULT_QUALITY             0
+#define DRAFT_QUALITY               1
+#define PROOF_QUALITY               2
+#define NONANTIALIASED_QUALITY      3
+#define ANTIALIASED_QUALITY         4
+#define CLEARTYPE_QUALITY           5
+
+#define DEFAULT_PITCH               0
+#define FIXED_PITCH                 1
+#define VARIABLE_PITCH              2
+#define MONO_FONT                   8
+
+#define FF_DONTCARE                 (0<<4)
+#define FF_ROMAN                    (1<<4)
+#define FF_SWISS                    (2<<4)
+#define FF_MODERN                   (3<<4)
+#define FF_SCRIPT                   (4<<4)
+#define FF_DECORATIVE               (5<<4)
+
+#define TMPF_FIXED_PITCH            0x01
+#define TMPF_VECTOR                 0x02
+#define TMPF_DEVICE                 0x08
+#define TMPF_TRUETYPE               0x04
+#endif
 
 #ifndef _LOGFONT_DEFINED
 #define _LOGFONT_DEFINED
@@ -2810,6 +2912,201 @@ UINT WINAPI GetDIBColorTable(HDC hdc, UINT iStart, UINT cEntries, RGBQUAD *prgb)
 
 WIN32_IMPORT("SetDIBColorTable")
 UINT WINAPI SetDIBColorTable(HDC hdc, UINT iStart, UINT cEntries, const RGBQUAD *prgb);
+
+// ==============================================================================
+// Chapter 17: Text, Fonts, Paths, and Advanced GDI
+// ==============================================================================
+
+#ifndef _XFORM_DEFINED
+#define _XFORM_DEFINED
+typedef struct tagXFORM {
+    FLOAT   eM11;
+    FLOAT   eM12;
+    FLOAT   eM21;
+    FLOAT   eM22;
+    FLOAT   eDx;
+    FLOAT   eDy;
+} XFORM, *PXFORM, *LPXFORM;
+
+#define MWT_IDENTITY        1
+#define MWT_LEFTMULTIPLY    2
+#define MWT_RIGHTMULTIPLY   3
+
+#define GM_COMPATIBLE       1
+#define GM_ADVANCED         2
+#endif
+
+#ifndef _LOGBRUSH_DEFINED
+#define _LOGBRUSH_DEFINED
+typedef struct tagLOGBRUSH {
+    UINT        lbStyle;
+    COLORREF    lbColor;
+    ULONG_PTR   lbHatch;
+} LOGBRUSH, *PLOGBRUSH, *NPLOGBRUSH, *LPLOGBRUSH;
+
+#define BS_SOLID            0
+#define BS_NULL             1
+#define BS_HOLLOW           BS_NULL
+#define BS_HATCHED          2
+#define BS_PATTERN          3
+#define BS_INDEXED          4
+#define BS_DIBPATTERN       5
+#define BS_DIBPATTERNPT     6
+#define BS_PATTERN8X8       7
+#define BS_DIBPATTERN8X8    8
+#define BS_MONOPATTERN      9
+
+#define PS_COSMETIC         0x00000000
+#define PS_GEOMETRIC        0x00010000
+#define PS_TYPE_MASK        0x000F0000
+
+#define PS_STYLE_MASK       0x0000000F
+
+#define PS_ENDCAP_ROUND     0x00000000
+#define PS_ENDCAP_SQUARE    0x00000100
+#define PS_ENDCAP_FLAT      0x00000200
+#define PS_ENDCAP_MASK      0x00000F00
+
+#define PS_JOIN_ROUND       0x00000000
+#define PS_JOIN_BEVEL       0x00001000
+#define PS_JOIN_MITER       0x00002000
+#define PS_JOIN_MASK        0x0000F000
+#endif
+
+#ifndef OBJ_PEN
+#define OBJ_PEN             1
+#define OBJ_BRUSH           2
+#define OBJ_DC              3
+#define OBJ_METADC          4
+#define OBJ_PAL             5
+#define OBJ_FONT            6
+#define OBJ_BITMAP          7
+#define OBJ_REGION          8
+#define OBJ_METAFILE        9
+#define OBJ_MEMDC           10
+#define OBJ_EXTPEN          11
+#define OBJ_ENHMETADC       12
+#define OBJ_ENHMETAFILE     13
+#define OBJ_COLORSPACE      14
+#endif
+
+#ifndef _PANOSE_DEFINED
+#define _PANOSE_DEFINED
+typedef struct tagPANOSE {
+    BYTE    bFamilyType;
+    BYTE    bSerifStyle;
+    BYTE    bWeight;
+    BYTE    bProportion;
+    BYTE    bContrast;
+    BYTE    bStrokeVariation;
+    BYTE    bArmStyle;
+    BYTE    bLetterform;
+    BYTE    bMidline;
+    BYTE    bXHeight;
+} PANOSE, *LPPANOSE;
+#endif
+
+#ifndef _OUTLINETEXTMETRIC_DEFINED
+#define _OUTLINETEXTMETRIC_DEFINED
+typedef struct _OUTLINETEXTMETRICA {
+    UINT            otmSize;
+    TEXTMETRICA     otmTextMetric;
+    BYTE            otmFiller;
+    PANOSE          otmPanoseNumber;
+    UINT            otmfsSelection;
+    UINT            otmfsType;
+    INT             otmsCharSlopeRise;
+    INT             otmsCharSlopeRun;
+    INT             otmItalicAngle;
+    UINT            otmEMSquare;
+    INT             otmAscent;
+    INT             otmDescent;
+    UINT            otmLineGap;
+    UINT            otmsCapEmHeight;
+    UINT            otmsXHeight;
+    RECT            otmrcFontBox;
+    POINT           otmptMacCharSlope;
+    POINT           otmptMacAscent;
+    POINT           otmptMacDescent;
+    UINT            otmptSubscriptSize;
+    UINT            otmptSubscriptOffset;
+    UINT            otmptSuperscriptSize;
+    UINT            otmptSuperscriptOffset;
+    UINT            otmptStrikeoutSize;
+    INT             otmptStrikeoutPosition;
+    INT             otmptUnderscoreSize;
+    INT             otmptUnderscorePosition;
+    PSTR            otmpFamilyName;
+    PSTR            otmpFaceName;
+    PSTR            otmpStyleName;
+    PSTR            otmpFullName;
+} OUTLINETEXTMETRICA, *POUTLINETEXTMETRICA, *LPOUTLINETEXTMETRICA;
+
+typedef OUTLINETEXTMETRICA OUTLINETEXTMETRIC;
+typedef LPOUTLINETEXTMETRICA LPOUTLINETEXTMETRIC;
+#endif
+
+#ifndef GetTextExtentPoint
+#define GetTextExtentPoint GetTextExtentPoint32A
+#define GetTextExtentPointA GetTextExtentPoint32A
+#endif
+
+WIN32_IMPORT("ExtCreatePen")
+HPEN WINAPI ExtCreatePen(DWORD iPenStyle, DWORD cWidth, const LOGBRUSH *plbrush, DWORD cStyle, const DWORD *pstyle);
+
+WIN32_IMPORT("BeginPath")
+BOOL WINAPI BeginPath(HDC hdc);
+
+WIN32_IMPORT("EndPath")
+BOOL WINAPI EndPath(HDC hdc);
+
+WIN32_IMPORT("StrokePath")
+BOOL WINAPI StrokePath(HDC hdc);
+
+WIN32_IMPORT("FillPath")
+BOOL WINAPI FillPath(HDC hdc);
+
+WIN32_IMPORT("StrokeAndFillPath")
+BOOL WINAPI StrokeAndFillPath(HDC hdc);
+
+WIN32_IMPORT("SelectClipPath")
+BOOL WINAPI SelectClipPath(HDC hdc, int iMode);
+
+WIN32_IMPORT("SetGraphicsMode")
+int WINAPI SetGraphicsMode(HDC hdc, int iMode);
+
+WIN32_IMPORT("ModifyWorldTransform")
+BOOL WINAPI ModifyWorldTransform(HDC hdc, const XFORM *lpXform, DWORD iMode);
+
+WIN32_IMPORT("SetWorldTransform")
+BOOL WINAPI SetWorldTransform(HDC hdc, const XFORM *lpXform);
+
+WIN32_IMPORT("GetWorldTransform")
+BOOL WINAPI GetWorldTransform(HDC hdc, LPXFORM lpXform);
+
+WIN32_IMPORT("SetTextJustification")
+BOOL WINAPI SetTextJustification(HDC hdc, int nBreakExtra, int nBreakCount);
+
+WIN32_IMPORT("GetCurrentObject")
+HGDIOBJ WINAPI GetCurrentObject(HDC hdc, UINT uObjectType);
+
+WIN32_IMPORT("GetOutlineTextMetricsA")
+UINT WINAPI GetOutlineTextMetricsA(HDC hdc, UINT cjCopy, LPOUTLINETEXTMETRICA potm);
+#ifndef GetOutlineTextMetrics
+#define GetOutlineTextMetrics GetOutlineTextMetricsA
+#endif
+
+WIN32_IMPORT("GetCharWidthA")
+BOOL WINAPI GetCharWidthA(HDC hdc, UINT iFirstChar, UINT iLastChar, LPINT lpBuffer);
+#ifndef GetCharWidth
+#define GetCharWidth GetCharWidthA
+#endif
+
+WIN32_IMPORT("SetMapperFlags")
+DWORD WINAPI SetMapperFlags(HDC hdc, DWORD flags);
+
+WIN32_IMPORT("TextOutW")
+BOOL WINAPI TextOutW(HDC hdc, int x, int y, LPCWSTR lpString, int c);
 
 #ifdef __cplusplus
 }

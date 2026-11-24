@@ -155,9 +155,31 @@ export function TextOut(hdc: HDC, x: number, y: number, text: string): boolean {
   const ctx = hdc?.ctx;
   if (!ctx) return false;
   ctx.save();
-  ctx.font = '12px "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, sans-serif';
+  const fontObj = (hdc as any).selectedFont;
+  if (fontObj) {
+    const fontStyle = fontObj.italic ? "italic " : "";
+    const fontWeight = fontObj.weight >= 700 ? "bold " : "";
+    const fontSize = Math.abs(fontObj.height) || 12;
+    ctx.font = `${fontStyle}${fontWeight}${fontSize}px "${fontObj.faceName || "MS Sans Serif"}", sans-serif`;
+  } else {
+    ctx.font = '12px "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, sans-serif';
+  }
   ctx.fillStyle = hdc.textColor;
-  ctx.textBaseline = "top";
+  const align = (hdc as any).textAlign || 0;
+  if ((align & 24) === 24) {
+    ctx.textBaseline = "alphabetic";
+  } else if ((align & 8) === 8) {
+    ctx.textBaseline = "bottom";
+  } else {
+    ctx.textBaseline = "top";
+  }
+  if ((align & 6) === 6) {
+    ctx.textAlign = "center";
+  } else if ((align & 2) === 2) {
+    ctx.textAlign = "right";
+  } else {
+    ctx.textAlign = "left";
+  }
   ctx.fillText(text, x, y);
   ctx.restore();
   return true;

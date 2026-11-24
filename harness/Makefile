@@ -15,7 +15,7 @@ INCLUDE_DIR := $(ROOT_DIR)/include
 HARNESS_DIR := $(abspath .)
 BUILD_DIR := $(HARNESS_DIR)/build
 
-CFLAGS ?= -target $(TARGET) -nostdlib -I$(INCLUDE_DIR) -fms-extensions -Wno-missing-braces -Wno-nonportable-include-path -Wno-macro-redefined -Wno-implicit-int -Wno-unused-but-set-variable -Wno-incompatible-pointer-types -Wno-pointer-bool-conversion -Wno-parentheses -O2 -Wall
+CFLAGS ?= -target $(TARGET) -nostdlib -I$(INCLUDE_DIR) -fms-extensions -Wno-missing-braces -Wno-nonportable-include-path -Wno-macro-redefined -Wno-implicit-int -Wno-unused-but-set-variable -Wno-incompatible-pointer-types -Wno-pointer-bool-conversion -Wno-parentheses -Wno-absolute-value -O2 -Wall
 LDFLAGS ?= -Wl,--no-entry -Wl,--export=WinMain -Wl,--export-table
 
 # --- Chapter 01 ---
@@ -191,9 +191,23 @@ CHAP16_BINS = \
 	$(BUILD_DIR)/Chap16/SysPal3/SysPal3.wasm \
 	$(BUILD_DIR)/Chap16/Tunnel/Tunnel.wasm
 
-.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16
+CHAP17_BINS = \
+	$(BUILD_DIR)/Chap17/ChosFont/ChosFont.wasm \
+	$(BUILD_DIR)/Chap17/EZTest/EZTest.wasm \
+	$(BUILD_DIR)/Chap17/EndJoin/EndJoin.wasm \
+	$(BUILD_DIR)/Chap17/FontClip/FontClip.wasm \
+	$(BUILD_DIR)/Chap17/FontFill/FontFill.wasm \
+	$(BUILD_DIR)/Chap17/FontOut1/FontOut1.wasm \
+	$(BUILD_DIR)/Chap17/FontOut2/FontOut2.wasm \
+	$(BUILD_DIR)/Chap17/FontRot/FontRot.wasm \
+	$(BUILD_DIR)/Chap17/Justify1/Justify1.wasm \
+	$(BUILD_DIR)/Chap17/Justify2/Justify2.wasm \
+	$(BUILD_DIR)/Chap17/PickFont/PickFont.wasm \
+	$(BUILD_DIR)/Chap17/UniChars/UniChars.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16
+.PHONY: all clean help scan chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17
 
 scan:
 	python3 scan_chapters.py
@@ -308,6 +322,41 @@ $(BUILD_DIR)/Chap16/Tunnel/Tunnel.wasm: src/Chap16/Tunnel/Tunnel.c src/Chap16/Bo
 	$(CC) $(CFLAGS) -Isrc/Chap16/Tunnel -Isrc/Chap16/Bounce $^ $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
+$(BUILD_DIR)/Chap17/EZTest/EZTest.wasm: src/Chap17/EZTest/EZTest.c src/Chap17/EZTest/EZFont.c src/Chap17/EZTest/FontDemo.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap17/EZTest $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap17/FontClip/FontClip.wasm: src/Chap17/FontClip/FontClip.c src/Chap17/EZTest/EZFont.c src/Chap17/EZTest/FontDemo.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap17/FontClip -Isrc/Chap17/EZTest $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap17/FontFill/FontFill.wasm: src/Chap17/FontFill/FontFill.c src/Chap17/EZTest/EZFont.c src/Chap17/EZTest/FontDemo.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap17/FontFill -Isrc/Chap17/EZTest $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap17/FontOut1/FontOut1.wasm: src/Chap17/FontOut1/FontOut1.c src/Chap17/EZTest/EZFont.c src/Chap17/EZTest/FontDemo.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap17/FontOut1 -Isrc/Chap17/EZTest $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap17/FontOut2/FontOut2.wasm: src/Chap17/FontOut2/FontOut2.c src/Chap17/EZTest/EZFont.c src/Chap17/EZTest/FontDemo.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap17/FontOut2 -Isrc/Chap17/EZTest $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap17/FontRot/FontRot.wasm: src/Chap17/FontRot/FontRot.c src/Chap17/EZTest/EZFont.c src/Chap17/EZTest/FontDemo.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap17/FontRot -Isrc/Chap17/EZTest $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap17/UniChars/UniChars.wasm: src/Chap17/UniChars/Unichars.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap17/UniChars $^ $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(dir $<) $< $(LDFLAGS) -o $@
@@ -330,6 +379,7 @@ chap13: $(CHAP13_BINS)
 chap14: $(CHAP14_BINS)
 chap15: $(CHAP15_BINS)
 chap16: $(CHAP16_BINS)
+chap17: $(CHAP17_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)
