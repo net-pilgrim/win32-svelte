@@ -336,6 +336,33 @@ export class Win32WasmRuntime {
     });
   }
 
+  public static async preloadEmfFiles(): Promise<void> {
+    const files = [
+      "emf2.emf",
+      "emf3.emf",
+      "emf4.emf",
+      "emf7.emf",
+      "emf8.emf",
+      "emf11.emf",
+      "emf12.emf",
+    ];
+    if (typeof fetch === "undefined") return;
+    await Promise.all(
+      files.map(async (f) => {
+        if (Win32WasmRuntime.sharedEmfFiles.has(f)) return;
+        try {
+          const resp = await fetch(`/wasm-files/${f}`);
+          if (resp.ok) {
+            const buf = await resp.arrayBuffer();
+            Win32WasmRuntime.registerEmf(f, new Uint8Array(buf));
+          }
+        } catch {
+          // ignore network errors if offline
+        }
+      })
+    );
+  }
+
   private createSampleEmf(name: string): any {
     // If in Node environment, try reading candidate files directly
     if (typeof process !== "undefined" && process.versions?.node) {
@@ -769,11 +796,22 @@ export class Win32WasmRuntime {
             }
           }
 
+          // Dispatch initial WM_SIZE so C static variables (cxClient, cyClient) receive initial dimensions
+          const clientW = Math.max(10, actualW - 16);
+          const clientH = Math.max(10, actualH - (hMenu ? 64 : 44));
+          SendMessage(hwnd, 0x0005 /* WM_SIZE */, 0, (clientH << 16) | (clientW & 0xffff));
+
           return hwnd;
         },
 
         ShowWindow: (hwnd: number, nCmdShow: number) => {
           ShowWindow(hwnd, nCmdShow);
+          const win = kernel.getWindow(hwnd);
+          if (win) {
+            const clientW = Math.max(10, win.width - 16);
+            const clientH = Math.max(10, win.height - (win.menuId ? 64 : 44));
+            SendMessage(hwnd, 0x0005 /* WM_SIZE */, 0, (clientH << 16) | (clientW & 0xffff));
+          }
           return 1;
         },
 
@@ -1360,6 +1398,14 @@ export class Win32WasmRuntime {
 
         GetDeviceCaps: (_hdcHandle: number, nIndex: number): number => {
           switch (nIndex) {
+            case 4: { // HORZSIZE (horizontal width in millimeters)
+              const w = typeof window !== "undefined" ? window.innerWidth : 1024;
+              return Math.max(1, Math.floor((w * 254) / 960));
+            }
+            case 6: { // VERTSIZE (vertical height in millimeters)
+              const h = typeof window !== "undefined" ? window.innerHeight : 768;
+              return Math.max(1, Math.floor((h * 254) / 960));
+            }
             case 8: // HORZRES
               return typeof window !== "undefined" ? window.innerWidth : 1024;
             case 10: // VERTRES
@@ -3002,15 +3048,25 @@ export class Win32WasmRuntime {
         GetOpenFileNameA: (lpofn: number) => {
           if (this.memory && lpofn) {
             const view = new DataView(this.memory.buffer);
+            const lpstrFilter = view.getUint32(lpofn + 12, true);
+            const lpstrDefExt = view.getUint32(lpofn + 60, true);
+            const filterStr = lpstrFilter ? this.readCString(lpstrFilter).toLowerCase() : "";
+            const defExtStr = lpstrDefExt ? this.readCString(lpstrDefExt).toLowerCase() : "";
+            let defaultFile = "Apollo11.bmp";
+            if (filterStr.includes("emf") || defExtStr.includes("emf")) {
+              defaultFile = "emf8.emf";
+            } else if (filterStr.includes("wmf") || defExtStr.includes("wmf")) {
+              defaultFile = "metafile.wmf";
+            }
             const lpstrFile = view.getUint32(lpofn + 28, true);
             const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
             if (lpstrFile) {
-              this.writeCString(lpstrFile, "Apollo11.bmp", nMaxFile);
+              this.writeCString(lpstrFile, defaultFile, nMaxFile);
             }
             const lpstrFileTitle = view.getUint32(lpofn + 36, true);
             const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
             if (lpstrFileTitle) {
-              this.writeCString(lpstrFileTitle, "Apollo11.bmp", nMaxFileTitle);
+              this.writeCString(lpstrFileTitle, defaultFile, nMaxFileTitle);
             }
           }
           return 1;
@@ -4222,6 +4278,7 @@ export class Win32WasmRuntime {
             canvas: metafile.canvas,
             ctx: metafile.ctx,
             name: (hdc as any)?.metafileName,
+            bounds: metafile.bounds,
             metafile,
             toSvg: (w?: number, h?: number) => metafile.toSvg(w, h),
           };
@@ -4238,10 +4295,39 @@ export class Win32WasmRuntime {
           const hdc = this.hdcMap.get(hdcHandle);
           const hmf = this.metafileMap.get(hmfHandle) || this.gdiMap.get(hmfHandle);
           if (hdc?.ctx && hmf) {
+            const wExtX = (hdc as any).windowExtX;
+            const wExtY = (hdc as any).windowExtY;
+            const vExtX = (hdc as any).viewportExtX;
+            const vExtY = (hdc as any).viewportExtY;
+            const wOrgX = (hdc as any).windowOrgX || 0;
+            const wOrgY = (hdc as any).windowOrgY || 0;
+            const vOrgX = (hdc as any).viewportOrgX || 0;
+            const vOrgY = (hdc as any).viewportOrgY || 0;
+
+            let destRect: MetafileBounds | undefined;
+            if (wExtX && wExtY && vExtX && vExtY) {
+              const b = hmf.bounds || hmf.metafile?.bounds || { left: 0, top: 0, right: 100, bottom: 100 };
+              const left = Math.round(((b.left - wOrgX) * vExtX) / wExtX + vOrgX);
+              const top = Math.round(((b.top - wOrgY) * vExtY) / wExtY + vOrgY);
+              const right = Math.round(((b.right - wOrgX) * vExtX) / wExtX + vOrgX);
+              const bottom = Math.round(((b.bottom - wOrgY) * vExtY) / wExtY + vOrgY);
+              destRect = { left, top, right, bottom };
+            }
+
             if (hmf.metafile) {
-              hmf.metafile.renderToCanvas(hdc.ctx);
+              hmf.metafile.renderToCanvas(hdc.ctx, destRect);
             } else if (hmf.canvas) {
-              hdc.ctx.drawImage(hmf.canvas, 0, 0);
+              if (destRect) {
+                hdc.ctx.drawImage(
+                  hmf.canvas,
+                  destRect.left,
+                  destRect.top,
+                  destRect.right - destRect.left,
+                  destRect.bottom - destRect.top
+                );
+              } else {
+                hdc.ctx.drawImage(hmf.canvas, 0, 0);
+              }
             }
           }
           return 1;
@@ -4323,6 +4409,14 @@ export class Win32WasmRuntime {
               const right = dv.getInt32(lpRect + 8, true);
               const bottom = dv.getInt32(lpRect + 12, true);
               destRect = { left, top, right, bottom };
+            }
+            if (destRect && (destRect.right <= destRect.left || destRect.bottom <= destRect.top)) {
+              const canvas = hdc.canvas;
+              if (canvas && canvas.width > 0 && canvas.height > 0) {
+                destRect = { left: 0, top: 0, right: canvas.width, bottom: canvas.height };
+              } else {
+                destRect = undefined;
+              }
             }
             if (hemf.metafile) {
               hemf.metafile.renderToCanvas(hdc.ctx, destRect);

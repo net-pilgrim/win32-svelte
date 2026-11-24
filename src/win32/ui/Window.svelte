@@ -7,6 +7,7 @@
   import {
     WM_CLOSE,
     WM_PAINT,
+    WM_SIZE,
     WM_LBUTTONDOWN,
     WM_LBUTTONUP,
     WM_MOUSEMOVE,
@@ -38,8 +39,11 @@
   );
 
   $effect(() => {
+    const w = clientCanvasWidth;
+    const h = clientCanvasHeight;
     if (canvasRef && win.customProps?.hasCanvas) {
       RegisterWindowCanvas(win.hwnd, canvasRef);
+      SendMessage(win.hwnd, WM_SIZE, 0, MAKELPARAM(w, h));
       SendMessage(win.hwnd, WM_PAINT, 0, 0);
     }
     return () => {

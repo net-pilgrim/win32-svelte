@@ -106,6 +106,7 @@ export async function StartWasmApp(
   const prevWindows = new Set(kernel.windows.map((w) => w.hwnd));
 
   try {
+    await Win32WasmRuntime.preloadEmfFiles();
     await runtime.instantiate(wasmBytes);
     wasmInstanceCount++;
     runtime.runWinMain(wasmInstanceCount);

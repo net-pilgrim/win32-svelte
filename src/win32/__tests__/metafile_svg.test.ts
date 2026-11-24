@@ -256,6 +256,7 @@ async function runMetafileSvgTests() {
   console.log("✓ WASM Bridge Metafile creation, vector recording, header querying, and playback verified");
 
   console.log("\nALL WIN32 METAFILE (EMF/WMF) SVG VECTOR TESTS PASSED! 🖼️⚡🎉\n");
+  process.exit(0);
 }
 
 runMetafileSvgTests().catch((err) => {
