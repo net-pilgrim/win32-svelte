@@ -25,6 +25,7 @@
     StartMinesweeper(110, 40);
     StartPaintDemo(350, 40);
     StartWasmApp(260, 90);
+    StartWasmApp(160, 120, "/wasm-demo/clock.wasm");
     import("./samples/regedit").then(({ StartRegEdit }) => {
       StartRegEdit(200, 70);
     });

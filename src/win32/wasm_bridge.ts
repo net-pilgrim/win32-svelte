@@ -16,6 +16,8 @@ import {
 import {
   BeginPaint,
   EndPaint,
+  GetDC,
+  ReleaseDC,
   MoveToEx,
   LineTo,
   Rectangle,
@@ -46,6 +48,15 @@ import {
   parseWmfToSvg,
   type MetafileBounds,
 } from "./metafile_svg";
+import {
+  LoadString as LoadStringFromBundle,
+  LoadMenu as LoadMenuFromBundle,
+  RegisterResourceBundle,
+} from "./dialog";
+import clockResources from "../resources/clock_rc";
+
+// Pre-register compiled resource bundles so Wine & Win32 apps can load string & menu resources dynamically
+RegisterResourceBundle(clockResources);
 
 export interface WasmBridgeOptions {
   initialX?: number;
@@ -333,6 +344,8 @@ export class Win32WasmRuntime {
     iterationCount?: number;
   }>();
   private currentThreadInfo: any = null;
+  private isRunningWinMain = false;
+  private hasExitedGetMessage = false;
 
   private notifyEventWaiters(hEvent: number): void {
     for (const [, thread] of this.activeThreads) {
@@ -554,6 +567,78 @@ export class Win32WasmRuntime {
     return toWrite;
   }
 
+  public readWideString(ptr: number, api = "readWideString"): string {
+    if (!ptr || !this.memory) return "";
+    const u8 = new Uint8Array(this.memory.buffer);
+    if (ptr >= u8.length) return "";
+
+    // In wasm32-freestanding, wchar_t defaults to 4 bytes (UTF-32) for clang string literals.
+    let is32Bit = false;
+    if (
+      ptr + 8 <= u8.length &&
+      u8[ptr] !== 0 &&
+      u8[ptr + 1] === 0 &&
+      u8[ptr + 2] === 0 &&
+      u8[ptr + 3] === 0 &&
+      u8[ptr + 5] === 0 &&
+      u8[ptr + 6] === 0 &&
+      u8[ptr + 7] === 0
+    ) {
+      is32Bit = true;
+    }
+    const stride = is32Bit ? 4 : 2;
+    const view = new DataView(this.memory.buffer);
+    let str = "";
+    let cur = ptr;
+    while (cur + stride <= this.memory.buffer.byteLength) {
+      const code = is32Bit ? view.getUint32(cur, true) : view.getUint16(cur, true);
+      if (code === 0 || code > 0x10ffff) break;
+      str += String.fromCodePoint(code);
+      cur += stride;
+    }
+    this.logString(api, ptr, str, "read");
+    return str;
+  }
+
+  public writeWideString(
+    ptr: number,
+    str: string,
+    maxCount?: number,
+    api = "writeWideString",
+    is32Bit = false
+  ): number {
+    if (!ptr || !this.memory || (maxCount !== undefined && maxCount <= 0)) return 0;
+    const view = new DataView(this.memory.buffer);
+    const stride = is32Bit ? 4 : 2;
+    let written = 0;
+    const toWrite =
+      maxCount !== undefined && maxCount > 0
+        ? Math.min(str.length, maxCount - 1)
+        : str.length;
+
+    for (let i = 0; i < toWrite; i++) {
+      const code = str.charCodeAt(i);
+      const offset = ptr + written * stride;
+      if (offset + stride > this.memory.buffer.byteLength) break;
+      if (is32Bit) {
+        view.setUint32(offset, code, true);
+      } else {
+        view.setUint16(offset, code, true);
+      }
+      written++;
+    }
+    const termOffset = ptr + written * stride;
+    if (termOffset + stride <= this.memory.buffer.byteLength) {
+      if (is32Bit) {
+        view.setUint32(termOffset, 0, true);
+      } else {
+        view.setUint16(termOffset, 0, true);
+      }
+    }
+    this.logString(api, ptr, str.substring(0, written), "write");
+    return written;
+  }
+
   private colorRefToRgb(colorRef: number): string {
     const r = colorRef & 0xff;
     const g = (colorRef >> 8) & 0xff;
@@ -713,6 +798,67 @@ export class Win32WasmRuntime {
           const targetFn = this.table.get(fnIdx);
           let res: any = 0;
           if (typeof targetFn === "function") {
+            if (uMsg === 0x000c /* WM_SETTEXT */ && typeof lParam === "string") {
+              const win = kernel.getWindow(hwnd);
+              if (win) win.title = lParam;
+              return 1;
+            }
+            res = targetFn(
+              hwnd,
+              uMsg,
+              typeof wParam === "number" ? wParam : 0,
+              typeof lParam === "number" ? lParam : 0
+            );
+          } else {
+            res = DefWindowProc(hwnd, uMsg, wParam, lParam);
+          }
+          if (uMsg === WM_DESTROY) {
+            this.destroy();
+          }
+          return typeof res === "number" ? res : 0;
+        };
+
+        this.registeredClasses.set(className.toUpperCase(), wndProc);
+
+        kernel.RegisterClassEx({
+          className,
+          lpfnWndProc: wndProc,
+        });
+        return 1;
+      },
+
+      RegisterClassW: (ptr: number) => {
+        if (!this.memory || !this.table) return 0;
+        const view = new DataView(this.memory.buffer);
+        const fnIdx = view.getUint32(ptr + 4, true);
+        this.registeredWndProcIndices.push(fnIdx);
+        const menuNamePtr = view.getUint32(ptr + 32, true);
+        const classNamePtr = view.getUint32(ptr + 36, true);
+        const className = this.readWideString(classNamePtr, "RegisterClassW:lpszClassName");
+        const hbrBg = view.getUint32(ptr + 28, true);
+        if (hbrBg) {
+          this.registeredClassBgColors.set(className.toUpperCase(), this.resolveBrushColor(hbrBg));
+        }
+        if (menuNamePtr) {
+          const menuName = menuNamePtr > 0xffff ? this.readWideString(menuNamePtr) : String(menuNamePtr);
+          this.registeredClassMenuNames.set(className.toUpperCase(), menuName);
+        }
+
+        const wndProc = (
+          hwnd: HWND,
+          uMsg: UINT,
+          wParam: WPARAM,
+          lParam: LPARAM
+        ): LRESULT => {
+          if (!this.table) return 0;
+          const targetFn = this.table.get(fnIdx);
+          let res: any = 0;
+          if (typeof targetFn === "function") {
+            if (uMsg === 0x000c /* WM_SETTEXT */ && typeof lParam === "string") {
+              const win = kernel.getWindow(hwnd);
+              if (win) win.title = lParam;
+              return 1;
+            }
             res = targetFn(
               hwnd,
               uMsg,
@@ -791,10 +937,12 @@ export class Win32WasmRuntime {
         LoadIconA: (_hInstance: number, _lpIconName: number) => {
           return 1; // Standard icon handle
         },
+        LoadIconW: (_hInstance: number, _lpIconName: number) => 1,
 
         LoadCursorA: (_hInstance: number, _lpCursorName: number) => {
           return 1; // Standard cursor handle
         },
+        LoadCursorW: (_hInstance: number, _lpCursorName: number) => 1,
 
         CreateWindowExA: (
           dwExStyle: number,
@@ -919,6 +1067,93 @@ export class Win32WasmRuntime {
           return hwnd;
         },
 
+        CreateWindowExW: (
+          dwExStyle: number,
+          lpClassName: number,
+          lpWindowName: number,
+          dwStyle: number,
+          x: number,
+          y: number,
+          nWidth: number,
+          nHeight: number,
+          hWndParent: number,
+          hMenu: number,
+          hInstance: number,
+          lpParam: number
+        ) => {
+          const className =
+            lpClassName > 0xffff && this.memory
+              ? this.readWideString(lpClassName, "CreateWindowExW:lpClassName")
+              : String(lpClassName);
+          const windowName =
+            lpWindowName > 0xffff && this.memory
+              ? this.readWideString(lpWindowName, "CreateWindowExW:lpWindowName")
+              : "";
+          const localWndProc = this.registeredClasses.get(className.toUpperCase());
+
+          const CW_USEDEFAULT = -2147483648;
+          let actualX = x;
+          let actualY = y;
+          let actualW = nWidth;
+          let actualH = nHeight;
+          if (actualX === CW_USEDEFAULT || actualX === 0x80000000) {
+            actualX = this.options.initialX ?? 120;
+          }
+          if (actualY === CW_USEDEFAULT || actualY === 0x80000000) {
+            actualY = this.options.initialY ?? 80;
+          }
+          if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
+            actualW = 280;
+          }
+          if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
+            actualH = 260;
+          }
+
+          let actualHMenu = hMenu;
+          if ((!actualHMenu || actualHMenu === 0) && !hWndParent) {
+            const classMenuName = this.registeredClassMenuNames.get(className.toUpperCase());
+            if (classMenuName) {
+              actualHMenu = (win32Imports as any).LoadMenuW(0, classMenuName);
+            }
+          }
+
+          const hwnd = kernel.CreateWindowEx(
+            dwExStyle,
+            className,
+            windowName,
+            dwStyle,
+            actualX,
+            actualY,
+            actualW,
+            actualH,
+            hWndParent === 0 ? null : hWndParent,
+            actualHMenu === 0 ? null : actualHMenu,
+            null,
+            null,
+            localWndProc
+          );
+
+          const win = kernel.getWindow(hwnd);
+          if (win) {
+            const defaultBg = this.registeredClassBgColors.get(className.toUpperCase()) ?? "#ffffff";
+            win.customProps = {
+              ...(win.customProps ?? {}),
+              backgroundColor: defaultBg,
+              hasCanvas: true,
+            };
+            win.menuId = actualHMenu;
+            if (!hWndParent && actualHMenu) {
+              win.hMenu = actualHMenu;
+            }
+          }
+
+          const clientW = Math.max(10, actualW - 16);
+          const clientH = Math.max(10, actualH - (actualHMenu ? 64 : 44));
+          SendMessage(hwnd, 0x0005 /* WM_SIZE */, 0, (clientH << 16) | (clientW & 0xffff));
+
+          return hwnd;
+        },
+
         ShowWindow: (hwnd: number, nCmdShow: number) => {
           ShowWindow(hwnd, nCmdShow);
           const win = kernel.getWindow(hwnd);
@@ -942,8 +1177,10 @@ export class Win32WasmRuntime {
           _wMsgFilterMax: number
         ) => {
           // In single-threaded browser WASM, return 0 (FALSE) so WinMain cleanly returns to event loop
+          this.hasExitedGetMessage = true;
           return 0;
         },
+        GetMessageW: (...args: any[]) => (win32Imports as any).GetMessageA(...args),
 
         PeekMessageA: (
           lpMsg: number,
@@ -976,6 +1213,7 @@ export class Win32WasmRuntime {
           logWasmStub("DispatchMessageA", _lpMsg);
           return 0;
         },
+        DispatchMessageW: (...args: any[]) => (win32Imports as any).DispatchMessageA(...args),
 
         PlaySoundA: (
           _pszSound: number,
@@ -1012,6 +1250,23 @@ export class Win32WasmRuntime {
             if (Msg === 20) return 1;
           }
           return DefWindowProc(hwnd, Msg, wParam, lParam);
+        },
+
+        DefWindowProcW: (
+          hwnd: number,
+          Msg: number,
+          wParam: number,
+          lParam: number
+        ) => {
+          if (Msg === 0x000c /* WM_SETTEXT */) {
+            if (lParam && this.memory) {
+              const title = this.readWideString(lParam);
+              const win = kernel.getWindow(hwnd);
+              if (win) win.title = title;
+            }
+            return 1;
+          }
+          return (win32Imports as any).DefWindowProcA(hwnd, Msg, wParam, lParam);
         },
 
         DefFrameProcA: (
@@ -1248,10 +1503,19 @@ export class Win32WasmRuntime {
           SetWindowText(hwnd, text);
           return 1;
         },
+        SetWindowTextW: (hwnd: number, lpString: number) => {
+          const text = this.readWideString(lpString, "SetWindowTextW");
+          SetWindowText(hwnd, text);
+          return 1;
+        },
 
         GetWindowTextA: (hwnd: number, lpString: number, nMaxCount: number) => {
           const text = GetWindowText(hwnd) ?? "";
           return this.writeCString(lpString, text, nMaxCount);
+        },
+        GetWindowTextW: (hwnd: number, lpString: number, nMaxCount: number) => {
+          const text = GetWindowText(hwnd) ?? "";
+          return this.writeWideString(lpString, text, nMaxCount);
         },
 
         InvalidateRect: (hwnd: number, _lpRect: number, bErase: number) => {
@@ -1316,6 +1580,9 @@ export class Win32WasmRuntime {
         },
 
         KillTimer: (hWnd: number, uIDEvent: number) => {
+          if (this.isRunningWinMain && this.hasExitedGetMessage && kernel.getWindow(hWnd)) {
+            return 1;
+          }
           return KillTimer(hWnd, uIDEvent) ? 1 : 0;
         },
 
@@ -1349,7 +1616,7 @@ export class Win32WasmRuntime {
         // --- GDI APIs ---
         GetDC: (hWnd: number) => {
           try {
-            const hdc = BeginPaint(hWnd);
+            const hdc = GetDC(hWnd);
             const handle = ++this.nextHdcHandle;
             this.hdcMap.set(handle, hdc);
             return handle;
@@ -1358,8 +1625,12 @@ export class Win32WasmRuntime {
           }
         },
 
-        ReleaseDC: (_hWnd: number, hdcHandle: number) => {
+        ReleaseDC: (hWnd: number, hdcHandle: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
           this.hdcMap.delete(hdcHandle);
+          if (hdc) {
+            ReleaseDC(hWnd, hdc);
+          }
           if (this.currentThreadInfo) {
             this.currentThreadInfo.iterationCount = (this.currentThreadInfo.iterationCount || 0) + 1;
             if (this.currentThreadInfo.iterationCount >= 10) {
@@ -1469,9 +1740,19 @@ export class Win32WasmRuntime {
             const handle = ++this.nextHdcHandle;
             this.hdcMap.set(handle, hdc);
 
-            // Write HDC handle into lpPaint (PAINTSTRUCT.hdc at offset 0)
+            const win = kernel.getWindow(hWnd);
+            const canvas = hdc.canvas;
+            const clientW = canvas?.width ?? Math.max(10, (win?.width ?? 300) - 16);
+            const clientH = canvas?.height ?? Math.max(10, (win?.height ?? 250) - (win?.menuId ? 64 : 44));
+
+            // Write PAINTSTRUCT (hdc, fErase, rcPaint[left, top, right, bottom])
             const view = new DataView(this.memory.buffer);
             view.setUint32(lpPaint, handle, true);
+            view.setInt32(lpPaint + 4, 1, true); // fErase
+            view.setInt32(lpPaint + 8, 0, true); // rcPaint.left
+            view.setInt32(lpPaint + 12, 0, true); // rcPaint.top
+            view.setInt32(lpPaint + 16, clientW, true); // rcPaint.right
+            view.setInt32(lpPaint + 20, clientH, true); // rcPaint.bottom
 
             return handle;
           } catch {
@@ -1855,6 +2136,9 @@ export class Win32WasmRuntime {
           return 1;
         },
 
+        OffsetRgn: (_hrgn: number, _x: number, _y: number) => 1,
+        SetWindowRgn: (_hWnd: number, _hRgn: number, _bRedraw: number) => 1,
+
         SaveDC: (hdcHandle: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (hdc) {
@@ -2008,6 +2292,91 @@ export class Win32WasmRuntime {
           return TextOut(hdc, x, y, text) ? 1 : 0;
         },
 
+        TextOutW: (
+          hdcHandle: number,
+          x: number,
+          y: number,
+          lpString: number,
+          c: number
+        ) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (!hdc) return 0;
+          let text = this.readWideString(lpString, "TextOutW");
+          if (c >= 0 && text.length > c) {
+            text = text.substring(0, c);
+          }
+          if ((hdc as any).svgRecorder) {
+            (hdc as any).svgRecorder.recordTextOut(x, y, text);
+          }
+          if ((hdc as any).pathActive) {
+            if (!(hdc as any).pathText) (hdc as any).pathText = [];
+            (hdc as any).pathText.push({ text, x, y });
+            return 1;
+          }
+          return TextOut(hdc, x, y, text) ? 1 : 0;
+        },
+
+        GetTextExtentPointW: (
+          hdcHandle: number,
+          lpString: number,
+          c: number,
+          lpSize: number
+        ) => {
+          if (!this.memory || !lpSize) return 1;
+          const hdc = this.hdcMap.get(hdcHandle);
+          const str = lpString && this.memory ? this.readWideString(lpString, "GetTextExtentPointW").slice(0, c >= 0 ? c : undefined) : "";
+          const fontObj = (hdc as any)?.selectedFont;
+          const height = fontObj && Math.abs(fontObj.height) ? Math.abs(fontObj.height) : 16;
+          let width = Math.round(str.length * (height * 0.55));
+          if (hdc?.ctx && str) {
+            try {
+              const fontStyle = fontObj?.italic ? "italic " : "";
+              const fontWeight = (fontObj?.weight ?? 400) >= 700 ? "bold " : "";
+              hdc.ctx.font = `${fontStyle}${fontWeight}${height}px "${fontObj?.faceName || "MS Sans Serif"}", sans-serif`;
+              width = Math.round(hdc.ctx.measureText(str).width);
+            } catch {}
+          }
+          const dv = new DataView(this.memory.buffer);
+          dv.setInt32(lpSize, width, true);
+          dv.setInt32(lpSize + 4, height, true);
+          return 1;
+        },
+
+        CreateFontIndirectW: (lplf: number) => {
+          const handle = ++this.nextGdiHandle;
+          let logFontBytes: Uint8Array | null = null;
+          let faceName = "MS Sans Serif";
+          let height = 16;
+          let weight = 400;
+          let italic = false;
+          if (this.memory && lplf) {
+            logFontBytes = new Uint8Array(60);
+            logFontBytes.set(new Uint8Array(this.memory.buffer, lplf, Math.min(60, this.memory.buffer.byteLength - lplf)));
+            const dv = new DataView(this.memory.buffer);
+            height = dv.getInt32(lplf + 0, true);
+            weight = dv.getInt32(lplf + 16, true);
+            italic = dv.getUint8(lplf + 20) !== 0;
+            faceName = this.readWideString(lplf + 28, "CreateFontIndirectW") || "MS Sans Serif";
+          }
+          const fontObj = {
+            type: "font" as const,
+            faceName,
+            height,
+            weight,
+            italic,
+            raw: logFontBytes,
+          };
+          this.gdiMap.set(handle, fontObj);
+          return handle;
+        },
+
+        GetSysColorBrush: (nIndex: number) => {
+          const handle = ++this.nextGdiHandle;
+          const color = (win32Imports as any).GetSysColor(nIndex);
+          this.gdiMap.set(handle, { type: "brush", color: this.colorRefToRgb(color) });
+          return handle;
+        },
+
         SetTextColor: (hdcHandle: number, color: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
@@ -2127,6 +2496,9 @@ export class Win32WasmRuntime {
         },
 
         DeleteObject: (ho: number) => {
+          if (this.isRunningWinMain && this.hasExitedGetMessage) {
+            return 1;
+          }
           this.gdiMap.delete(ho);
           return 1;
         },
@@ -2439,6 +2811,9 @@ export class Win32WasmRuntime {
 
         GetWindowLong: (hWnd: number, nIndex: number) => (win32Imports as any).GetWindowLongA(hWnd, nIndex),
         SetWindowLong: (hWnd: number, nIndex: number, dwNewLong: number) => (win32Imports as any).SetWindowLongA(hWnd, nIndex, dwNewLong),
+        GetWindowLongW: (hWnd: number, nIndex: number) => (win32Imports as any).GetWindowLongA(hWnd, nIndex),
+        SetWindowLongW: (hWnd: number, nIndex: number, dwNewLong: number) => (win32Imports as any).SetWindowLongA(hWnd, nIndex, dwNewLong),
+        MapWindowPoints: (_hWndFrom: number, _hWndTo: number, _lpPoints: number, _cPoints: number) => 0,
 
         MoveWindow: (
           hWnd: number,
@@ -2681,12 +3056,16 @@ export class Win32WasmRuntime {
               return 0x00ffffff; // white
             case 8: // COLOR_WINDOWTEXT
               return 0x00000000; // black
-            case 15: // COLOR_BTNFACE
+            case 15: // COLOR_BTNFACE / COLOR_3DFACE
               return 0x00c0c0c0; // silver
-            case 16: // COLOR_BTNSHADOW
+            case 16: // COLOR_BTNSHADOW / COLOR_3DSHADOW
               return 0x00808080; // gray
-            case 20: // COLOR_BTNHIGHLIGHT
+            case 20: // COLOR_BTNHIGHLIGHT / COLOR_3DHIGHLIGHT
               return 0x00ffffff; // white
+            case 21: // COLOR_3DDKSHADOW
+              return 0x00000000; // black
+            case 22: // COLOR_3DLIGHT
+              return 0x00dfdfdf; // light gray
             case 13: // COLOR_HIGHLIGHT
               return 0x00800000; // dark blue
             case 14: // COLOR_HIGHLIGHTTEXT
@@ -2696,7 +3075,19 @@ export class Win32WasmRuntime {
           }
         },
 
-        OffsetWindowOrgEx: (_hdcHandle: number, _dx: number, _dy: number, _lppt: number) => 1,
+        OffsetWindowOrgEx: (hdcHandle: number, dx: number, dy: number, lppt: number) => {
+          const hdc = this.hdcMap.get(hdcHandle);
+          if (hdc) {
+            if (this.memory && lppt) {
+              const dv = new DataView(this.memory.buffer);
+              dv.setInt32(lppt + 0, (hdc as any).windowOrgX || 0, true);
+              dv.setInt32(lppt + 4, (hdc as any).windowOrgY || 0, true);
+            }
+            (hdc as any).windowOrgX = ((hdc as any).windowOrgX || 0) + dx;
+            (hdc as any).windowOrgY = ((hdc as any).windowOrgY || 0) + dy;
+          }
+          return 1;
+        },
         OffsetViewportOrgEx: (_hdcHandle: number, _dx: number, _dy: number, _lppt: number) => 1,
 
         // --- Chapter 09: Child Window Controls, Files & Environment ---
@@ -2964,6 +3355,11 @@ export class Win32WasmRuntime {
                 : String(lpMenuName).toUpperCase();
           }
 
+          const bundleMenu = LoadMenuFromBundle(null, nameStr);
+          if (bundleMenu) {
+            return bundleMenu;
+          }
+
           if (nameStr === "MDIMENUINIT") {
             const hMenu = kernel.CreateMenu();
             const hSubFile = kernel.CreatePopupMenu();
@@ -3147,6 +3543,50 @@ export class Win32WasmRuntime {
           return kernel.CreateMenu();
         },
         LoadMenu: (...args: any[]) => (win32Imports as any).LoadMenuA(...args),
+        LoadMenuW: (_hInstance: number, lpMenuName: any) => {
+          let nameStr = "";
+          if (typeof lpMenuName === "string") {
+            nameStr = lpMenuName.toUpperCase();
+          } else if (typeof lpMenuName === "number") {
+            nameStr =
+              lpMenuName > 0xffff && this.memory
+                ? this.readWideString(lpMenuName).toUpperCase()
+                : String(lpMenuName).toUpperCase();
+          }
+
+          const bundleMenu = LoadMenuFromBundle(null, nameStr);
+          if (bundleMenu) {
+            return bundleMenu;
+          }
+          return (win32Imports as any).LoadMenuA(_hInstance, nameStr);
+        },
+
+        CheckMenuRadioItem: (
+          hMenu: number,
+          first: number,
+          last: number,
+          check: number,
+          _flags: number
+        ) => {
+          for (let id = first; id <= last; id++) {
+            kernel.CheckMenuItem(hMenu, id, id === check ? 8 /* MF_CHECKED */ : 0);
+          }
+          return 1;
+        },
+
+        ShellAboutW: (hWnd: number, szApp: number, szOtherStuff: number, _hIcon: number) => {
+          const app = szApp > 0xffff && this.memory ? this.readWideString(szApp) : "Clock";
+          const other = szOtherStuff > 0xffff && this.memory ? this.readWideString(szOtherStuff) : "";
+          return MessageBox(hWnd, `${app}\n\n${other}`, `About ${app}`, 0x0040 /* MB_ICONINFORMATION */);
+        },
+
+        ChooseFontW: (_lpcf: number) => 0,
+
+        MessageBoxW: (hWnd: number, lpText: number, lpCaption: number, uType: number) => {
+          const text = lpText > 0xffff && this.memory ? this.readWideString(lpText) : "";
+          const cap = lpCaption > 0xffff && this.memory ? this.readWideString(lpCaption) : "";
+          return MessageBox(hWnd, text, cap, uType);
+        },
 
         LoadAcceleratorsA: (_hInstance: number, _lpTableName: number) => ++this.nextGdiHandle,
         LoadAccelerators: (...args: any[]) => (win32Imports as any).LoadAcceleratorsA(...args),
@@ -3231,14 +3671,75 @@ export class Win32WasmRuntime {
           lpBuffer: number,
           cchBufferMax: number
         ) => {
-          let str = "PoePoem";
-          if (uID === 1) str = "PoePoem";
-          else if (uID === 2) str = "\"Annabel Lee\" by Edgar Allan Poe";
-          else if (uID === 3) str = "This program requires Windows NT!";
-          else str = `String#${uID}`;
-          return this.writeCString(lpBuffer, str, cchBufferMax);
+          const str = LoadStringFromBundle(null, uID);
+          if (str) {
+            return this.writeCString(lpBuffer, str, cchBufferMax);
+          }
+          if (uID === 1) return this.writeCString(lpBuffer, "PoePoem", cchBufferMax);
+          if (uID === 2) return this.writeCString(lpBuffer, "\"Annabel Lee\" by Edgar Allan Poe", cchBufferMax);
+          if (uID === 3) return this.writeCString(lpBuffer, "This program requires Windows NT!", cchBufferMax);
+          return 0;
+        },
+        LoadStringW: (
+          _hInstance: number,
+          uID: number,
+          lpBuffer: number,
+          cchBufferMax: number
+        ) => {
+          const str = LoadStringFromBundle(null, uID);
+          if (str) {
+            return this.writeWideString(lpBuffer, str, cchBufferMax);
+          }
+          return 0;
         },
         LoadString: (...args: any[]) => (win32Imports as any).LoadStringA(...args),
+
+        lstrcpyW: (dst: number, src: number) => {
+          if (!this.memory || !dst || !src) return dst;
+          const str = this.readWideString(src);
+          this.writeWideString(dst, str);
+          return dst;
+        },
+
+        GetDateFormatW: (
+          _locale: number,
+          dwFlags: number,
+          _lpDate: number,
+          _lpFormat: number,
+          lpDateStr: number,
+          cchDate: number
+        ) => {
+          const d = new Date();
+          const options: Intl.DateTimeFormatOptions = (dwFlags & 0x00000002 /* DATE_LONGDATE */)
+            ? { weekday: "long", year: "numeric", month: "long", day: "numeric" }
+            : { year: "numeric", month: "numeric", day: "numeric" };
+          const s = d.toLocaleDateString(undefined, options);
+          if (lpDateStr && cchDate > 0) {
+            const written = this.writeWideString(lpDateStr, s, cchDate);
+            return written > 0 ? written + 1 : 0;
+          }
+          return s.length + 1;
+        },
+
+        GetTimeFormatW: (
+          _locale: number,
+          dwFlags: number,
+          _lpTime: number,
+          _lpFormat: number,
+          lpTimeStr: number,
+          cchTime: number
+        ) => {
+          const d = new Date();
+          const options: Intl.DateTimeFormatOptions = (dwFlags & 0x00000002 /* TIME_NOSECONDS */)
+            ? { hour: "numeric", minute: "2-digit" }
+            : { hour: "numeric", minute: "2-digit", second: "2-digit" };
+          const s = d.toLocaleTimeString([], options);
+          if (lpTimeStr && cchTime > 0) {
+            const written = this.writeWideString(lpTimeStr, s, cchTime);
+            return written > 0 ? written + 1 : 0;
+          }
+          return s.length + 1;
+        },
 
         DrawIcon: (hdcHandle: number, x: number, y: number, _hIcon: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
@@ -4745,23 +5246,6 @@ export class Win32WasmRuntime {
           return old;
         },
 
-        TextOutW: (hdcHandle: number, x: number, y: number, lpString: number, c: number) => {
-          const hdc = this.hdcMap.get(hdcHandle);
-          if (!hdc || !this.memory || !lpString) return 0;
-          const dv = new DataView(this.memory.buffer);
-          let str = "";
-          const len = c >= 0 ? c : 0;
-          for (let i = 0; i < len; i++) {
-            str += String.fromCharCode(dv.getUint16(lpString + i * 2, true));
-          }
-          if ((hdc as any).pathActive) {
-            if (!(hdc as any).pathText) (hdc as any).pathText = [];
-            (hdc as any).pathText.push({ text: str, x, y });
-            return 1;
-          }
-          return TextOut(hdc, x, y, str) ? 1 : 0;
-        },
-
         // --- Chapter 18: Metafiles and Enhanced Metafiles (EMF) ---
 
         CreateMetaFileA: (lpFilename: number) => {
@@ -5630,6 +6114,13 @@ export class Win32WasmRuntime {
       throw new Error("WASM module does not export WinMain function");
     }
 
-    return winMain(hInstance, 0, 0, 5);
+    this.isRunningWinMain = true;
+    this.hasExitedGetMessage = false;
+    try {
+      return winMain(hInstance, 0, 0, 5);
+    } finally {
+      this.isRunningWinMain = false;
+      this.hasExitedGetMessage = false;
+    }
   }
 }

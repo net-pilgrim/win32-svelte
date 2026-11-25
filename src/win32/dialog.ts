@@ -467,14 +467,16 @@ export function LoadString(
   uID: number,
   bundle?: ResourceBundle
 ): string {
-  const b =
-    bundle ||
-    (typeof bundleOrHInstance === "object" && bundleOrHInstance?.stringTable
-      ? bundleOrHInstance
-      : registeredBundles[0]);
-
-  if (b?.stringTable?.[uID] !== undefined) {
-    return b.stringTable[uID];
+  if (bundle?.stringTable?.[uID] !== undefined) {
+    return bundle.stringTable[uID];
+  }
+  if (typeof bundleOrHInstance === "object" && bundleOrHInstance?.stringTable?.[uID] !== undefined) {
+    return bundleOrHInstance.stringTable[uID];
+  }
+  for (const b of registeredBundles) {
+    if (b?.stringTable?.[uID] !== undefined) {
+      return b.stringTable[uID];
+    }
   }
   return "";
 }

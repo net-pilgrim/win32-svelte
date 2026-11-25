@@ -157,6 +157,34 @@ export function EndPaint(hwnd: HWND, _ps?: Partial<PAINTSTRUCT>): boolean {
   return true;
 }
 
+export function GetDC(hwnd: HWND): HDC {
+  let canvas = canvasRegistry.get(hwnd);
+  if (!canvas) {
+    canvas = fallbackCanvases.get(hwnd);
+    if (!canvas) {
+      const win = kernel.getWindow(hwnd);
+      const defaultW = win?.width || 800;
+      const defaultH = win?.height || 600;
+      if (typeof document !== "undefined" && document.createElement) {
+        canvas = document.createElement("canvas");
+        canvas.width = defaultW;
+        canvas.height = defaultH;
+      } else {
+        canvas = { width: defaultW, height: defaultH, getContext: () => createMockCanvasContext() } as any;
+      }
+      fallbackCanvases.set(hwnd, canvas as HTMLCanvasElement);
+    }
+  }
+  const targetCanvas = canvas as HTMLCanvasElement;
+  const rawCtx = targetCanvas.getContext ? targetCanvas.getContext("2d") : null;
+  const ctx = rawCtx && typeof (rawCtx as any).save === "function" ? rawCtx : createMockCanvasContext();
+  return new HDC(hwnd, targetCanvas, ctx as CanvasRenderingContext2D);
+}
+
+export function ReleaseDC(_hwnd: HWND, _hdc?: HDC): boolean {
+  return true;
+}
+
 export function mapLogicalToDevice(hdc: HDC, x: number, y: number): { x: number; y: number } {
   const wOrgX = (hdc as any).windowOrgX || 0;
   const wOrgY = (hdc as any).windowOrgY || 0;
@@ -263,8 +291,10 @@ export function Ellipse(
   } else if (typeof ctx.arc === "function") {
     ctx.arc(cx, cy, Math.max(rx, ry), 0, Math.PI * 2);
   }
-  ctx.fillStyle = hdc.currentBrush.color;
-  ctx.fill();
+  if (hdc.currentBrush.color !== "transparent" && hdc.currentBrush.color !== "none") {
+    ctx.fillStyle = hdc.currentBrush.color;
+    ctx.fill();
+  }
 
   if (hdc.currentPen.width > 0) {
     ctx.strokeStyle = hdc.currentPen.color;
@@ -456,8 +486,10 @@ export function Polygon(hdc: HDC, points: POINT[]): boolean {
     ctx.lineTo(pt.x, pt.y);
   }
   ctx.closePath();
-  ctx.fillStyle = hdc.currentBrush.color;
-  ctx.fill();
+  if (hdc.currentBrush.color !== "transparent" && hdc.currentBrush.color !== "none") {
+    ctx.fillStyle = hdc.currentBrush.color;
+    ctx.fill();
+  }
   if (hdc.currentPen.width > 0) {
     ctx.strokeStyle = hdc.currentPen.color;
     ctx.lineWidth = hdc.currentPen.width;
@@ -493,8 +525,10 @@ export function RoundRect(
   } else {
     ctx.rect(x, y, w, h);
   }
-  ctx.fillStyle = hdc.currentBrush.color;
-  ctx.fill();
+  if (hdc.currentBrush.color !== "transparent" && hdc.currentBrush.color !== "none") {
+    ctx.fillStyle = hdc.currentBrush.color;
+    ctx.fill();
+  }
   if (hdc.currentPen.width > 0) {
     ctx.strokeStyle = hdc.currentPen.color;
     ctx.lineWidth = hdc.currentPen.width;
