@@ -26,6 +26,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "description": "About3"
   },
   {
+    "name": "AddSynth.wasm",
+    "size": 540897,
+    "chapter": "Chap22",
+    "description": "AddSynth"
+  },
+  {
     "name": "AllColor.wasm",
     "size": 16087,
     "chapter": "Chap16",
@@ -42,6 +48,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 10522,
     "chapter": "Chap15",
     "description": "Apollo11"
+  },
+  {
+    "name": "BachTocc.wasm",
+    "size": 8155,
+    "chapter": "Chap22",
+    "description": "BachTocc"
   },
   {
     "name": "Beeper1.wasm",
@@ -252,6 +264,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 10961,
     "chapter": "Chap08",
     "description": "DigClock"
+  },
+  {
+    "name": "Drum.wasm",
+    "size": 547760,
+    "chapter": "Chap22",
+    "description": "Acoustic Bass Drum"
   },
   {
     "name": "EZTest.wasm",
@@ -470,6 +488,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "description": "Justify2"
   },
   {
+    "name": "KBMidi.wasm",
+    "size": 33360,
+    "chapter": "Chap22",
+    "description": "KBMidi"
+  },
+  {
     "name": "KeyView1.wasm",
     "size": 15321,
     "chapter": "Chap06",
@@ -516,6 +540,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 15255,
     "chapter": "Chap20",
     "description": "Multi2"
+  },
+  {
+    "name": "NetTime.wasm",
+    "size": 20457,
+    "chapter": "Chap23",
+    "description": "NetTime"
   },
   {
     "name": "NoPopups.wasm",
@@ -606,6 +636,24 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 6799,
     "chapter": "Chap05",
     "description": "RandRect"
+  },
+  {
+    "name": "Record1.wasm",
+    "size": 15806,
+    "chapter": "Chap22",
+    "description": "Record1"
+  },
+  {
+    "name": "Record2.wasm",
+    "size": 7558,
+    "chapter": "Chap22",
+    "description": "Record2"
+  },
+  {
+    "name": "Record3.wasm",
+    "size": 8410,
+    "chapter": "Chap22",
+    "description": "Record3"
   },
   {
     "name": "RndRctMT.wasm",
@@ -764,6 +812,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "description": "SysPal3"
   },
   {
+    "name": "TestMci.wasm",
+    "size": 10537,
+    "chapter": "Chap22",
+    "description": "TestMci"
+  },
+  {
     "name": "Tunnel.wasm",
     "size": 11116,
     "chapter": "Chap16",
@@ -780,6 +834,18 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 14512,
     "chapter": "Chap17",
     "description": "UniChars"
+  },
+  {
+    "name": "UpdDemo.wasm",
+    "size": 24993,
+    "chapter": "Chap23",
+    "description": "ftp.cpetzold.com"
+  },
+  {
+    "name": "WakeUp.wasm",
+    "size": 12241,
+    "chapter": "Chap22",
+    "description": "WakeUp"
   },
   {
     "name": "WhatClr.wasm",

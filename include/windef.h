@@ -50,11 +50,16 @@ extern "C" {
 #define TRUE 1
 #endif
 
+#ifndef WIN32_IMPORT
+#define WIN32_IMPORT(name) __attribute__((import_module("win32"), import_name(name)))
+#endif
+
 // Base primitive types (32-bit WASM environment)
 typedef unsigned long       DWORD;
 typedef int                 BOOL;
 typedef BOOL               *PBOOL, *LPBOOL;
 typedef unsigned char       BYTE;
+typedef unsigned char       UCHAR;
 typedef BYTE               *PBYTE, *LPBYTE;
 typedef unsigned short      WORD;
 typedef float               FLOAT;
@@ -66,6 +71,8 @@ typedef short               SHORT;
 typedef unsigned short      USHORT;
 typedef char                CHAR;
 typedef unsigned short      WCHAR;
+typedef long long           LONGLONG;
+typedef unsigned long long  ULONGLONG;
 
 // String pointer types
 typedef CHAR               *PSTR, *LPSTR, *NPSTR;
@@ -115,6 +122,9 @@ typedef WORD                ATOM;
 
 // Handles
 typedef void*               HANDLE;
+#ifndef DECLARE_HANDLE
+#define DECLARE_HANDLE(name) typedef HANDLE name
+#endif
 typedef HANDLE             *PHANDLE;
 typedef HANDLE             *LPHANDLE;
 typedef HANDLE              HWND;

@@ -21,7 +21,12 @@ extern "C" {
 #define exp(x)  __builtin_exp(x)
 #define log(x)  __builtin_log(x)
 #define log10(x) __builtin_log10(x)
-#define pow(x, y) __builtin_pow(x, y)
+static inline double wasm_pow(double x, double y) {
+    if (x <= 0) return 0.0;
+    if (y == 0.0) return 1.0;
+    return __builtin_exp(__builtin_log(x) * y);
+}
+#define pow(x, y) wasm_pow(x, y)
 
 static inline double wasm_hypot(double x, double y) {
     return __builtin_sqrt(x * x + y * y);

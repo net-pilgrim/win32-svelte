@@ -25,6 +25,9 @@ extern "C" {
 #include "sql.h"
 #include "unknwn.h"
 #include "objbase.h"
+#include "mmsystem.h"
+#include "winsock.h"
+#include "wininet.h"
 
 // WinMain entry point prototype
 int WINAPI WinMain(

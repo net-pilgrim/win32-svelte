@@ -115,8 +115,58 @@ static inline int wasm_memcmp(const void *s1, const void *s2, size_t n) {
 #ifndef memmove
 #define memmove wasm_memmove
 #endif
+static inline char *wasm_strtok(char *str, const char *delim) {
+    static char *saved_str = NULL;
+    if (str != NULL) {
+        saved_str = str;
+    }
+    if (saved_str == NULL) {
+        return NULL;
+    }
+    while (*saved_str) {
+        const char *d = delim;
+        int is_delim = 0;
+        while (*d) {
+            if (*saved_str == *d) {
+                is_delim = 1;
+                break;
+            }
+            d++;
+        }
+        if (!is_delim) break;
+        saved_str++;
+    }
+    if (*saved_str == '\0') {
+        saved_str = NULL;
+        return NULL;
+    }
+    char *token = saved_str;
+    while (*saved_str) {
+        const char *d = delim;
+        int is_delim = 0;
+        while (*d) {
+            if (*saved_str == *d) {
+                is_delim = 1;
+                break;
+            }
+            d++;
+        }
+        if (is_delim) {
+            *saved_str = '\0';
+            saved_str++;
+            return token;
+        }
+        saved_str++;
+    }
+    saved_str = NULL;
+    return token;
+}
+
 #ifndef memcmp
 #define memcmp wasm_memcmp
+#endif
+#ifndef strtok
+#define strtok wasm_strtok
 #endif
 
 #ifdef __cplusplus

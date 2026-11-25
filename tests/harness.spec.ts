@@ -1190,6 +1190,149 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     await expect(windowEl).toBeHidden();
   });
 
+  test("Chapter 22: BachTocc opens MIDI output device and renders Toccata sequence", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap22/BachTocc/BachTocc.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap22' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 110, initialY: 110 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Bach Toccata in D Minor (First Bar)" });
+    await expect(windowEl).toBeVisible();
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 22: WakeUp creates alarm clock with common controls and multimedia waveform setup", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap22/WakeUp/WakeUp.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap22' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 120, initialY: 120 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "WakeUp" });
+    await expect(windowEl).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 23: NetTime initializes Winsock 2.0 and requests network time synchronization", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap23/NetTime/NetTime.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap23' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 130, initialY: 130 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Set System Clock from Internet" });
+    await expect(windowEl).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 23: UpdDemo demonstrates WinINet FTP client configuration", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap23/UpdDemo/UpdDemo.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap23' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 140, initialY: 140 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Update Demo with Anonymous FTP" });
+    await expect(windowEl).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
   test("Windows Explorer: wasm-files directory displays all compiled WASM files and launches on double click", async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector(".desktop-container");

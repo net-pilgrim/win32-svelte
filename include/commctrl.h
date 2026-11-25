@@ -91,6 +91,34 @@ extern "C" {
 #define LVM_GETNEXTITEM            0x100c
 #define LVN_ITEMCHANGED            -101
 
+typedef struct tagNMHDR {
+    HWND      hwndFrom;
+    UINT_PTR  idFrom;
+    UINT      code;
+} NMHDR, *LPNMHDR;
+
+#define DTM_FIRST                  0x1000
+#define DTM_GETSYSTEMTIME          (DTM_FIRST + 1)
+#define DTM_SETSYSTEMTIME          (DTM_FIRST + 2)
+#define DTN_FIRST                  ((UINT)-760)
+#define DTN_DATETIMECHANGE         ((UINT)-759)
+#define GDT_VALID                  0
+#define GDT_NONE                   1
+
+#define ICC_DATE_CLASSES           0x00000100
+#define DATETIMEPICK_CLASS         "SysDateTimePick32"
+#define DTS_TIMEFORMAT             0x0009
+
+typedef struct tagINITCOMMONCONTROLSEX {
+    DWORD dwSize;
+    DWORD dwICC;
+} INITCOMMONCONTROLSEX, *LPINITCOMMONCONTROLSEX;
+
+WIN32_IMPORT("InitCommonControlsEx")
+BOOL WINAPI InitCommonControlsEx(const INITCOMMONCONTROLSEX *picce);
+WIN32_IMPORT("InitCommonControls")
+void WINAPI InitCommonControls(void);
+
 #ifdef __cplusplus
 }
 #endif

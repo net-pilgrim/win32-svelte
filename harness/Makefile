@@ -244,9 +244,29 @@ CHAP21_BINS = \
 	$(BUILD_DIR)/Chap21/ShowBit/ShowBit.wasm \
 	$(BUILD_DIR)/Chap21/StrProg/StrProg.wasm
 
-.PHONY: all clean help scan copy-wasm-files chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19 chap20 chap21
+# --- Chapter 22 ---
+CHAP22_DRUM_SRCS := src/Chap22/Drum/Drum.c src/Chap22/Drum/DrumFile.c src/Chap22/Drum/DrumTime.c
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19 chap20 chap21
+CHAP22_BINS = \
+	$(BUILD_DIR)/Chap22/AddSynth/AddSynth.wasm \
+	$(BUILD_DIR)/Chap22/BachTocc/BachTocc.wasm \
+	$(BUILD_DIR)/Chap22/Drum/Drum.wasm \
+	$(BUILD_DIR)/Chap22/KBMidi/KBMidi.wasm \
+	$(BUILD_DIR)/Chap22/Record1/Record1.wasm \
+	$(BUILD_DIR)/Chap22/Record2/Record2.wasm \
+	$(BUILD_DIR)/Chap22/Record3/Record3.wasm \
+	$(BUILD_DIR)/Chap22/SineWave/SineWave.wasm \
+	$(BUILD_DIR)/Chap22/TestMci/TestMci.wasm \
+	$(BUILD_DIR)/Chap22/WakeUp/WakeUp.wasm
+
+# --- Chapter 23 ---
+CHAP23_BINS = \
+	$(BUILD_DIR)/Chap23/NetTime/NetTime.wasm \
+	$(BUILD_DIR)/Chap23/UpdDemo/UpdDemo.wasm
+
+.PHONY: all clean help scan copy-wasm-files chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19 chap20 chap21 chap22 chap23
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19 chap20 chap21 chap22 chap23
 
 scan:
 	python3 scan_chapters.py
@@ -441,6 +461,11 @@ $(BUILD_DIR)/Chap21/StrProg/StrProg.wasm: $(CHAP21_STRPROG_SRCS)
 	$(CC) $(CFLAGS) -Isrc/Chap21/StrProg $(CHAP21_STRPROG_SRCS) $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
+$(BUILD_DIR)/Chap22/Drum/Drum.wasm: $(CHAP22_DRUM_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap22/Drum $(CHAP22_DRUM_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(dir $<) $< $(LDFLAGS) -o $@
@@ -468,6 +493,8 @@ chap18: $(CHAP18_BINS)
 chap19: $(CHAP19_BINS)
 chap20: $(CHAP20_BINS)
 chap21: $(CHAP21_BINS)
+chap22: $(CHAP22_BINS)
+chap23: $(CHAP23_BINS)
 
 copy-wasm-files:
 	@mkdir -p $(ROOT_DIR)/public/wasm-files

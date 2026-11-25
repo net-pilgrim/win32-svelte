@@ -71,6 +71,17 @@ static inline void *calloc(size_t num, size_t size) {
     return p;
 }
 
+static inline void *realloc(void *ptr, size_t size) {
+    if (!ptr) return malloc(size);
+    void *new_p = malloc(size);
+    if (new_p) {
+        unsigned char *dst = (unsigned char *)new_p;
+        unsigned char *src = (unsigned char *)ptr;
+        for (size_t i = 0; i < size; i++) dst[i] = src[i];
+    }
+    return new_p;
+}
+
 #ifdef __cplusplus
 }
 #endif

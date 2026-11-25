@@ -4864,6 +4864,278 @@ export class Win32WasmRuntime {
         _wasm_thread_step: () => {
           return 0;
         },
+
+        // ====================================================================
+        // Chapter 22 & 23: Multimedia, Winsock & WinINet
+        // ====================================================================
+        waveOutOpen: (phwo: number, uDeviceID: number, pwfx: number, dwCallback: number, dwInstance: number, fdwOpen: number) => {
+          logWasmStub("waveOutOpen", phwo, uDeviceID);
+          if (this.memory && phwo) {
+            new DataView(this.memory.buffer).setUint32(phwo, 1, true);
+          }
+          return 0;
+        },
+        waveOutClose: (hwo: number) => {
+          logWasmStub("waveOutClose", hwo);
+          return 0;
+        },
+        waveOutPrepareHeader: (hwo: number, pwh: number, cbwh: number) => {
+          if (this.memory && pwh) {
+            const view = new DataView(this.memory.buffer);
+            const flags = view.getUint32(pwh + 16, true);
+            view.setUint32(pwh + 16, flags | 2 /* WHDR_PREPARED */, true);
+          }
+          return 0;
+        },
+        waveOutUnprepareHeader: (hwo: number, pwh: number, cbwh: number) => {
+          if (this.memory && pwh) {
+            const view = new DataView(this.memory.buffer);
+            const flags = view.getUint32(pwh + 16, true);
+            view.setUint32(pwh + 16, flags & ~2, true);
+          }
+          return 0;
+        },
+        waveOutWrite: (hwo: number, pwh: number, cbwh: number) => {
+          if (this.memory && pwh) {
+            const view = new DataView(this.memory.buffer);
+            const flags = view.getUint32(pwh + 16, true);
+            view.setUint32(pwh + 16, flags | 1 /* WHDR_DONE */, true);
+          }
+          return 0;
+        },
+        waveOutPause: (hwo: number) => 0,
+        waveOutRestart: (hwo: number) => 0,
+        waveOutReset: (hwo: number) => 0,
+
+        waveInOpen: (phwi: number, uDeviceID: number, pwfx: number, dwCallback: number, dwInstance: number, fdwOpen: number) => {
+          logWasmStub("waveInOpen", phwi, uDeviceID);
+          if (this.memory && phwi) {
+            new DataView(this.memory.buffer).setUint32(phwi, 1, true);
+          }
+          return 0;
+        },
+        waveInClose: (hwi: number) => 0,
+        waveInPrepareHeader: (hwi: number, pwh: number, cbwh: number) => {
+          if (this.memory && pwh) {
+            const view = new DataView(this.memory.buffer);
+            const flags = view.getUint32(pwh + 16, true);
+            view.setUint32(pwh + 16, flags | 2 /* WHDR_PREPARED */, true);
+          }
+          return 0;
+        },
+        waveInUnprepareHeader: (hwi: number, pwh: number, cbwh: number) => {
+          if (this.memory && pwh) {
+            const view = new DataView(this.memory.buffer);
+            const flags = view.getUint32(pwh + 16, true);
+            view.setUint32(pwh + 16, flags & ~2, true);
+          }
+          return 0;
+        },
+        waveInAddBuffer: (hwi: number, pwh: number, cbwh: number) => 0,
+        waveInStart: (hwi: number) => 0,
+        waveInStop: (hwi: number) => 0,
+        waveInReset: (hwi: number) => 0,
+
+        midiOutOpen: (phmo: number, uDeviceID: number, dwCallback: number, dwInstance: number, fdwOpen: number) => {
+          logWasmStub("midiOutOpen", phmo, uDeviceID);
+          if (this.memory && phmo) {
+            new DataView(this.memory.buffer).setUint32(phmo, 1, true);
+          }
+          return 0;
+        },
+        midiOutClose: (hmo: number) => 0,
+        midiOutReset: (hmo: number) => 0,
+        midiOutShortMsg: (hmo: number, dwMsg: number) => 0,
+        midiOutGetNumDevs: () => 1,
+        midiOutGetDevCapsA: (uDeviceID: number, pmoc: number, cbmoc: number) => {
+          if (pmoc && this.memory) {
+            this.writeCString(pmoc + 8, "WASM MIDI Synth", 32);
+          }
+          return 0;
+        },
+        midiOutGetDevCapsW: (uDeviceID: number, pmoc: number, cbmoc: number) => 0,
+
+        timeGetTime: () => Math.floor(performance.now()),
+        timeGetDevCaps: (ptc: number, cbtc: number) => {
+          if (ptc && this.memory) {
+            const view = new DataView(this.memory.buffer);
+            view.setUint32(ptc, 1, true);
+            view.setUint32(ptc + 4, 1000, true);
+          }
+          return 0;
+        },
+        timeBeginPeriod: (uPeriod: number) => 0,
+        timeEndPeriod: (uPeriod: number) => 0,
+        timeSetEvent: (uDelay: number, uResolution: number, lpTimeProc: number, dwUser: number, fuEvent: number) => {
+          const timerId = ++this.nextTimerId;
+          if (this.table && lpTimeProc) {
+            const fn = this.table.get(lpTimeProc);
+            if (typeof fn === "function") {
+              const timer = setInterval(() => {
+                try {
+                  fn(timerId, 0, dwUser, 0, 0);
+                } catch {
+                  clearInterval(timer);
+                }
+              }, Math.max(uDelay, 15));
+              this.timerMap.set(timerId, timer as any);
+            }
+          }
+          return timerId;
+        },
+        timeKillEvent: (uTimerID: number) => {
+          if (this.timerMap.has(uTimerID)) {
+            clearInterval(this.timerMap.get(uTimerID));
+            this.timerMap.delete(uTimerID);
+          }
+          return 0;
+        },
+
+        mmioOpenA: (szFilename: number, lpmmioinfo: number, fdwOpen: number) => 1,
+        mmioClose: (hmmio: number, fuClose: number) => 0,
+        mmioCreateChunk: (hmmio: number, pmmcki: number, fuCreate: number) => 0,
+        mmioAscend: (hmmio: number, pmmcki: number, fuAscend: number) => 0,
+        mmioDescend: (hmmio: number, pmmcki: number, pmmckiParent: number, fuDescend: number) => 0,
+        mmioRead: (hmmio: number, pch: number, cch: number) => cch,
+        mmioWrite: (hmmio: number, pch: number, cch: number) => cch,
+        mmioStringToFOURCCA: (sz: number, uFlags: number) => {
+          const str = this.readCString(sz);
+          const c0 = (str.charCodeAt(0) || 0) & 0xff;
+          const c1 = (str.charCodeAt(1) || 0) & 0xff;
+          const c2 = (str.charCodeAt(2) || 0) & 0xff;
+          const c3 = (str.charCodeAt(3) || 0) & 0xff;
+          return c0 | (c1 << 8) | (c2 << 16) | (c3 << 24);
+        },
+
+        mciSendStringA: (lpstrCommand: number, lpstrReturnString: number, uReturnLength: number, hwndCallback: number) => 0,
+        mciGetErrorStringA: (mcierr: number, pszText: number, cchText: number) => {
+          if (pszText && cchText > 0) {
+            this.writeCString(pszText, "No error", cchText);
+          }
+          return 1;
+        },
+        mciSendCommandA: (mciId: number, uMsg: number, dwParam1: number, dwParam2: number) => {
+          if (uMsg === 0x0803 /* MCI_OPEN */ && dwParam2 && this.memory) {
+            new DataView(this.memory.buffer).setUint16(dwParam2 + 4, 1, true); // wDeviceID
+          }
+          return 0;
+        },
+
+        WSAStartup: (wVersionRequired: number, lpWSAData: number) => {
+          logWasmStub("WSAStartup", wVersionRequired, lpWSAData);
+          if (lpWSAData && this.memory) {
+            const view = new DataView(this.memory.buffer);
+            view.setUint16(lpWSAData, wVersionRequired, true);
+            view.setUint16(lpWSAData + 2, wVersionRequired, true);
+            this.writeCString(lpWSAData + 4, "WASM Winsock 2.0", 256);
+            this.writeCString(lpWSAData + 261, "Running", 128);
+            view.setUint16(lpWSAData + 390, 32, true);
+            view.setUint16(lpWSAData + 392, 1024, true);
+          }
+          return 0;
+        },
+        WSACleanup: () => 0,
+        WSAGetLastError: () => 0,
+        socket: (af: number, type: number, protocol: number) => 100,
+        closesocket: (s: number) => 0,
+        connect: (s: number, name: number, namelen: number) => 0,
+        send: (s: number, buf: number, len: number, flags: number) => len,
+        recv: (s: number, buf: number, len: number, flags: number) => {
+          if (buf && this.memory && len >= 4) {
+            const nowSec1900 = Math.floor(Date.now() / 1000) + 2208988800;
+            new DataView(this.memory.buffer).setUint32(buf, nowSec1900, false); // network order (big endian)
+            return 4;
+          }
+          return 0;
+        },
+        WSAAsyncSelect: (s: number, hWnd: number, wMsg: number, lEvent: number) => {
+          setTimeout(() => {
+            if (hWnd) {
+              const lParam = 1; // FD_READ event, no error
+              PostMessage(hWnd, wMsg, s, lParam);
+            }
+          }, 50);
+          return 0;
+        },
+        inet_addr: (cp: number) => 0x0100007f, // 127.0.0.1
+        htons: (val: number) => ((val & 0xff) << 8) | ((val >> 8) & 0xff),
+        htonl: (val: number) => (((val & 0xff) << 24) | ((val & 0xff00) << 8) | ((val >> 8) & 0xff00) | ((val >> 24) & 0xff)) >>> 0,
+        ntohs: (val: number) => ((val & 0xff) << 8) | ((val >> 8) & 0xff),
+        ntohl: (val: number) => (((val & 0xff) << 24) | ((val & 0xff00) << 8) | ((val >> 8) & 0xff00) | ((val >> 24) & 0xff)) >>> 0,
+        gethostbyname: (name: number) => 0,
+
+        InternetOpenA: (lpszAgent: number, dwAccessType: number, lpszProxy: number, lpszProxyBypass: number, dwFlags: number) => 1,
+        InternetConnectA: (hInternet: number, lpszServerName: number, nServerPort: number, lpszUserName: number, lpszPassword: number, dwService: number, dwFlags: number, dwContext: number) => 2,
+        InternetCloseHandle: (hInternet: number) => 1,
+        InternetReadFile: (hFile: number, lpBuffer: number, dwNumberOfBytesToRead: number, lpdwNumberOfBytesRead: number) => {
+          if (lpdwNumberOfBytesRead && this.memory) {
+            new DataView(this.memory.buffer).setUint32(lpdwNumberOfBytesRead, 0, true);
+          }
+          return 1;
+        },
+        FtpSetCurrentDirectoryA: (hConnect: number, lpszDirectory: number) => 1,
+        FtpFindFirstFileA: (hConnect: number, lpszSearchFile: number, lpFindFileData: number, dwFlags: number, dwContext: number) => 0,
+        InternetFindNextFileA: (hFind: number, lpvFindData: number) => 0,
+        FtpOpenFileA: (hConnect: number, lpszFileName: number, dwAccess: number, dwFlags: number, dwContext: number) => 3,
+        FtpGetFileA: (hConnect: number, lpszRemoteFile: number, lpszNewFile: number, fFailIfExists: number, dwFlagsAndAttributes: number, dwFlags: number, dwContext: number) => 1,
+
+        FileTimeToSystemTime: (lpFileTime: number, lpSystemTime: number) => {
+          if (!lpFileTime || !lpSystemTime || !this.memory) return 0;
+          const view = new DataView(this.memory.buffer);
+          const low = view.getUint32(lpFileTime, true);
+          const high = view.getUint32(lpFileTime + 4, true);
+          const fileTimeMs = (BigInt(high) << 32n | BigInt(low)) / 10000n - 11644473600000n;
+          const d = new Date(Number(fileTimeMs));
+          view.setUint16(lpSystemTime, d.getUTCFullYear(), true);
+          view.setUint16(lpSystemTime + 2, d.getUTCMonth() + 1, true);
+          view.setUint16(lpSystemTime + 4, d.getUTCDay(), true);
+          view.setUint16(lpSystemTime + 6, d.getUTCDate(), true);
+          view.setUint16(lpSystemTime + 8, d.getUTCHours(), true);
+          view.setUint16(lpSystemTime + 10, d.getUTCMinutes(), true);
+          view.setUint16(lpSystemTime + 12, d.getUTCSeconds(), true);
+          view.setUint16(lpSystemTime + 14, d.getUTCMilliseconds(), true);
+          return 1;
+        },
+        SetSystemTime: (lpSystemTime: number) => 1,
+        GetDateFormatA: (Locale: number, dwFlags: number, lpDate: number, lpFormat: number, lpDateStr: number, cchDate: number) => {
+          const str = new Date().toLocaleDateString();
+          if (lpDateStr && cchDate > 0) {
+            this.writeCString(lpDateStr, str, cchDate);
+          }
+          return str.length + 1;
+        },
+        GetTimeFormatA: (Locale: number, dwFlags: number, lpTime: number, lpFormat: number, lpTimeStr: number, cchTime: number) => {
+          const str = new Date().toLocaleTimeString();
+          if (lpTimeStr && cchTime > 0) {
+            this.writeCString(lpTimeStr, str, cchTime);
+          }
+          return str.length + 1;
+        },
+        SetForegroundWindow: (hWnd: number) => 1,
+        IsWindowEnabled: (hWnd: number) => 1,
+        GetDriveTypeA: (lpRootPathName: number) => 3 /* DRIVE_FIXED */,
+        GetLastError: () => 0,
+        FindFirstFileA: (lpFileName: number, lpFindFileData: number) => 0,
+        FindNextFileA: (hFindFile: number, lpFindFileData: number) => 0,
+        FindClose: (hFindFile: number) => 1,
+        GetCurrentPositionEx: (hdc: number, lppt: number) => {
+          if (lppt && this.memory) {
+            const info = this.hdcMap.get(hdc);
+            const view = new DataView(this.memory.buffer);
+            view.setInt32(lppt, info ? info.currentX : 0, true);
+            view.setInt32(lppt + 4, info ? info.currentY : 0, true);
+          }
+          return 1;
+        },
+        SetWindowPos: (hWnd: number, hWndInsertAfter: number, X: number, Y: number, cx: number, cy: number, uFlags: number) => {
+          kernel.MoveWindow(hWnd, X, Y, cx, cy, true);
+          return 1;
+        },
+        AdjustWindowRect: (lpRect: number, dwStyle: number, bMenu: number) => 1,
+        GetFileAttributesA: (lpFileName: number) => 0x80 /* FILE_ATTRIBUTE_NORMAL */,
+        SystemTimeToFileTime: (lpSystemTime: number, lpFileTime: number) => 1,
+        InitCommonControlsEx: (picce: number) => 1,
+        InitCommonControls: () => {},
       };
 
     return {

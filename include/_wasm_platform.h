@@ -283,6 +283,29 @@ static inline int wasm_lstrlenW(const unsigned short *s) {
 #endif
 #endif
 
+#ifndef lstrcmpA
+#define lstrcmpA wasm_strcmp
+#endif
+#ifndef lstrcmp
+#define lstrcmp lstrcmpA
+#endif
+#ifndef lstrcmpiA
+static inline int wasm_lstrcmpiA(const char *s1, const char *s2) {
+    while (*s1 && *s2) {
+        char c1 = (*s1 >= 'A' && *s1 <= 'Z') ? (*s1 + 32) : *s1;
+        char c2 = (*s2 >= 'A' && *s2 <= 'Z') ? (*s2 + 32) : *s2;
+        if (c1 != c2) return (unsigned char)c1 - (unsigned char)c2;
+        s1++;
+        s2++;
+    }
+    return (unsigned char)*s1 - (unsigned char)*s2;
+}
+#define lstrcmpiA wasm_lstrcmpiA
+#endif
+#ifndef lstrcmpi
+#define lstrcmpi lstrcmpiA
+#endif
+
 // Pseudo-random number generator
 #ifndef _RAND_DEFINED
 #define _RAND_DEFINED
@@ -3498,6 +3521,145 @@ BOOL WINAPI FreeLibrary(HMODULE hLibModule);
 
 WIN32_IMPORT("GetProcAddress")
 FARPROC WINAPI GetProcAddress(HMODULE hModule, LPCSTR lpProcName);
+
+// ==============================================================================
+// Chapter 22 & 23: Multimedia & Internet
+// ==============================================================================
+
+#ifndef MAKEWORD
+#define MAKEWORD(a, b)      ((WORD)(((BYTE)(a)) | ((WORD)((BYTE)(b))) << 8))
+#endif
+
+#ifndef _FILETIME_DEFINED
+#define _FILETIME_DEFINED
+typedef struct _FILETIME {
+    DWORD dwLowDateTime;
+    DWORD dwHighDateTime;
+} FILETIME, *PFILETIME, *LPFILETIME;
+#endif
+
+typedef union _LARGE_INTEGER {
+    struct {
+        DWORD LowPart;
+        LONG HighPart;
+    };
+    struct {
+        DWORD LowPart;
+        LONG HighPart;
+    } u;
+    LONGLONG QuadPart;
+} LARGE_INTEGER, *PLARGE_INTEGER;
+
+#ifndef SWP_NOSIZE
+#define SWP_NOSIZE          0x0001
+#define SWP_NOMOVE          0x0002
+#define SWP_NOZORDER        0x0004
+#define SWP_NOREDRAW        0x0008
+#define SWP_NOACTIVATE      0x0010
+#define SWP_FRAMECHANGED    0x0020
+#define SWP_SHOWWINDOW      0x0040
+#define SWP_HIDEWINDOW      0x0080
+#endif
+
+#ifndef EM_LINEFROMCHAR
+#define EM_LINEFROMCHAR     0x00C9
+#endif
+
+WIN32_IMPORT("SystemTimeToFileTime")
+BOOL WINAPI SystemTimeToFileTime(const SYSTEMTIME *lpSystemTime, LPFILETIME lpFileTime);
+
+WIN32_IMPORT("SetWindowPos")
+BOOL WINAPI SetWindowPos(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags);
+
+WIN32_IMPORT("AdjustWindowRect")
+BOOL WINAPI AdjustWindowRect(LPRECT lpRect, DWORD dwStyle, BOOL bMenu);
+
+WIN32_IMPORT("GetFileAttributesA")
+DWORD WINAPI GetFileAttributesA(LPCSTR lpFileName);
+#ifndef GetFileAttributes
+#define GetFileAttributes GetFileAttributesA
+#endif
+
+WIN32_IMPORT("GetCurrentPositionEx")
+BOOL WINAPI GetCurrentPositionEx(HDC hdc, LPPOINT lppt);
+
+WIN32_IMPORT("FileTimeToSystemTime")
+BOOL WINAPI FileTimeToSystemTime(const FILETIME *lpFileTime, LPSYSTEMTIME lpSystemTime);
+
+WIN32_IMPORT("SetSystemTime")
+BOOL WINAPI SetSystemTime(const SYSTEMTIME *lpSystemTime);
+
+#ifndef LOCALE_USER_DEFAULT
+#define LOCALE_USER_DEFAULT     0x0400
+#endif
+#ifndef LOCALE_NOUSEROVERRIDE
+#define LOCALE_NOUSEROVERRIDE   0x80000000
+#endif
+#ifndef DATE_SHORTDATE
+#define DATE_SHORTDATE          0x00000001
+#endif
+#ifndef TIME_NOTIMEMARKER
+#define TIME_NOTIMEMARKER       0x00000004
+#endif
+#ifndef TIME_FORCE24HOURFORMAT
+#define TIME_FORCE24HOURFORMAT  0x00000008
+#endif
+
+WIN32_IMPORT("GetDateFormatA")
+int WINAPI GetDateFormatA(LCID Locale, DWORD dwFlags, const SYSTEMTIME *lpDate, LPCSTR lpFormat, LPSTR lpDateStr, int cchDate);
+#ifndef GetDateFormat
+#define GetDateFormat GetDateFormatA
+#endif
+
+WIN32_IMPORT("GetTimeFormatA")
+int WINAPI GetTimeFormatA(LCID Locale, DWORD dwFlags, const SYSTEMTIME *lpTime, LPCSTR lpFormat, LPSTR lpTimeStr, int cchTime);
+#ifndef GetTimeFormat
+#define GetTimeFormat GetTimeFormatA
+#endif
+
+WIN32_IMPORT("SetForegroundWindow")
+BOOL WINAPI SetForegroundWindow(HWND hWnd);
+
+WIN32_IMPORT("IsWindowEnabled")
+BOOL WINAPI IsWindowEnabled(HWND hWnd);
+
+#ifndef DRIVE_UNKNOWN
+#define DRIVE_UNKNOWN     0
+#define DRIVE_NO_ROOT_DIR 1
+#define DRIVE_REMOVABLE   2
+#define DRIVE_FIXED       3
+#define DRIVE_REMOTE      4
+#define DRIVE_CDROM       5
+#define DRIVE_RAMDISK     6
+#endif
+
+WIN32_IMPORT("GetDriveTypeA")
+UINT WINAPI GetDriveTypeA(LPCSTR lpRootPathName);
+#ifndef GetDriveType
+#define GetDriveType GetDriveTypeA
+#endif
+
+WIN32_IMPORT("GetLastError")
+DWORD WINAPI GetLastError(void);
+
+struct tagWIN32_FIND_DATAA;
+typedef struct tagWIN32_FIND_DATAA *LPWIN32_FIND_DATAA;
+
+WIN32_IMPORT("FindFirstFileA")
+HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, struct tagWIN32_FIND_DATAA *lpFindFileData);
+#ifndef FindFirstFile
+#define FindFirstFile FindFirstFileA
+#endif
+
+WIN32_IMPORT("FindNextFileA")
+BOOL WINAPI FindNextFileA(HANDLE hFindFile, struct tagWIN32_FIND_DATAA *lpFindFileData);
+#ifndef FindNextFile
+#define FindNextFile FindNextFileA
+#endif
+
+WIN32_IMPORT("FindClose")
+BOOL WINAPI FindClose(HANDLE hFindFile);
+
 
 
 
