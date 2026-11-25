@@ -209,7 +209,7 @@ function renderDibToCanvas(
 ): HTMLCanvasElement | null {
   const view = new DataView(memBuffer);
   const info = parseDibInfo(view, pbmiPtr);
-  if (!info.width || !info.height) return null;
+  if (!info.width || !info.height || typeof document === "undefined") return null;
 
   const canvas = document.createElement("canvas");
   canvas.width = info.width;
@@ -305,6 +305,7 @@ export class Win32WasmRuntime {
   private heapBumpPtr = 0x80000;
 
   private registeredClasses = new Map<string, WndProc>();
+  private registeredClassMenuNames = new Map<string, string>();
   private stringLogs: WasmStringLogEntry[] = [];
   private registeredWndProcIndices: number[] = [];
   private capturedHwnd: number | null = null;
@@ -663,54 +664,64 @@ export class Win32WasmRuntime {
 
     const win32Imports = {
       RegisterClassA: (ptr: number) => {
-          if (!this.memory || !this.table) return 0;
-          const view = new DataView(this.memory.buffer);
-          const fnIdx = view.getUint32(ptr + 4, true);
-          this.registeredWndProcIndices.push(fnIdx);
-          const classNamePtr = view.getUint32(ptr + 36, true);
-          const className = this.readCString(classNamePtr, "RegisterClassA:lpszClassName");
+        if (!this.memory || !this.table) return 0;
+        const view = new DataView(this.memory.buffer);
+        const fnIdx = view.getUint32(ptr + 4, true);
+        this.registeredWndProcIndices.push(fnIdx);
+        const menuNamePtr = view.getUint32(ptr + 32, true);
+        const classNamePtr = view.getUint32(ptr + 36, true);
+        const className = this.readCString(classNamePtr, "RegisterClassA:lpszClassName");
+        if (menuNamePtr) {
+          const menuName = menuNamePtr > 0xffff ? this.readCString(menuNamePtr) : String(menuNamePtr);
+          this.registeredClassMenuNames.set(className.toUpperCase(), menuName);
+        }
 
-          const wndProc = (
-            hwnd: HWND,
-            uMsg: UINT,
-            wParam: WPARAM,
-            lParam: LPARAM
-          ): LRESULT => {
-            if (!this.table) return 0;
-            const targetFn = this.table.get(fnIdx);
-            let res: any = 0;
-            if (typeof targetFn === "function") {
-              res = targetFn(
-                hwnd,
-                uMsg,
-                typeof wParam === "number" ? wParam : 0,
-                typeof lParam === "number" ? lParam : 0
-              );
-            } else {
-              res = DefWindowProc(hwnd, uMsg, wParam, lParam);
-            }
-            if (uMsg === WM_DESTROY) {
-              this.destroy();
-            }
-            return typeof res === "number" ? res : 0;
-          };
+        const wndProc = (
+          hwnd: HWND,
+          uMsg: UINT,
+          wParam: WPARAM,
+          lParam: LPARAM
+        ): LRESULT => {
+          if (!this.table) return 0;
+          const targetFn = this.table.get(fnIdx);
+          let res: any = 0;
+          if (typeof targetFn === "function") {
+            res = targetFn(
+              hwnd,
+              uMsg,
+              typeof wParam === "number" ? wParam : 0,
+              typeof lParam === "number" ? lParam : 0
+            );
+          } else {
+            res = DefWindowProc(hwnd, uMsg, wParam, lParam);
+          }
+          if (uMsg === WM_DESTROY) {
+            this.destroy();
+          }
+          return typeof res === "number" ? res : 0;
+        };
 
-          this.registeredClasses.set(className.toUpperCase(), wndProc);
+        this.registeredClasses.set(className.toUpperCase(), wndProc);
 
-          kernel.RegisterClassEx({
-            className,
-            lpfnWndProc: wndProc,
-          });
-          return 1;
-        },
+        kernel.RegisterClassEx({
+          className,
+          lpfnWndProc: wndProc,
+        });
+        return 1;
+      },
 
-        RegisterClassExA: (ptr: number) => {
-          if (!this.memory || !this.table) return 0;
-          const view = new DataView(this.memory.buffer);
-          const fnIdx = view.getUint32(ptr + 8, true);
-          this.registeredWndProcIndices.push(fnIdx);
-          const classNamePtr = view.getUint32(ptr + 40, true);
-          const className = this.readCString(classNamePtr, "RegisterClassExA:lpszClassName");
+      RegisterClassExA: (ptr: number) => {
+        if (!this.memory || !this.table) return 0;
+        const view = new DataView(this.memory.buffer);
+        const fnIdx = view.getUint32(ptr + 8, true);
+        this.registeredWndProcIndices.push(fnIdx);
+        const menuNamePtr = view.getUint32(ptr + 36, true);
+        const classNamePtr = view.getUint32(ptr + 40, true);
+        const className = this.readCString(classNamePtr, "RegisterClassExA:lpszClassName");
+        if (menuNamePtr) {
+          const menuName = menuNamePtr > 0xffff ? this.readCString(menuNamePtr) : String(menuNamePtr);
+          this.registeredClassMenuNames.set(className.toUpperCase(), menuName);
+        }
 
           const wndProc = (
             hwnd: HWND,
@@ -790,6 +801,14 @@ export class Win32WasmRuntime {
             actualH = 350;
           }
 
+          let actualHMenu = hMenu;
+          if ((!actualHMenu || actualHMenu === 0) && !hWndParent) {
+            const classMenuName = this.registeredClassMenuNames.get(className.toUpperCase());
+            if (classMenuName) {
+              actualHMenu = (win32Imports as any).LoadMenuA(0, classMenuName);
+            }
+          }
+
           const hwnd = kernel.CreateWindowEx(
             dwExStyle,
             className,
@@ -800,7 +819,7 @@ export class Win32WasmRuntime {
             actualW,
             actualH,
             hWndParent === 0 ? null : hWndParent,
-            hMenu === 0 ? null : hMenu,
+            actualHMenu === 0 ? null : actualHMenu,
             null,
             null,
             localWndProc
@@ -809,7 +828,10 @@ export class Win32WasmRuntime {
           // For top-level C windows or custom child windows, attach canvas support for GDI drawing
           const win = kernel.getWindow(hwnd);
           if (win) {
-            win.menuId = hMenu;
+            win.menuId = actualHMenu;
+            if (!hWndParent && actualHMenu) {
+              win.hMenu = actualHMenu;
+            }
             if (className.toUpperCase() === "MDICLIENT") {
               const parent = kernel.getWindow(hWndParent);
               if (parent) {
@@ -824,8 +846,27 @@ export class Win32WasmRuntime {
                   ...(win.customProps ?? {}),
                   hWindowMenu,
                   idFirstChild,
+                  hMenuInit: parent?.hMenu ?? 0,
                 };
               }
+              // Automatically spawn initial demo documents so workspace is not empty on launch
+              setTimeout(() => {
+                if (kernel.getWindow(hwnd)) {
+                  SendMessage(hWndParent, 0x0111 /* WM_COMMAND */, 40001 /* IDM_FILE_NEWHELLO */, 0);
+                  SendMessage(hWndParent, 0x0111 /* WM_COMMAND */, 40002 /* IDM_FILE_NEWRECT */, 0);
+                }
+              }, 100);
+            } else if (className.toUpperCase().startsWith("SHOWDIB")) {
+              win.customProps = {
+                ...(win.customProps ?? {}),
+                hasCanvas: true,
+              };
+              // Automatically open sample DIB on launch
+              setTimeout(() => {
+                if (kernel.getWindow(hwnd)) {
+                  SendMessage(hwnd, 0x0111 /* WM_COMMAND */, 40001 /* IDM_FILE_OPEN */, 0);
+                }
+              }, 100);
             } else if (!hWndParent || localWndProc) {
               win.customProps = {
                 ...(win.customProps ?? {}),
@@ -1015,11 +1056,20 @@ export class Win32WasmRuntime {
                 if (cx === CW_USEDEFAULT || cx === 0x80000000 || cx <= 0) cx = 300;
                 if (cy === CW_USEDEFAULT || cy === 0x80000000 || cy <= 0) cy = 200;
 
+                const mdiStyle =
+                  0x40000000 /* WS_CHILD */ |
+                  0x10000000 /* WS_VISIBLE */ |
+                  0x00c00000 /* WS_CAPTION */ |
+                  0x00040000 /* WS_THICKFRAME */ |
+                  0x00020000 /* WS_MINIMIZEBOX */ |
+                  0x00010000 /* WS_MAXIMIZEBOX */ |
+                  style;
+
                 const childHwnd = kernel.CreateWindowEx(
                   0,
                   className,
                   title,
-                  0x40000000 /* WS_CHILD */ | 0x10000000 /* WS_VISIBLE */ | style,
+                  mdiStyle,
                   x,
                   y,
                   cx,
@@ -1065,6 +1115,14 @@ export class Win32WasmRuntime {
               };
               if (nextChild) {
                 (win32Imports as any).SendMessageA(nextChild, 0x0222 /* WM_MDIACTIVATE */, 0, nextChild);
+              } else {
+                const frameHwnd = win.parentHwnd;
+                if (frameHwnd) {
+                  const hMenuInit = win.customProps?.hMenuInit;
+                  if (hMenuInit) {
+                    kernel.SetMenu(frameHwnd, hMenuInit);
+                  }
+                }
               }
               return 0;
             } else if (Msg === 0x0222 /* WM_MDIACTIVATE */) {
@@ -1117,7 +1175,11 @@ export class Win32WasmRuntime {
             } else if (Msg === 0x0223 /* WM_MDIRESTORE */) {
               return 0;
             } else if (Msg === 0x0230 /* WM_MDISETMENU */) {
-              return 1;
+              const frameHwnd = win.parentHwnd;
+              if (frameHwnd && wParam) {
+                kernel.SetMenu(frameHwnd, wParam);
+              }
+              return wParam;
             }
           }
           return SendMessage(hwnd, Msg, wParam, lParam);
@@ -2342,6 +2404,7 @@ export class Win32WasmRuntime {
 
         SetFocus: (hWnd: number) => {
           const prev = kernel.activeHwnd;
+          if (prev === hWnd) return prev ?? 0;
           kernel.activeHwnd = hWnd;
           if (prev && prev !== hWnd) {
             kernel.SendMessage(prev, 0x0008, hWnd, 0); // WM_KILLFOCUS
@@ -2782,11 +2845,20 @@ export class Win32WasmRuntime {
         ModifyMenu: (...args: any[]) => (win32Imports as any).ModifyMenuA(...args),
 
         DeleteMenu: (_hMenu: number, _uPosition: number, _uFlags: number) => 1,
-        DestroyMenu: (_hMenu: number) => 1,
+        DestroyMenu: (hMenu: number) => (kernel.DestroyMenu(hMenu) ? 1 : 0),
 
-        SetMenu: (_hWnd: number, _hMenu: number) => 1,
-        GetMenu: (_hWnd: number) => ++this.nextGdiHandle,
-        GetSubMenu: (_hMenu: number, _nPos: number) => ++this.nextGdiHandle,
+        SetMenu: (hWnd: number, hMenu: number) => {
+          kernel.SetMenu(hWnd, hMenu);
+          return 1;
+        },
+        GetMenu: (hWnd: number) => kernel.GetMenu(hWnd) ?? 0,
+        GetSubMenu: (hMenu: number, nPos: number) => {
+          const rec = kernel.GetMenuRecord(hMenu);
+          if (!rec || !rec.items || nPos < 0 || nPos >= rec.items.length) {
+            return ++this.nextGdiHandle;
+          }
+          return rec.items[nPos]?.hSubMenu ?? ++this.nextGdiHandle;
+        },
         GetSystemMenu: (_hWnd: number, _bRevert: number) => ++this.nextGdiHandle,
 
         TrackPopupMenu: (
@@ -2799,10 +2871,94 @@ export class Win32WasmRuntime {
           _prcRect: number
         ) => 1,
 
-        EnableMenuItem: (_hMenu: number, _uIDEnableItem: number, _uEnable: number) => 1,
-        CheckMenuItem: (_hMenu: number, _uIDCheckItem: number, _uCheck: number) => 0,
+        EnableMenuItem: (hMenu: number, uIDEnableItem: number, uEnable: number) => {
+          kernel.EnableMenuItem(hMenu, uIDEnableItem, uEnable);
+          return 1;
+        },
+        CheckMenuItem: (hMenu: number, uIDCheckItem: number, uCheck: number) => {
+          kernel.CheckMenuItem(hMenu, uIDCheckItem, uCheck);
+          return 1;
+        },
 
-        LoadMenuA: (_hInstance: number, _lpMenuName: number) => ++this.nextGdiHandle,
+        LoadMenuA: (_hInstance: number, lpMenuName: any) => {
+          let nameStr = "";
+          if (typeof lpMenuName === "string") {
+            nameStr = lpMenuName.toUpperCase();
+          } else if (typeof lpMenuName === "number") {
+            nameStr =
+              lpMenuName > 0xffff && this.memory
+                ? this.readCString(lpMenuName).toUpperCase()
+                : String(lpMenuName).toUpperCase();
+          }
+
+          if (nameStr === "MDIMENUINIT") {
+            const hMenu = kernel.CreateMenu();
+            const hSubFile = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubFile, 0, 40001 /* IDM_FILE_NEWHELLO */, "New &Hello");
+            kernel.AppendMenu(hSubFile, 0, 40002 /* IDM_FILE_NEWRECT */, "New &Rectangle");
+            kernel.AppendMenu(hSubFile, 0x0800 /* MF_SEPARATOR */, 0, "");
+            kernel.AppendMenu(hSubFile, 0, 40003 /* IDM_APP_EXIT */, "E&xit");
+            kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubFile, "&File");
+            return hMenu;
+          }
+
+          if (nameStr === "MDIMENUHELLO") {
+            const hMenu = kernel.CreateMenu();
+            const hSubFile = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubFile, 0, 40001, "New &Hello");
+            kernel.AppendMenu(hSubFile, 0, 40002, "New &Rectangle");
+            kernel.AppendMenu(hSubFile, 0, 40004 /* IDM_FILE_CLOSE */, "&Close");
+            kernel.AppendMenu(hSubFile, 0x0800, 0, "");
+            kernel.AppendMenu(hSubFile, 0, 40003, "E&xit");
+            kernel.AppendMenu(hMenu, 0x0010, hSubFile, "&File");
+
+            const hSubColor = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubColor, 0x0008 /* MF_CHECKED */, 40005 /* IDM_COLOR_BLACK */, "&Black");
+            kernel.AppendMenu(hSubColor, 0, 40006 /* IDM_COLOR_RED */, "&Red");
+            kernel.AppendMenu(hSubColor, 0, 40007 /* IDM_COLOR_GREEN */, "&Green");
+            kernel.AppendMenu(hSubColor, 0, 40008 /* IDM_COLOR_BLUE */, "B&lue");
+            kernel.AppendMenu(hSubColor, 0, 40009 /* IDM_COLOR_WHITE */, "&White");
+            kernel.AppendMenu(hMenu, 0x0010, hSubColor, "&Color");
+
+            const hSubWindow = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubWindow, 0, 40010 /* IDM_WINDOW_CASCADE */, "&Cascade\tShift+F5");
+            kernel.AppendMenu(hSubWindow, 0, 40011 /* IDM_WINDOW_TILE */, "&Tile\tShift+F4");
+            kernel.AppendMenu(hSubWindow, 0, 40012 /* IDM_WINDOW_ARRANGE */, "Arrange &Icons");
+            kernel.AppendMenu(hSubWindow, 0, 40013 /* IDM_WINDOW_CLOSEALL */, "Close &All");
+            kernel.AppendMenu(hMenu, 0x0010, hSubWindow, "&Window");
+            return hMenu;
+          }
+
+          if (nameStr === "MDIMENURECT") {
+            const hMenu = kernel.CreateMenu();
+            const hSubFile = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubFile, 0, 40001, "New &Hello");
+            kernel.AppendMenu(hSubFile, 0, 40002, "New &Rectangle");
+            kernel.AppendMenu(hSubFile, 0, 40004, "&Close");
+            kernel.AppendMenu(hSubFile, 0x0800, 0, "");
+            kernel.AppendMenu(hSubFile, 0, 40003, "E&xit");
+            kernel.AppendMenu(hMenu, 0x0010, hSubFile, "&File");
+
+            const hSubWindow = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubWindow, 0, 40010, "&Cascade\tShift+F5");
+            kernel.AppendMenu(hSubWindow, 0, 40011, "&Tile\tShift+F4");
+            kernel.AppendMenu(hSubWindow, 0, 40012, "Arrange &Icons");
+            kernel.AppendMenu(hSubWindow, 0, 40013, "Close &All");
+            kernel.AppendMenu(hMenu, 0x0010, hSubWindow, "&Window");
+            return hMenu;
+          }
+
+          if (nameStr.startsWith("SHOWDIB")) {
+            const hMenu = kernel.CreateMenu();
+            const hSubFile = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubFile, 0, 40001 /* IDM_FILE_OPEN */, "&Open...");
+            kernel.AppendMenu(hSubFile, 0, 40002 /* IDM_FILE_SAVE */, "&Save...");
+            kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubFile, "&File");
+            return hMenu;
+          }
+
+          return kernel.CreateMenu();
+        },
         LoadMenu: (...args: any[]) => (win32Imports as any).LoadMenuA(...args),
 
         LoadAcceleratorsA: (_hInstance: number, _lpTableName: number) => ++this.nextGdiHandle,
@@ -2832,6 +2988,41 @@ export class Win32WasmRuntime {
               "   I and my Annabel Lee --\n" +
               "With a love that the winged seraphs of Heaven\n" +
               "   Coveted her and me.\n" +
+              " \n" +
+              "And this was the reason that, long ago,\n" +
+              "   In this kingdom by the sea,\n" +
+              "A wind blew out of a cloud, chilling\n" +
+              "   My beautiful Annabel Lee;\n" +
+              "So that her highborn kinsmen came\n" +
+              "   And bore her away from me,\n" +
+              "To shut her up in a sepulchre\n" +
+              "   In this kingdom by the sea.\n" +
+              " \n" +
+              "The angels, not half so happy in Heaven,\n" +
+              "   Went envying her and me --\n" +
+              "Yes! that was the reason (as all men know,\n" +
+              "   In this kingdom by the sea)\n" +
+              "That the wind came out of the cloud by night,\n" +
+              "   Chilling and killing my Annabel Lee.\n" +
+              " \n" +
+              "But our love it was stronger by far than the love\n" +
+              "   Of those who were older than we --\n" +
+              "   Of many far wiser than we --\n" +
+              "And neither the angels in Heaven above\n" +
+              "   Nor the demons down under the sea\n" +
+              "Can ever dissever my soul from the soul\n" +
+              "   Of the beautiful Annabel Lee:\n" +
+              " \n" +
+              "For the moon never beams, without bringing me dreams\n" +
+              "   Of the beautiful Annabel Lee;\n" +
+              "And the stars never rise, but I feel the bright eyes\n" +
+              "   Of the beautiful Annabel Lee:\n" +
+              "And so, all the night-tide, I lie down by the side\n" +
+              "Of my darling -- my darling -- my life and my bride,\n" +
+              "   In her sepulchre there by the sea --\n" +
+              "   In her tomb by the sounding sea.\n" +
+              " \n" +
+              "                                        [May, 1849]\n" +
               "\\\n";
             const bytes = new TextEncoder().encode(poem);
             this.poePoemPtr = this.allocateMemory(bytes.length + 1);
@@ -3493,14 +3684,90 @@ export class Win32WasmRuntime {
           return handle;
         },
 
-        CreateBitmap: (nWidth: number, nHeight: number, nPlanes: number, nBitCount: number, _lpBits: number) => {
+        CreateBitmap: (nWidth: number, nHeight: number, nPlanes: number, nBitCount: number, lpBits: number) => {
           const handle = ++this.nextGdiHandle;
+          let canvas: any = null;
+          let ctx: any = null;
+          if (typeof document !== "undefined") {
+            canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, nWidth);
+            canvas.height = Math.max(1, nHeight);
+            ctx = canvas.getContext("2d");
+            if (ctx) {
+              const imgData = ctx.createImageData(canvas.width, canvas.height);
+              const dst = imgData.data;
+              if (lpBits && this.memory) {
+                const u8 = new Uint8Array(this.memory.buffer);
+                if (nBitCount === 8) {
+                  // 8-bit palette indexed bitmap (e.g. SysPal3)
+                  const stride = ((nWidth * 8 + 15) >> 4) << 1;
+                  for (let y = 0; y < nHeight; y++) {
+                    const rowOffset = lpBits + y * stride;
+                    for (let x = 0; x < nWidth; x++) {
+                      const idx = u8[rowOffset + x];
+                      const dstIdx = (y * nWidth + x) * 4;
+                      let r = 0, g = 0, b = 0;
+                      if (idx < 16) {
+                        const vga: [number, number, number][] = [
+                          [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
+                          [0, 0, 128], [128, 0, 128], [0, 128, 128], [192, 192, 192],
+                          [128, 128, 128], [255, 0, 0], [0, 255, 0], [255, 255, 0],
+                          [0, 0, 255], [255, 0, 255], [0, 255, 255], [255, 255, 255]
+                        ];
+                        [r, g, b] = vga[idx] || [0, 0, 0];
+                      } else if (idx >= 240) {
+                        const val = ((idx - 240) * 16) & 255;
+                        r = val; g = val; b = val;
+                      } else {
+                        const cubeIdx = idx - 16;
+                        r = Math.floor(cubeIdx / 36) * 51;
+                        g = (Math.floor(cubeIdx / 6) % 6) * 51;
+                        b = (cubeIdx % 6) * 51;
+                      }
+                      dst[dstIdx + 0] = r;
+                      dst[dstIdx + 1] = g;
+                      dst[dstIdx + 2] = b;
+                      dst[dstIdx + 3] = 255;
+                    }
+                  }
+                } else if (nBitCount === 1) {
+                  const stride = ((nWidth + 15) >> 4) << 1;
+                  for (let y = 0; y < nHeight; y++) {
+                    const rowOffset = lpBits + y * stride;
+                    for (let x = 0; x < nWidth; x++) {
+                      const byteVal = u8[rowOffset + (x >> 3)];
+                      const bit = (byteVal >> (7 - (x & 7))) & 1;
+                      const val = bit ? 255 : 0;
+                      const dstIdx = (y * nWidth + x) * 4;
+                      dst[dstIdx + 0] = val;
+                      dst[dstIdx + 1] = val;
+                      dst[dstIdx + 2] = val;
+                      dst[dstIdx + 3] = 255;
+                    }
+                  }
+                } else {
+                  const bytesPerPixel = Math.max(1, Math.floor(nBitCount / 8));
+                  for (let i = 0; i < nWidth * nHeight; i++) {
+                    const srcIdx = lpBits + i * bytesPerPixel;
+                    const dstIdx = i * 4;
+                    dst[dstIdx + 0] = u8[srcIdx + 2] ?? 0;
+                    dst[dstIdx + 1] = u8[srcIdx + 1] ?? 0;
+                    dst[dstIdx + 2] = u8[srcIdx + 0] ?? 0;
+                    dst[dstIdx + 3] = 255;
+                  }
+                }
+              }
+              ctx.putImageData(imgData, 0, 0);
+            }
+          }
           this.gdiMap.set(handle, {
             type: "bitmap",
             width: nWidth,
             height: nHeight,
             planes: nPlanes,
             bitsPixel: nBitCount,
+            canvas,
+            ctx,
           });
           return handle;
         },

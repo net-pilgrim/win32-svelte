@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import {
     kernel,
     SendMessage,
@@ -23,28 +24,49 @@
   import type { WindowRecord, HDROP, DropFileInfo } from "../types";
   import Control from "./Control.svelte";
   import MenuBar from "./MenuBar.svelte";
+  import Self from "./Window.svelte";
   import { RegisterWindowCanvas, UnregisterWindowCanvas } from "../gdi";
 
   interface Props {
     window: WindowRecord;
+    isMdiChild?: boolean;
   }
 
-  let { window: win }: Props = $props();
+  let { window: win, isMdiChild = false }: Props = $props();
 
   let canvasRef = $state<HTMLCanvasElement | null>(null);
 
-  let clientCanvasWidth = $derived(Math.max(10, (win.maximized ? window.innerWidth : win.width) - 16));
+  let clientCanvasWidth = $derived(
+    Math.max(
+      10,
+      (win.maximized
+        ? (isMdiChild
+            ? (kernel.getWindow(win.parentHwnd ?? 0)?.width ?? 600)
+            : (typeof window !== "undefined" ? window.innerWidth : 800))
+        : win.width) - 16
+    )
+  );
   let clientCanvasHeight = $derived(
-    Math.max(10, (win.maximized ? window.innerHeight - 30 : win.height) - (win.hMenu ? 64 : 44))
+    Math.max(
+      10,
+      (win.maximized
+        ? (isMdiChild
+            ? (kernel.getWindow(win.parentHwnd ?? 0)?.height ?? 400)
+            : (typeof window !== "undefined" ? window.innerHeight - 30 : 600))
+        : win.height) - (win.hMenu ? 64 : 44)
+    )
   );
 
   $effect(() => {
     const w = clientCanvasWidth;
     const h = clientCanvasHeight;
-    if (canvasRef && win.customProps?.hasCanvas) {
-      RegisterWindowCanvas(win.hwnd, canvasRef);
-      SendMessage(win.hwnd, WM_SIZE, 0, MAKELPARAM(w, h));
-      SendMessage(win.hwnd, WM_PAINT, 0, 0);
+    const c = canvasRef;
+    if (c && win.customProps?.hasCanvas) {
+      untrack(() => {
+        RegisterWindowCanvas(win.hwnd, c);
+        SendMessage(win.hwnd, WM_SIZE, 0, MAKELPARAM(w, h));
+        SendMessage(win.hwnd, WM_PAINT, 0, 0);
+      });
     }
     return () => {
       UnregisterWindowCanvas(win.hwnd);
@@ -69,7 +91,7 @@
   }
 
   function onWindowKeyDown(e: KeyboardEvent) {
-    if (!isActive) return;
+    if (isMdiChild || !isActive) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
     }
@@ -80,14 +102,23 @@
   }
 
   function onWindowKeyUp(e: KeyboardEvent) {
-    if (!isActive) return;
+    if (isMdiChild || !isActive) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
     }
     SendMessage(win.hwnd, WM_KEYUP, e.keyCode, 0);
   }
 
-  let isActive = $derived(kernel.activeHwnd === win.hwnd);
+  let isActive = $derived(
+    kernel.activeHwnd === win.hwnd ||
+      (!isMdiChild &&
+        kernel.windows.some(
+          (w) =>
+            w.hwnd === kernel.activeHwnd &&
+            (w.parentHwnd === win.hwnd ||
+              kernel.getWindow(w.parentHwnd ?? 0)?.parentHwnd === win.hwnd)
+        ))
+  );
   let children = $derived(kernel.windows.filter((w) => w.parentHwnd === win.hwnd));
 
   // Dragging state
@@ -100,6 +131,9 @@
 
   function onFocusWindow() {
     kernel.BringToFront(win.hwnd);
+    if (isMdiChild && win.parentHwnd) {
+      SendMessage(win.parentHwnd, 0x0222 /* WM_MDIACTIVATE */, win.hwnd, 0);
+    }
   }
 
   function onCloseClick(e: MouseEvent) {
@@ -115,6 +149,10 @@
   function onMaximizeClick(e: MouseEvent) {
     e.stopPropagation();
     win.maximized = !win.maximized;
+    const w = clientCanvasWidth;
+    const h = clientCanvasHeight;
+    SendMessage(win.hwnd, WM_SIZE, win.maximized ? 2 /* SIZE_MAXIMIZED */ : 0, MAKELPARAM(w, h));
+    SendMessage(win.hwnd, WM_PAINT, 0, 0);
   }
 
   function onTitleBarPointerDown(e: PointerEvent) {
@@ -269,10 +307,12 @@
 
 {#if win.visible && !win.minimized}
   <div
-    class="window win32-window {isActive ? 'active' : 'inactive'} {win.maximized ? 'maximized' : ''} {isDragOver ? 'drop-target-active' : ''}"
+    class="window win32-window {isActive ? 'active' : 'inactive'} {win.maximized ? 'maximized' : ''} {isMdiChild ? 'is-mdi-child' : ''} {isDragOver ? 'drop-target-active' : ''}"
     style={win.maximized
-      ? "left: 0; top: 0; width: 100vw; height: calc(100vh - 30px); z-index: " + win.zIndex
-      : `left: ${win.x}px; top: ${win.y}px; width: ${win.width}px; height: ${win.height}px; z-index: ${win.zIndex}`}
+      ? (isMdiChild
+          ? `left: 0; top: 0; width: 100%; height: 100%; z-index: ${win.zIndex};`
+          : `left: 0; top: 0; width: 100vw; height: calc(100vh - 30px); z-index: ${win.zIndex};`)
+      : `left: ${win.x}px; top: ${win.y}px; width: ${win.width}px; height: ${win.height}px; z-index: ${win.zIndex};`}
     style:pointer-events={win.enabled ? "auto" : "none"}
     onpointerdown={onFocusWindow}
     ondragover={onDragOver}
@@ -310,7 +350,12 @@
       <MenuBar hwnd={win.hwnd} hMenu={win.hMenu} />
     {/if}
 
-    <div class="window-body client-area">
+    <div
+      class="window-body client-area"
+      style={children.some((c) => c.className.toUpperCase() === "MDICLIENT")
+        ? "margin: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden;"
+        : ""}
+    >
       {#if win.customProps?.hasCanvas}
         <canvas
           bind:this={canvasRef}
@@ -324,7 +369,18 @@
         ></canvas>
       {/if}
       {#each children as child (child.hwnd)}
-        <Control window={child} />
+        {#if child.className.toUpperCase() === "MDICLIENT"}
+          <div
+            class="win32-control win32-mdiclient-viewport sunken-panel"
+            style="width: 100%; height: 100%; position: relative; overflow: hidden; background: #808080; flex: 1;"
+          >
+            {#each kernel.windows.filter((w) => w.parentHwnd === child.hwnd) as mdiChild (mdiChild.hwnd)}
+              <Self window={mdiChild} isMdiChild={true} />
+            {/each}
+          </div>
+        {:else}
+          <Control window={child} />
+        {/if}
       {/each}
     </div>
 
@@ -358,6 +414,14 @@
   }
 
   .win32-window.maximized {
+    box-shadow:
+      inset -1px -1px #0a0a0a,
+      inset 1px 1px #dfdfdf,
+      inset -2px -2px grey,
+      inset 2px 2px #fff;
+  }
+
+  .win32-window.is-mdi-child {
     box-shadow:
       inset -1px -1px #0a0a0a,
       inset 1px 1px #dfdfdf,

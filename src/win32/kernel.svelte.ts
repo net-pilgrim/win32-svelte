@@ -827,6 +827,7 @@ export class Win32Kernel {
       style,
       exStyle,
       menuId,
+      hMenu: isChild ? null : (menuId ?? null),
       visible: isVisible,
       minimized: false,
       maximized: false,
