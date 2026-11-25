@@ -316,6 +316,36 @@ export class Win32WasmRuntime {
   private metafileMap = new Map<number, any>();
   private static sharedEmfFiles = new Map<string, any>();
   private peekMessageCount = 0;
+  private nextEventHandle = 1000;
+  private eventMap = new Map<number, { manualReset: boolean; signaled: boolean }>();
+  private nextThreadId = 1;
+  private activeThreads = new Map<number, {
+    fnIdx: number;
+    arg: number;
+    timerId?: any;
+    active: boolean;
+    iterationCount?: number;
+  }>();
+  private currentThreadInfo: any = null;
+
+  private notifyEventWaiters(hEvent: number): void {
+    for (const [, thread] of this.activeThreads) {
+      if (thread.active && this.table) {
+        const fn = this.table.get(thread.fnIdx);
+        if (typeof fn === "function") {
+          setTimeout(() => {
+            if (thread.active) {
+              try {
+                fn(thread.arg);
+              } catch (e) {
+                console.error("Thread execution error:", e);
+              }
+            }
+          }, 0);
+        }
+      }
+    }
+  }
 
   private normalizeMetafileName(name: string): string {
     return name.toLowerCase().replace(/\\/g, "/").split("/").pop() || name.toLowerCase();
@@ -1281,6 +1311,13 @@ export class Win32WasmRuntime {
 
         ReleaseDC: (_hWnd: number, hdcHandle: number) => {
           this.hdcMap.delete(hdcHandle);
+          if (this.currentThreadInfo) {
+            this.currentThreadInfo.iterationCount = (this.currentThreadInfo.iterationCount || 0) + 1;
+            if (this.currentThreadInfo.iterationCount >= 10) {
+              this.currentThreadInfo.iterationCount = 0;
+              throw { isThreadYield: true };
+            }
+          }
           return 1;
         },
 
@@ -3596,7 +3633,26 @@ export class Win32WasmRuntime {
           }
           return 1;
         },
+        GetTextExtentPoint32W: (hdcHandle: number, _lpString: number, c: number, lpsz: number) => {
+          if (this.memory && lpsz) {
+            const hdc = this.hdcMap.get(hdcHandle);
+            const fontObj = (hdc as any)?.selectedFont;
+            const height = fontObj && Math.abs(fontObj.height) ? Math.abs(fontObj.height) : 16;
+            const charWidth = Math.round(height * 0.5) || 8;
+            const count = c > 0 ? c : 1;
+            const dv = new DataView(this.memory.buffer);
+            dv.setInt32(lpsz + 0, count * charWidth, true); // cx
+            dv.setInt32(lpsz + 4, height, true);            // cy
+          }
+          return 1;
+        },
         GetTextExtentPoint32: (...args: any[]) => (win32Imports as any).GetTextExtentPoint32A(...args),
+
+        LoadLibraryA: (_lpLibFileName: number) => 0x1000,
+        LoadLibraryW: (_lpLibFileName: number) => 0x1000,
+        LoadLibrary: (...args: any[]) => (win32Imports as any).LoadLibraryA(...args),
+        FreeLibrary: (_hModule: number) => 1,
+        GetProcAddress: (_hModule: number, _lpProcName: number) => 0,
 
         GetTickCount: () => Date.now() & 0xffffffff,
 
@@ -4707,6 +4763,107 @@ export class Win32WasmRuntime {
           }
           return 1;
         },
+
+        CreateEventA: (
+          _lpEventAttributes: number,
+          bManualReset: number,
+          bInitialState: number,
+          _lpName: number
+        ) => {
+          const handle = ++this.nextEventHandle;
+          this.eventMap.set(handle, {
+            manualReset: bManualReset !== 0,
+            signaled: bInitialState !== 0,
+          });
+          return handle;
+        },
+
+        SetEvent: (hEvent: number) => {
+          const ev = this.eventMap.get(hEvent);
+          if (ev) {
+            ev.signaled = true;
+            this.notifyEventWaiters(hEvent);
+            return 1;
+          }
+          return 0;
+        },
+
+        ResetEvent: (hEvent: number) => {
+          const ev = this.eventMap.get(hEvent);
+          if (ev) {
+            ev.signaled = false;
+            return 1;
+          }
+          return 0;
+        },
+
+        PulseEvent: (hEvent: number) => {
+          const ev = this.eventMap.get(hEvent);
+          if (ev) {
+            ev.signaled = true;
+            this.notifyEventWaiters(hEvent);
+            ev.signaled = false;
+            return 1;
+          }
+          return 0;
+        },
+
+        WaitForSingleObject: (hHandle: number, _dwMilliseconds: number) => {
+          const ev = this.eventMap.get(hHandle);
+          if (ev) {
+            if (ev.signaled) {
+              if (!ev.manualReset) {
+                ev.signaled = false;
+              }
+              return 0; // WAIT_OBJECT_0
+            }
+            return 0x00000102; // WAIT_TIMEOUT
+          }
+          return 0;
+        },
+
+        _beginthread: (startAddress: number, _stackSize: number, argList: number) => {
+          const threadId = ++this.nextThreadId;
+          logWasmStub("_beginthread", startAddress, _stackSize, argList);
+          if (!this.table) return threadId;
+          const fn = this.table.get(startAddress);
+          if (typeof fn === "function") {
+            const threadInfo = {
+              fnIdx: startAddress,
+              arg: argList,
+              active: true,
+              iterationCount: 0,
+            };
+            this.activeThreads.set(threadId, threadInfo);
+            const runThread = () => {
+              if (!threadInfo.active) return;
+              this.currentThreadInfo = threadInfo;
+              try {
+                fn(argList);
+              } catch (e: any) {
+                if (e && e.isThreadYield) {
+                  if (threadInfo.active) {
+                    setTimeout(runThread, 30);
+                  }
+                } else {
+                  console.error("Thread execution error:", e);
+                }
+              } finally {
+                this.currentThreadInfo = null;
+              }
+            };
+            setTimeout(runThread, 10);
+          }
+          return threadId;
+        },
+
+        _endthread: () => {
+          logWasmStub("_endthread");
+        },
+
+        _wasm_thread_step: () => {
+          return 0;
+        },
       };
 
     return {
@@ -4751,6 +4908,12 @@ export class Win32WasmRuntime {
     this.globalAllocMap.clear();
     this.openFileMap.clear();
     this.poePoemPtr = 0;
+    for (const [, t] of this.activeThreads) {
+      t.active = false;
+      if (t.timerId) clearInterval(t.timerId);
+    }
+    this.activeThreads.clear();
+    this.eventMap.clear();
   }
 
   public getStats(): WasmRuntimeStats {

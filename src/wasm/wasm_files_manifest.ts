@@ -62,6 +62,18 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "description": "Bezier"
   },
   {
+    "name": "BigJob1.wasm",
+    "size": 11690,
+    "chapter": "Chap20",
+    "description": "BigJob1"
+  },
+  {
+    "name": "BigJob2.wasm",
+    "size": 12175,
+    "chapter": "Chap20",
+    "description": "BigJob2"
+  },
+  {
     "name": "BitBlt.wasm",
     "size": 6565,
     "chapter": "Chap14",
@@ -246,6 +258,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 18348,
     "chapter": "Chap17",
     "description": "EZTest"
+  },
+  {
+    "name": "EdrTest.wasm",
+    "size": 6654,
+    "chapter": "Chap21",
+    "description": "StrProg"
   },
   {
     "name": "Emf1.wasm",
@@ -488,6 +506,18 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "description": "Metafile"
   },
   {
+    "name": "Multi1.wasm",
+    "size": 14560,
+    "chapter": "Chap20",
+    "description": "Multi1"
+  },
+  {
+    "name": "Multi2.wasm",
+    "size": 15255,
+    "chapter": "Chap20",
+    "description": "Multi2"
+  },
+  {
     "name": "NoPopups.wasm",
     "size": 5754,
     "chapter": "Chap10",
@@ -578,6 +608,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "description": "RandRect"
   },
   {
+    "name": "RndRctMT.wasm",
+    "size": 7190,
+    "chapter": "Chap20",
+    "description": "RndRctMT"
+  },
+  {
     "name": "Scramble.wasm",
     "size": 4611,
     "chapter": "Chap14",
@@ -594,6 +630,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 12292,
     "chapter": "Chap15",
     "description": "SeqDisp"
+  },
+  {
+    "name": "ShowBit.wasm",
+    "size": 7704,
+    "chapter": "Chap21",
+    "description": "ShowBit"
   },
   {
     "name": "ShowDib1.wasm",
@@ -660,6 +702,12 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 13721,
     "chapter": "Chap06",
     "description": "StokFont"
+  },
+  {
+    "name": "StrProg.wasm",
+    "size": 50105,
+    "chapter": "Chap21",
+    "description": "StrProg"
   },
   {
     "name": "Stretch.wasm",

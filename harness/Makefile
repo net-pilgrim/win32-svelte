@@ -226,9 +226,27 @@ CHAP18_BINS = \
 CHAP19_BINS = \
 	$(BUILD_DIR)/Chap19/MDIDemo/MDIDemo.wasm
 
-.PHONY: all clean help scan copy-wasm-files chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19
+# --- Chapter 20 ---
+CHAP20_BINS = \
+	$(BUILD_DIR)/Chap20/BigJob1/BigJob1.wasm \
+	$(BUILD_DIR)/Chap20/BigJob2/BigJob2.wasm \
+	$(BUILD_DIR)/Chap20/Multi1/Multi1.wasm \
+	$(BUILD_DIR)/Chap20/Multi2/Multi2.wasm \
+	$(BUILD_DIR)/Chap20/RndRctMT/RndRctMT.wasm
 
-all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19
+# --- Chapter 21 ---
+CHAP21_EDRTEST_SRCS := src/Chap21/EdrTest/EdrTest.c src/Chap21/EdrTest/EdrLib.c
+CHAP21_SHOWBIT_SRCS := src/Chap21/ShowBit/ShowBit.c src/Chap21/ShowBit/BitLib.c
+CHAP21_STRPROG_SRCS := src/Chap21/StrProg/StrProg.c src/Chap21/StrProg/StrLib.c
+
+CHAP21_BINS = \
+	$(BUILD_DIR)/Chap21/EdrTest/EdrTest.wasm \
+	$(BUILD_DIR)/Chap21/ShowBit/ShowBit.wasm \
+	$(BUILD_DIR)/Chap21/StrProg/StrProg.wasm
+
+.PHONY: all clean help scan copy-wasm-files chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19 chap20 chap21
+
+all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19 chap20 chap21
 
 scan:
 	python3 scan_chapters.py
@@ -408,6 +426,21 @@ $(BUILD_DIR)/Chap18/Emf13/Emf13.wasm: src/Chap18/Emf13/Emf13.c src/Chap18/Emf8/E
 	$(CC) $(CFLAGS) -Isrc/Chap18/Emf13 -Isrc/Chap18/Emf8 $^ $(LDFLAGS) -o $@
 	@echo "✓ Compiled: $@"
 
+$(BUILD_DIR)/Chap21/EdrTest/EdrTest.wasm: $(CHAP21_EDRTEST_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap21/EdrTest $(CHAP21_EDRTEST_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap21/ShowBit/ShowBit.wasm: $(CHAP21_SHOWBIT_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap21/ShowBit $(CHAP21_SHOWBIT_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Chap21/StrProg/StrProg.wasm: $(CHAP21_STRPROG_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Chap21/StrProg $(CHAP21_STRPROG_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
 $(BUILD_DIR)/%.wasm: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(dir $<) $< $(LDFLAGS) -o $@
@@ -433,6 +466,8 @@ chap16: $(CHAP16_BINS)
 chap17: $(CHAP17_BINS)
 chap18: $(CHAP18_BINS)
 chap19: $(CHAP19_BINS)
+chap20: $(CHAP20_BINS)
+chap21: $(CHAP21_BINS)
 
 copy-wasm-files:
 	@mkdir -p $(ROOT_DIR)/public/wasm-files

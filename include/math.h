@@ -17,6 +17,11 @@ extern "C" {
 #define cos(x)  __builtin_cos(x)
 #define tan(x)  __builtin_tan(x)
 #define sqrt(x) __builtin_sqrt(x)
+#define atan(x) __builtin_atan(x)
+#define exp(x)  __builtin_exp(x)
+#define log(x)  __builtin_log(x)
+#define log10(x) __builtin_log10(x)
+#define pow(x, y) __builtin_pow(x, y)
 
 static inline double wasm_hypot(double x, double y) {
     return __builtin_sqrt(x * x + y * y);

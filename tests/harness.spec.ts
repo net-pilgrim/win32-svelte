@@ -980,6 +980,216 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     await expect(frameEl).toBeVisible();
   });
 
+  test("Chapter 20: Multi1 creates multitasking demo window with 4 child windows", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap20/Multi1/Multi1.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap20' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const result = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 60, initialY: 60 });
+      await runtime.instantiate(bytes);
+      const exitCode = runtime.runWinMain(1);
+
+      const mainWin = win32.kernel.windows.find((w: any) => w.title === "Multitasking Demo");
+      const children = mainWin ? win32.kernel.windows.filter((w: any) => w.parentHwnd === mainWin.hwnd) : [];
+
+      return {
+        exitCode,
+        hasMain: !!mainWin,
+        childrenCount: children.length,
+      };
+    }, wasmBase64);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.hasMain).toBe(true);
+    expect(result.childrenCount).toBe(4);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Multitasking Demo" });
+    await expect(windowEl).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 20: BigJob1 executes computation via background worker thread", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap20/BigJob1/BigJob1.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap20' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 70, initialY: 70 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Multithreading Demo" });
+    await expect(windowEl).toBeVisible();
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // Trigger calculation by sending WM_LBUTTONDOWN
+    await page.evaluate(() => {
+      const win32 = (window as any).__WIN32__;
+      const win = win32.kernel.windows.find((w: any) => w.title === "Multithreading Demo");
+      if (win) {
+        win32.kernel.SendMessage(win.hwnd, 0x0201 /* WM_LBUTTONDOWN */, 0, 0);
+      }
+    });
+
+    // Wait a brief moment for worker thread calculation to complete
+    await page.waitForTimeout(100);
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 20: RndRctMT creates random rectangles window with background thread", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap20/RndRctMT/RndRctMT.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap20' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 80, initialY: 80 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Random Rectangles" });
+    await expect(windowEl).toBeVisible();
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 21: EdrTest loads DLL routine to calculate text metrics and draw centered text", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap21/EdrTest/EdrTest.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap21' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 90, initialY: 90 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "DLL Demonstration Program" });
+    await expect(windowEl).toBeVisible();
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
+  test("Chapter 21: ShowBit dynamically loads BitLib DLL via LoadLibrary and displays bitmaps", async ({ page }) => {
+    const wasmPath = path.resolve("harness/build/Chap21/ShowBit/ShowBit.wasm");
+    if (!fs.existsSync(wasmPath)) {
+      throw new Error(`Compiled WASM binary not found at ${wasmPath}. Run 'make -C harness chap21' first.`);
+    }
+
+    const wasmBase64 = fs.readFileSync(wasmPath).toString("base64");
+
+    await page.goto("/");
+    await page.waitForSelector(".desktop-container");
+
+    const exitCode = await page.evaluate(async (base64) => {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const win32 = (window as any).__WIN32__;
+      const runtime = new win32.Win32WasmRuntime({ initialX: 100, initialY: 100 });
+      await runtime.instantiate(bytes);
+      return runtime.runWinMain(1);
+    }, wasmBase64);
+
+    expect(exitCode).toBe(0);
+
+    const windowEl = page.locator(".win32-window").filter({ hasText: "Show Bitmaps from BITLIB (Press Key)" });
+    await expect(windowEl).toBeVisible();
+
+    const canvas = windowEl.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    const closeBtn = windowEl.locator('button[aria-label="Close"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(windowEl).toBeHidden();
+  });
+
   test("Windows Explorer: wasm-files directory displays all compiled WASM files and launches on double click", async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector(".desktop-container");

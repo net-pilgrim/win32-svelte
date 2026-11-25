@@ -3409,6 +3409,98 @@ static inline BOOL WINAPI HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
     return TRUE;
 }
 
+// ==============================================================================
+// Chapter 20: Multitasking and Multithreading
+// ==============================================================================
+
+typedef struct _SECURITY_ATTRIBUTES {
+    DWORD nLength;
+    LPVOID lpSecurityDescriptor;
+    BOOL bInheritHandle;
+} SECURITY_ATTRIBUTES, *PSECURITY_ATTRIBUTES, *LPSECURITY_ATTRIBUTES;
+
+#ifndef INFINITE
+#define INFINITE            0xFFFFFFFF
+#endif
+#ifndef WAIT_OBJECT_0
+#define WAIT_OBJECT_0       0x00000000L
+#endif
+#ifndef WAIT_ABANDONED_0
+#define WAIT_ABANDONED_0    0x00000080L
+#endif
+#ifndef WAIT_TIMEOUT
+#define WAIT_TIMEOUT        0x00000102L
+#endif
+#ifndef WAIT_FAILED
+#define WAIT_FAILED         ((DWORD)0xFFFFFFFF)
+#endif
+
+WIN32_IMPORT("CreateEventA")
+HANDLE WINAPI CreateEventA(
+    LPSECURITY_ATTRIBUTES lpEventAttributes,
+    BOOL bManualReset,
+    BOOL bInitialState,
+    LPCSTR lpName
+);
+
+#ifndef CreateEvent
+#define CreateEvent CreateEventA
+#endif
+
+WIN32_IMPORT("SetEvent")
+BOOL WINAPI SetEvent(HANDLE hEvent);
+
+WIN32_IMPORT("ResetEvent")
+BOOL WINAPI ResetEvent(HANDLE hEvent);
+
+WIN32_IMPORT("PulseEvent")
+BOOL WINAPI PulseEvent(HANDLE hEvent);
+
+WIN32_IMPORT("WaitForSingleObject")
+DWORD WINAPI WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds);
+
+WIN32_IMPORT("_beginthread")
+uintptr_t _beginthread(
+    void (*start_address)(void *),
+    unsigned stack_size,
+    void *arglist
+);
+
+WIN32_IMPORT("_endthread")
+void _endthread(void);
+
+WIN32_IMPORT("_wasm_thread_step")
+int _wasm_thread_step(void);
+
+// ==============================================================================
+// Chapter 21: Dynamic-Link Libraries
+// ==============================================================================
+
+#ifndef HWND_BROADCAST
+#define HWND_BROADCAST             ((HWND)0xFFFF)
+#endif
+
+WIN32_IMPORT("GetTextExtentPoint32W")
+BOOL WINAPI GetTextExtentPoint32W(HDC hdc, LPCWSTR lpString, int c, LPSIZE lpsz);
+
+WIN32_IMPORT("LoadLibraryA")
+HMODULE WINAPI LoadLibraryA(LPCSTR lpLibFileName);
+
+WIN32_IMPORT("LoadLibraryW")
+HMODULE WINAPI LoadLibraryW(LPCWSTR lpLibFileName);
+
+#ifndef LoadLibrary
+#define LoadLibrary LoadLibraryA
+#endif
+
+WIN32_IMPORT("FreeLibrary")
+BOOL WINAPI FreeLibrary(HMODULE hLibModule);
+
+WIN32_IMPORT("GetProcAddress")
+FARPROC WINAPI GetProcAddress(HMODULE hModule, LPCSTR lpProcName);
+
+
+
 
 #ifdef __cplusplus
 }

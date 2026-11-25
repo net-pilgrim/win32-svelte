@@ -14,6 +14,10 @@ extern "C" {
 #define WINAPI
 #endif
 
+#ifndef APIENTRY
+#define APIENTRY WINAPI
+#endif
+
 #ifndef CALLBACK
 #define CALLBACK
 #endif
@@ -104,6 +108,7 @@ typedef LONG_PTR            SSIZE_T;
 
 typedef UINT_PTR            WPARAM;
 typedef LONG_PTR            LPARAM;
+typedef int (WINAPI        *FARPROC)();
 typedef LONG_PTR            LRESULT;
 
 typedef WORD                ATOM;
