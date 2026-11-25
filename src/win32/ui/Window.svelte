@@ -64,6 +64,13 @@
     if (c && win.customProps?.hasCanvas) {
       untrack(() => {
         RegisterWindowCanvas(win.hwnd, c);
+        if (win.customProps?.backgroundColor) {
+          const ctx = c.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = win.customProps.backgroundColor;
+            ctx.fillRect(0, 0, c.width, c.height);
+          }
+        }
         SendMessage(win.hwnd, WM_SIZE, 0, MAKELPARAM(w, h));
         SendMessage(win.hwnd, WM_PAINT, 0, 0);
       });
@@ -360,7 +367,7 @@
         <canvas
           bind:this={canvasRef}
           class="win32-client-canvas"
-          style={win.customProps?.canvasStyle ?? ""}
+          style="{win.customProps?.backgroundColor ? `background-color: ${win.customProps.backgroundColor} !important;` : ''} {win.customProps?.canvasStyle ?? ''}"
           width={win.customProps?.canvasWidth ?? clientCanvasWidth}
           height={win.customProps?.canvasHeight ?? clientCanvasHeight}
           onpointerdown={onCanvasPointerDown}

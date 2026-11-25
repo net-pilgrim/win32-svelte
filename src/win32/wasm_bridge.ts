@@ -306,6 +306,7 @@ export class Win32WasmRuntime {
 
   private registeredClasses = new Map<string, WndProc>();
   private registeredClassMenuNames = new Map<string, string>();
+  private registeredClassBgColors = new Map<string, string>();
   private stringLogs: WasmStringLogEntry[] = [];
   private registeredWndProcIndices: number[] = [];
   private capturedHwnd: number | null = null;
@@ -657,6 +658,27 @@ export class Win32WasmRuntime {
     return pObj;
   }
 
+  private resolveBrushColor(hbr: number): string {
+    const brush = this.gdiMap.get(hbr);
+    if (brush && typeof brush.color === "string") {
+      return brush.color;
+    }
+    switch (hbr) {
+      case 0:
+        return "#ffffff"; // WHITE_BRUSH
+      case 1:
+        return "#c0c0c0"; // LTGRAY_BRUSH
+      case 2:
+        return "#808080"; // GRAY_BRUSH
+      case 3:
+        return "#404040"; // DKGRAY_BRUSH
+      case 4:
+        return "#000000"; // BLACK_BRUSH
+      default:
+        return "#ffffff";
+    }
+  }
+
   public getImportObject(): WebAssembly.Imports {
     const logWasmStub = (api: string, ...args: any[]) => {
       console.warn(`[WASM STUB] ${api}(${args.join(", ")})`);
@@ -671,6 +693,10 @@ export class Win32WasmRuntime {
         const menuNamePtr = view.getUint32(ptr + 32, true);
         const classNamePtr = view.getUint32(ptr + 36, true);
         const className = this.readCString(classNamePtr, "RegisterClassA:lpszClassName");
+        const hbrBg = view.getUint32(ptr + 28, true);
+        if (hbrBg) {
+          this.registeredClassBgColors.set(className.toUpperCase(), this.resolveBrushColor(hbrBg));
+        }
         if (menuNamePtr) {
           const menuName = menuNamePtr > 0xffff ? this.readCString(menuNamePtr) : String(menuNamePtr);
           this.registeredClassMenuNames.set(className.toUpperCase(), menuName);
@@ -718,6 +744,10 @@ export class Win32WasmRuntime {
         const menuNamePtr = view.getUint32(ptr + 36, true);
         const classNamePtr = view.getUint32(ptr + 40, true);
         const className = this.readCString(classNamePtr, "RegisterClassExA:lpszClassName");
+        const hbrBg = view.getUint32(ptr + 32, true);
+        if (hbrBg) {
+          this.registeredClassBgColors.set(className.toUpperCase(), this.resolveBrushColor(hbrBg));
+        }
         if (menuNamePtr) {
           const menuName = menuNamePtr > 0xffff ? this.readCString(menuNamePtr) : String(menuNamePtr);
           this.registeredClassMenuNames.set(className.toUpperCase(), menuName);
@@ -828,6 +858,11 @@ export class Win32WasmRuntime {
           // For top-level C windows or custom child windows, attach canvas support for GDI drawing
           const win = kernel.getWindow(hwnd);
           if (win) {
+            const defaultBg = this.registeredClassBgColors.get(className.toUpperCase()) ?? "#ffffff";
+            win.customProps = {
+              ...(win.customProps ?? {}),
+              backgroundColor: defaultBg,
+            };
             win.menuId = actualHMenu;
             if (!hWndParent && actualHMenu) {
               win.hMenu = actualHMenu;
@@ -962,6 +997,19 @@ export class Win32WasmRuntime {
           wParam: number,
           lParam: number
         ) => {
+          if (Msg === 15 /* WM_PAINT */ || Msg === 20 /* WM_ERASEBKGND */) {
+            const canvas = GetWindowCanvas(hwnd);
+            if (canvas) {
+              const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+              if (ctx && typeof (ctx as any).fillRect === "function") {
+                const win = kernel.getWindow(hwnd);
+                const bg = win?.customProps?.backgroundColor ?? "#ffffff";
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+              }
+            }
+            if (Msg === 20) return 1;
+          }
           return DefWindowProc(hwnd, Msg, wParam, lParam);
         },
 
@@ -2655,8 +2703,32 @@ export class Win32WasmRuntime {
 
         ValidateRect: (_hWnd: number, _lpRect: number) => 1,
 
-        SetClassLongA: (_hWnd: number, _nIndex: number, dwNewLong: number) => dwNewLong,
+        SetClassLongA: (hWnd: number, nIndex: number, dwNewLong: number) => {
+          if (nIndex === -10 || nIndex === 0xfffffff6) {
+            const color = this.resolveBrushColor(dwNewLong);
+            const win = kernel.getWindow(hWnd);
+            if (win) {
+              win.customProps = {
+                ...(win.customProps ?? {}),
+                backgroundColor: color,
+              };
+            }
+            const canvas = GetWindowCanvas(hWnd);
+            if (canvas) {
+              const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+              if (ctx && typeof (ctx as any).fillRect === "function") {
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+              }
+            }
+          }
+          return dwNewLong;
+        },
         SetClassLong: (hWnd: number, nIndex: number, dwNewLong: number) =>
+          (win32Imports as any).SetClassLongA(hWnd, nIndex, dwNewLong),
+        SetClassLongPtrA: (hWnd: number, nIndex: number, dwNewLong: number) =>
+          (win32Imports as any).SetClassLongA(hWnd, nIndex, dwNewLong),
+        SetClassLongPtr: (hWnd: number, nIndex: number, dwNewLong: number) =>
           (win32Imports as any).SetClassLongA(hWnd, nIndex, dwNewLong),
 
         GetKeyState: (_nVirtKey: number) => 0,
@@ -2954,6 +3026,120 @@ export class Win32WasmRuntime {
             kernel.AppendMenu(hSubFile, 0, 40001 /* IDM_FILE_OPEN */, "&Open...");
             kernel.AppendMenu(hSubFile, 0, 40002 /* IDM_FILE_SAVE */, "&Save...");
             kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubFile, "&File");
+            return hMenu;
+          }
+
+          if (nameStr === "MENUDEMO") {
+            const hMenu = kernel.CreateMenu();
+
+            const hSubFile = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubFile, 0, 40001 /* IDM_FILE_NEW */, "&New");
+            kernel.AppendMenu(hSubFile, 0, 40002 /* IDM_FILE_OPEN */, "&Open");
+            kernel.AppendMenu(hSubFile, 0, 40003 /* IDM_FILE_SAVE */, "&Save");
+            kernel.AppendMenu(hSubFile, 0, 40004 /* IDM_FILE_SAVE_AS */, "Save &As...");
+            kernel.AppendMenu(hSubFile, 0x0800 /* MF_SEPARATOR */, 0, "");
+            kernel.AppendMenu(hSubFile, 0, 40005 /* IDM_APP_EXIT */, "E&xit");
+            kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubFile, "&File");
+
+            const hSubEdit = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubEdit, 0, 40006 /* IDM_EDIT_UNDO */, "&Undo");
+            kernel.AppendMenu(hSubEdit, 0x0800 /* MF_SEPARATOR */, 0, "");
+            kernel.AppendMenu(hSubEdit, 0, 40007 /* IDM_EDIT_CUT */, "C&ut");
+            kernel.AppendMenu(hSubEdit, 0, 40008 /* IDM_EDIT_COPY */, "&Copy");
+            kernel.AppendMenu(hSubEdit, 0, 40009 /* IDM_EDIT_PASTE */, "&Paste");
+            kernel.AppendMenu(hSubEdit, 0, 40010 /* IDM_EDIT_CLEAR */, "De&lete");
+            kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubEdit, "&Edit");
+
+            const hSubBkgnd = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubBkgnd, 0x0008 /* MF_CHECKED */, 40011 /* IDM_BKGND_WHITE */, "&White");
+            kernel.AppendMenu(hSubBkgnd, 0, 40012 /* IDM_BKGND_LTGRAY */, "&Light Gray");
+            kernel.AppendMenu(hSubBkgnd, 0, 40013 /* IDM_BKGND_GRAY */, "&Gray");
+            kernel.AppendMenu(hSubBkgnd, 0, 40014 /* IDM_BKGND_DKGRAY */, "&Dark Gray");
+            kernel.AppendMenu(hSubBkgnd, 0, 40015 /* IDM_BKGND_BLACK */, "&Black");
+            kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubBkgnd, "&Background");
+
+            const hSubTimer = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubTimer, 0, 40016 /* IDM_TIMER_START */, "&Start");
+            kernel.AppendMenu(hSubTimer, 0x0001 /* MF_GRAYED */, 40017 /* IDM_TIMER_STOP */, "S&top");
+            kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubTimer, "&Timer");
+
+            const hSubHelp = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubHelp, 0, 40018 /* IDM_APP_HELP */, "&Help...");
+            kernel.AppendMenu(hSubHelp, 0, 40019 /* IDM_APP_ABOUT */, "&About MenuDemo...");
+            kernel.AppendMenu(hMenu, 0x0010 /* MF_POPUP */, hSubHelp, "&Help");
+
+            return hMenu;
+          }
+
+          if (nameStr === "POPMENU") {
+            const hMenu = kernel.CreateMenu();
+            const hSubMyMenu = kernel.CreatePopupMenu();
+
+            const hSubFile = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubFile, 0, 40001, "&New");
+            kernel.AppendMenu(hSubFile, 0, 40002, "&Open");
+            kernel.AppendMenu(hSubFile, 0, 40003, "&Save");
+            kernel.AppendMenu(hSubFile, 0, 40004, "Save &As");
+            kernel.AppendMenu(hSubFile, 0x0800, 0, "");
+            kernel.AppendMenu(hSubFile, 0, 40005, "E&xit");
+            kernel.AppendMenu(hSubMyMenu, 0x0010, hSubFile, "&File");
+
+            const hSubEdit = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubEdit, 0, 40006, "&Undo");
+            kernel.AppendMenu(hSubEdit, 0x0800, 0, "");
+            kernel.AppendMenu(hSubEdit, 0, 40007, "Cu&t");
+            kernel.AppendMenu(hSubEdit, 0, 40008, "&Copy");
+            kernel.AppendMenu(hSubEdit, 0, 40009, "&Paste");
+            kernel.AppendMenu(hSubEdit, 0, 40010, "De&lete");
+            kernel.AppendMenu(hSubMyMenu, 0x0010, hSubEdit, "&Edit");
+
+            const hSubBkgnd = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubBkgnd, 0x0008, 40011, "&White");
+            kernel.AppendMenu(hSubBkgnd, 0, 40012, "&Light Gray");
+            kernel.AppendMenu(hSubBkgnd, 0, 40013, "&Gray");
+            kernel.AppendMenu(hSubBkgnd, 0, 40014, "&Dark Gray");
+            kernel.AppendMenu(hSubBkgnd, 0, 40015, "&Black");
+            kernel.AppendMenu(hSubMyMenu, 0x0010, hSubBkgnd, "&Background");
+
+            const hSubHelp = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubHelp, 0, 40016, "&Help...");
+            kernel.AppendMenu(hSubHelp, 0, 40017, "&About PopMenu...");
+            kernel.AppendMenu(hSubMyMenu, 0x0010, hSubHelp, "&Help");
+
+            kernel.AppendMenu(hMenu, 0x0010, hSubMyMenu, "MyMenu");
+            return hMenu;
+          }
+
+          if (nameStr === "POPPAD2") {
+            const hMenu = kernel.CreateMenu();
+
+            const hSubFile = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubFile, 0, 40001, "&New");
+            kernel.AppendMenu(hSubFile, 0, 40002, "&Open...");
+            kernel.AppendMenu(hSubFile, 0, 40003, "&Save");
+            kernel.AppendMenu(hSubFile, 0, 40004, "Save &As...");
+            kernel.AppendMenu(hSubFile, 0x0800, 0, "");
+            kernel.AppendMenu(hSubFile, 0, 40005, "&Print");
+            kernel.AppendMenu(hSubFile, 0x0800, 0, "");
+            kernel.AppendMenu(hSubFile, 0, 40006, "E&xit");
+            kernel.AppendMenu(hMenu, 0x0010, hSubFile, "&File");
+
+            const hSubEdit = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubEdit, 0, 40007, "&Undo\tCtrl+Z");
+            kernel.AppendMenu(hSubEdit, 0x0800, 0, "");
+            kernel.AppendMenu(hSubEdit, 0, 40008, "Cu&t\tCtrl+X");
+            kernel.AppendMenu(hSubEdit, 0, 40009, "&Copy\tCtrl+C");
+            kernel.AppendMenu(hSubEdit, 0, 40010, "&Paste\tCtrl+V");
+            kernel.AppendMenu(hSubEdit, 0, 40011, "De&lete\tDel");
+            kernel.AppendMenu(hSubEdit, 0x0800, 0, "");
+            kernel.AppendMenu(hSubEdit, 0, 40012, "&Select All");
+            kernel.AppendMenu(hMenu, 0x0010, hSubEdit, "&Edit");
+
+            const hSubHelp = kernel.CreatePopupMenu();
+            kernel.AppendMenu(hSubHelp, 0, 40013, "&Help...");
+            kernel.AppendMenu(hSubHelp, 0, 40014, "&About PopPad2...");
+            kernel.AppendMenu(hMenu, 0x0010, hSubHelp, "&Help");
+
             return hMenu;
           }
 
