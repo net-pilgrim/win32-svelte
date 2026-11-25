@@ -11,6 +11,7 @@ import {
   SetTimer,
   KillTimer,
   DestroyWindow,
+  GetSystemMetrics,
 } from "./kernel.svelte";
 import {
   BeginPaint,
@@ -316,6 +317,8 @@ export class Win32WasmRuntime {
   private metafileMap = new Map<number, any>();
   private static sharedEmfFiles = new Map<string, any>();
   private peekMessageCount = 0;
+  private timerMap = new Map<number, any>();
+  private nextTimerId = 1;
   private nextEventHandle = 1000;
   private eventMap = new Map<number, { manualReset: boolean; signaled: boolean }>();
   private nextThreadId = 1;
@@ -382,7 +385,7 @@ export class Win32WasmRuntime {
       files.map(async (f) => {
         if (Win32WasmRuntime.sharedEmfFiles.has(f)) return;
         try {
-          const resp = await fetch(`/wasm-files/${f}`);
+          const resp = await fetch(`/wasm-demo/${f}`);
           if (resp.ok) {
             const buf = await resp.arrayBuffer();
             Win32WasmRuntime.registerEmf(f, new Uint8Array(buf));
@@ -401,7 +404,7 @@ export class Win32WasmRuntime {
         const fs = require("fs");
         const path = require("path");
         const candidates = [
-          path.resolve(process.cwd(), "public/wasm-files", name),
+          path.resolve(process.cwd(), "public/wasm-demo", name),
           path.resolve(process.cwd(), "harness/src/Chap18", name.replace(/\.emf$/i, ""), name),
           path.resolve(process.cwd(), "harness/src/Chap18", name.toLowerCase().replace(/\.emf$/i, ""), name.toLowerCase()),
           path.resolve(process.cwd(), name),
@@ -1172,76 +1175,11 @@ export class Win32WasmRuntime {
         },
 
         GetSystemMetrics: (nIndex: number): number => {
-          switch (nIndex) {
-            case 0: // SM_CXSCREEN
-              return typeof window !== "undefined" ? window.innerWidth : 1024;
-            case 1: // SM_CYSCREEN
-              return typeof window !== "undefined" ? window.innerHeight : 768;
-            case 2: // SM_CXVSCROLL
-            case 3: // SM_CYHSCROLL
-              return 16;
-            case 4: // SM_CYCAPTION
-              return 19;
-            case 5: // SM_CXBORDER
-            case 6: // SM_CYBORDER
-              return 1;
-            case 7: // SM_CXFIXEDFRAME
-            case 8: // SM_CYFIXEDFRAME
-              return 3;
-            case 9: // SM_CYVTHUMB
-            case 10: // SM_CXHTHUMB
-              return 16;
-            case 11: // SM_CXICON
-            case 12: // SM_CYICON
-            case 13: // SM_CXCURSOR
-            case 14: // SM_CYCURSOR
-              return 32;
-            case 15: // SM_CYMENU
-              return 19;
-            case 16: // SM_CXFULLSCREEN
-              return typeof window !== "undefined" ? window.innerWidth : 1024;
-            case 17: // SM_CYFULLSCREEN
-              return typeof window !== "undefined" ? window.innerHeight - 28 : 740;
-            case 19: // SM_MOUSEPRESENT
-              return 1;
-            case 20: // SM_CYVSCROLL
-            case 21: // SM_CXHSCROLL
-              return 16;
-            case 23: // SM_SWAPBUTTON
-              return 0;
-            case 28: // SM_CXMIN
-            case 29: // SM_CYMIN
-              return 100;
-            case 30: // SM_CXSIZE
-            case 31: // SM_CYSIZE
-              return 16;
-            case 32: // SM_CXSIZEFRAME
-            case 33: // SM_CYSIZEFRAME
-              return 4;
-            case 43: // SM_CMOUSEBUTTONS
-              return 2;
-            case 45: // SM_CXEDGE
-            case 46: // SM_CYEDGE
-              return 2;
-            case 49: // SM_CXSMICON
-            case 50: // SM_CYSMICON
-              return 16;
-            case 51: // SM_CYSMCAPTION
-              return 15;
-            case 52: // SM_CXSMSIZE
-            case 53: // SM_CYSMSIZE
-              return 15;
-            case 54: // SM_CXMENUSIZE
-            case 55: // SM_CYMENUSIZE
-              return 18;
-            case 80: // SM_CMONITORS
-              return 1;
-            case 81: // SM_SAMEDISPLAYFORMAT
-              return 1;
-            default:
-              logWasmStub("GetSystemMetrics:unknown_index", nIndex);
-              return 0; // Standard stub fallback
+          const res = GetSystemMetrics(nIndex);
+          if (res === 0) {
+            logWasmStub("GetSystemMetrics:unknown_index", nIndex);
           }
+          return res;
         },
 
         MessageBeep: (uType: number) => {
@@ -4843,7 +4781,7 @@ export class Win32WasmRuntime {
               } catch (e: any) {
                 if (e && e.isThreadYield) {
                   if (threadInfo.active) {
-                    setTimeout(runThread, 30);
+                    (threadInfo as any).timerId = setTimeout(runThread, 30);
                   }
                 } else {
                   console.error("Thread execution error:", e);
@@ -4852,7 +4790,7 @@ export class Win32WasmRuntime {
                 this.currentThreadInfo = null;
               }
             };
-            setTimeout(runThread, 10);
+            (threadInfo as any).timerId = setTimeout(runThread, 10);
           }
           return threadId;
         },
@@ -5122,8 +5060,8 @@ export class Win32WasmRuntime {
           if (lppt && this.memory) {
             const info = this.hdcMap.get(hdc);
             const view = new DataView(this.memory.buffer);
-            view.setInt32(lppt, info ? info.currentX : 0, true);
-            view.setInt32(lppt + 4, info ? info.currentY : 0, true);
+            view.setInt32(lppt, info ? info.currentPoint.x : 0, true);
+            view.setInt32(lppt + 4, info ? info.currentPoint.y : 0, true);
           }
           return 1;
         },
@@ -5182,9 +5120,13 @@ export class Win32WasmRuntime {
     this.poePoemPtr = 0;
     for (const [, t] of this.activeThreads) {
       t.active = false;
-      if (t.timerId) clearInterval(t.timerId);
+      if ((t as any).timerId) clearTimeout((t as any).timerId);
     }
     this.activeThreads.clear();
+    for (const [, timer] of this.timerMap) {
+      clearInterval(timer);
+    }
+    this.timerMap.clear();
     this.eventMap.clear();
   }
 

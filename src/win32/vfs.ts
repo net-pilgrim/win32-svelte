@@ -336,17 +336,17 @@ export class Win32VFS {
         "• Live reactive updates in Windows Explorer\r\n",
       "wasm_application/sample_app.c": SAMPLE_APP_C_SOURCE,
       "wasm_application/windows.h": WINDOWS_H_SOURCE,
-      "INCLUDE/windows.h": WINDOWS_H_SOURCE,
-      "INCLUDE/windef.h": WINDEF_H_SOURCE,
-      "INCLUDE/winuser.h": WINUSER_H_SOURCE,
-      "INCLUDE/wingdi.h": WINGDI_H_SOURCE,
-      "INCLUDE/winbase.h": WINBASE_H_SOURCE,
-      "INCLUDE/commctrl.h": COMMCTRL_H_SOURCE,
-      "INCLUDE/shellapi.h": SHELLAPI_H_SOURCE,
-      "INCLUDE/winspool.h": WINSPOOL_H_SOURCE,
-      "INCLUDE/sql.h": SQL_H_SOURCE,
-      "INCLUDE/unknwn.h": UNKNWN_H_SOURCE,
-      "INCLUDE/objbase.h": OBJBASE_H_SOURCE,
+      "wasm_application/include/windows.h": WINDOWS_H_SOURCE,
+      "wasm_application/include/windef.h": WINDEF_H_SOURCE,
+      "wasm_application/include/winuser.h": WINUSER_H_SOURCE,
+      "wasm_application/include/wingdi.h": WINGDI_H_SOURCE,
+      "wasm_application/include/winbase.h": WINBASE_H_SOURCE,
+      "wasm_application/include/commctrl.h": COMMCTRL_H_SOURCE,
+      "wasm_application/include/shellapi.h": SHELLAPI_H_SOURCE,
+      "wasm_application/include/winspool.h": WINSPOOL_H_SOURCE,
+      "wasm_application/include/sql.h": SQL_H_SOURCE,
+      "wasm_application/include/unknwn.h": UNKNWN_H_SOURCE,
+      "wasm_application/include/objbase.h": OBJBASE_H_SOURCE,
       "lua/hello.lua":
         'print("Hello from Lua 5.3 in win32-svelte!")\n' +
         'win32.PlaySound("Chime")\n' +
@@ -412,24 +412,12 @@ export class Win32VFS {
         '        print("ALL COM & DCOM DEMOS PASSED! ⚡🎉")\n' +
         '    end)\n' +
         'end)\n',
-      "GAMES/DOOM/DOOM95.EXE": "[DOOM95.EXE Win32 / WASM Binary Executable]",
-      "GAMES/DOOM/DOOM1.WAD": "[DOOM1.WAD Shareware Game Data]",
-      "GAMES/DOOM/README.TXT": "DOOM 95 for win32-svelte\r\n\r\n" +
-        "Controls:\r\n" +
-        "• Move: Arrow Keys or W / A / S / D\r\n" +
-        "• Fire: Ctrl or Left Mouse Click\r\n" +
-        "• Open / Use: Spacebar or E\r\n" +
-        "• Speed / Run: Shift\r\n" +
-        "• Strafe: Alt\r\n" +
-        "• Weapons: 1 - 7\r\n" +
-        "• Automap: Tab\r\n\r\n" +
-        "id Software (C) 1993\r\n",
-      "wasm-files/README.txt":
-        "WebAssembly Win32 Applications (wasm-files)\r\n" +
-        "===========================================\r\n\r\n" +
+      "wasm-demo/README.txt":
+        "WebAssembly Win32 Applications (wasm-demo)\r\n" +
+        "==========================================\r\n\r\n" +
         "This directory contains native Win32 C applications compiled to WebAssembly (wasm32-freestanding).\r\n" +
         "You can launch any .wasm application by double-clicking it in Windows Explorer,\r\n" +
-        "by selecting it from the Start Menu -> Programs -> WASM Files,\r\n" +
+        "by selecting it from the Start Menu -> Programs -> WASM Demo,\r\n" +
         "or by dragging and dropping .wasm files directly onto the Desktop.\r\n\r\n" +
         "Available applications include:\r\n" +
         "• MDIDemo.wasm - Multiple Document Interface Demonstration\r\n" +
@@ -446,11 +434,9 @@ export class Win32VFS {
     const defaultDirs = [
       "My Documents",
       "wasm_application",
-      "wasm-files",
-      "INCLUDE",
+      "wasm_application/include",
+      "wasm-demo",
       "lua",
-      "GAMES",
-      "GAMES/DOOM",
       "Recycle Bin",
     ];
 
@@ -900,10 +886,10 @@ export class Win32VFS {
       return FILE_ATTRIBUTE_DIRECTORY;
     }
 
-    if (drive === "C" && parts.length === 1 && parts[0].toLowerCase() === "wasm-files") {
+    if (drive === "C" && parts.length === 1 && parts[0].toLowerCase() === "wasm-demo") {
       return FILE_ATTRIBUTE_DIRECTORY;
     }
-    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-files") {
+    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-demo") {
       const fileName = parts[1].toLowerCase();
       if (WASM_FILES_MANIFEST.some((e) => e.name.toLowerCase() === fileName)) {
         return FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE;
@@ -941,7 +927,7 @@ export class Win32VFS {
 
   async FileExists(filePath: string): Promise<boolean> {
     const { drive, parts } = this.normalizePath(filePath);
-    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-files") {
+    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-demo") {
       const fileName = parts[1].toLowerCase();
       if (WASM_FILES_MANIFEST.some((e) => e.name.toLowerCase() === fileName)) {
         return true;
@@ -1000,11 +986,11 @@ export class Win32VFS {
       // Fallback
     }
 
-    // Special handling for C:\wasm-files\<file>
-    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-files") {
+    // Special handling for C:\wasm-demo\<file>
+    if (drive === "C" && parts.length === 2 && parts[0].toLowerCase() === "wasm-demo") {
       const fileName = parts[1];
       if (typeof fetch !== "undefined") {
-        const resp = await fetch(`/wasm-files/${fileName}`);
+        const resp = await fetch(`/wasm-demo/${fileName}`);
         if (resp.ok) {
           const contentType = resp.headers.get("content-type") || "";
           if (!contentType.includes("text/html")) {
@@ -1088,14 +1074,14 @@ export class Win32VFS {
         }
       }
     } catch (err) {
-      // If C:\wasm-files does not exist in OPFS yet, we still populate it virtually
-      if (!(drive === "C" && dirParts.length === 1 && dirParts[0].toLowerCase() === "wasm-files")) {
+      // If C:\wasm-demo does not exist in OPFS yet, we still populate it virtually
+      if (!(drive === "C" && dirParts.length === 1 && dirParts[0].toLowerCase() === "wasm-demo")) {
         throw err;
       }
     }
 
-    // Virtual directory support for C:\wasm-files
-    if (drive === "C" && dirParts.length === 1 && dirParts[0].toLowerCase() === "wasm-files") {
+    // Virtual directory support for C:\wasm-demo
+    if (drive === "C" && dirParts.length === 1 && dirParts[0].toLowerCase() === "wasm-demo") {
       for (const entry of WASM_FILES_MANIFEST) {
         if (!results.some((r) => r.name.toLowerCase() === entry.name.toLowerCase())) {
           const lower = entry.name.toLowerCase();
@@ -1109,7 +1095,7 @@ export class Win32VFS {
               : `WebAssembly App (${entry.chapter})`;
           results.push({
             name: entry.name,
-            path: `C:\\wasm-files\\${entry.name}`,
+            path: `C:\\wasm-demo\\${entry.name}`,
             isDirectory: false,
             size: entry.size,
             modified: Date.now(),
@@ -1120,10 +1106,10 @@ export class Win32VFS {
         }
       }
     } else if (drive === "C" && dirParts.length === 0) {
-      if (!results.some((r) => r.name.toLowerCase() === "wasm-files")) {
+      if (!results.some((r) => r.name.toLowerCase() === "wasm-demo")) {
         results.push({
-          name: "wasm-files",
-          path: "C:\\wasm-files",
+          name: "wasm-demo",
+          path: "C:\\wasm-demo",
           isDirectory: true,
           size: 0,
           modified: Date.now(),

@@ -208,10 +208,10 @@ async function openMetafilePath(state: ViewerState, path: string): Promise<void>
     const bytes = await vfs.readBinaryFile(path);
     await loadMetafileData(state, bytes, name);
   } catch {
-    // If not found in VFS, try fetching from /wasm-files/
+    // If not found in VFS, try fetching from /wasm-demo/
     if (typeof fetch !== "undefined") {
       try {
-        const resp = await fetch(`/wasm-files/${name}`);
+        const resp = await fetch(`/wasm-demo/${name}`);
         if (resp.ok) {
           const buf = await resp.arrayBuffer();
           await loadMetafileData(state, new Uint8Array(buf), name);
@@ -407,7 +407,7 @@ function MetafileViewerWndProc(
       switch (cmdId) {
         case IDM_FILE_OPEN: {
           const path = typeof window !== "undefined"
-            ? window.prompt("Enter metafile path (e.g. C:\\wasm-files\\emf2.emf):", state.filePath || "C:\\wasm-files\\emf8.emf")
+            ? window.prompt("Enter metafile path (e.g. C:\\wasm-demo\\emf2.emf):", state.filePath || "C:\\wasm-demo\\emf8.emf")
             : null;
           if (path) {
             openMetafilePath(state, path);

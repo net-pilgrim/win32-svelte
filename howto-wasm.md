@@ -18,18 +18,45 @@ Unlike setups that bundle heavy POSIX emulation shims (like Emscripten with full
 
 ---
 
-## 📁 The Header Stubs (`include/`)
+## 📁 The Header Stubs & Generator (`include/`)
 
-The header files in [`include/`](include/) are modular stubs covering Win32 types, constants, macros, and function prototypes:
+The header files in [`include/`](include/) are modular, generated C header stubs covering Win32 types, constants, macros, and function prototypes.
 
-* **[`include/windows.h`](include/windows.h)**: Master umbrella header including all modular headers.
-* **[`include/windef.h`](include/windef.h)**: Win32 primitive types (`HWND`, `UINT`, `WPARAM`, `LPARAM`, `LRESULT`, `BOOL`, `RECT`, `POINT`, `HINSTANCE`, etc.).
-* **[`include/winuser.h`](include/winuser.h)**: Window classes (`WNDCLASSEX`), window styles (`WS_OVERLAPPEDWINDOW`, `WS_CHILD`, etc.), messages (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`, `WM_TIMER`, `WM_DESTROY`), control styles (`BS_PUSHBUTTON`, `ES_MULTILINE`), and User32 prototypes.
-* **[`include/wingdi.h`](include/wingdi.h)**: GDI types (`HDC`, `PAINTSTRUCT`, `COLORREF`, `RGB`), stock objects, pens, brushes, and drawing prototypes (`BeginPaint`, `EndPaint`, `Rectangle`, `Ellipse`, `TextOut`, `DrawText`, `MoveToEx`, `LineTo`, `CreateSolidBrush`, `CreatePen`).
-* **[`include/winbase.h`](include/winbase.h)**: Helper macros (`LOWORD`, `HIWORD`, `MAKEWPARAM`, `MAKELPARAM`).
-* **[`include/shellapi.h`](include/shellapi.h)**: Shell integration (`ShellExecute`).
+### Automated Header Generation
 
-Win32 functions in these headers are declared with the `WIN32_IMPORT` attribute:
+Headers are automatically synchronized from TypeScript source definitions (`src/win32/constants.ts` and `src/rc/constants.ts`):
+
+```bash
+# Regenerate C headers in include/ and update embedded VFS headers
+npm run generate:headers
+# or
+npm run headers
+```
+
+`scripts/generate_headers.ts` handles:
+1. Extracting numeric constants, message IDs, styles, and masks from TypeScript.
+2. Generating compliant C `#define` declarations into `include/windows.h`, `include/windef.h`, `include/winuser.h`, `include/wingdi.h`, `include/commctrl.h`, `include/mmsystem.h`, `include/winsock2.h`, `include/wininet.h`, etc.
+3. Embedding these header sources into `src/wasm/sample_app_wasm.ts` so they are accessible inside the browser's virtual filesystem under `C:\wasm_application\include\`.
+
+### Available Headers
+
+* **[`include/windows.h`](include/windows.h)**: Master umbrella header including all modular Win32 headers.
+* **[`include/windef.h`](include/windef.h)**: Primitive types (`HWND`, `HDC`, `HINSTANCE`, `UINT`, `WPARAM`, `LPARAM`, `LRESULT`, `BOOL`, `RECT`, `POINT`, `CALLBACK`, `WINAPI`).
+* **[`include/winuser.h`](include/winuser.h)**: Window classes (`WNDCLASS`, `WNDCLASSEX`), window styles (`WS_OVERLAPPEDWINDOW`, `WS_CHILD`, `WS_VISIBLE`), window messages (`WM_CREATE`, `WM_COMMAND`, `WM_PAINT`, `WM_TIMER`, `WM_DESTROY`, `WM_SIZE`), standard control classes (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`), dialog functions (`DialogBox`, `CreateDialogParam`), clipboard APIs, caret APIs, and system metrics (`GetSystemMetrics`).
+* **[`include/wingdi.h`](include/wingdi.h)**: GDI types (`PAINTSTRUCT`, `COLORREF`, `RGB`), pens, brushes, stock objects, raster operations (`SRCCOPY`), metafile records (`EMR_*`), and drawing APIs (`BeginPaint`, `EndPaint`, `Rectangle`, `Ellipse`, `RoundRect`, `Polyline`, `Polygon`, `TextOut`, `BitBlt`, `StretchBlt`, `CreateDIBSection`).
+* **[`include/commctrl.h`](include/commctrl.h)**: Windows Common Controls (`InitCommonControlsEx`, `Trackbar`, `ProgressBar`, `TabControl`, `ListView`, `TreeView`, `StatusBar`).
+* **[`include/mmsystem.h`](include/mmsystem.h)**: Multimedia APIs (`PlaySound`, `waveOutOpen`, `waveInOpen`, `midiOutOpen`, `timeGetTime`, `timeSetEvent`, `mciSendString`).
+* **[`include/winsock2.h`](include/winsock2.h)**: Windows Sockets 2.0 networking (`WSAStartup`, `socket`, `connect`, `send`, `recv`, `closesocket`, `htons`, `inet_addr`).
+* **[`include/wininet.h`](include/wininet.h)**: Internet and FTP client APIs (`InternetOpen`, `InternetConnect`, `FtpOpenFile`, `FtpGetFile`, `FtpFindFirstFile`).
+* **[`include/commdlg.h`](include/commdlg.h)**: Common dialog structures (`CHOOSECOLOR`, `CHOOSEFONT`, `OPENFILENAME`).
+* **[`include/winspool.h`](include/winspool.h)**: Print Spooler subsystem (`EnumPrinters`, `OpenPrinter`, `StartDoc`, `StartPage`, `EndPage`, `EndDoc`).
+* **[`include/sql.h`](include/sql.h)** / **[`include/sqlext.h`](include/sqlext.h)**: ODBC 3.0 API stubs (`SQLAllocHandle`, `SQLConnect`, `SQLExecDirect`, `SQLFetch`, `SQLGetData`).
+* **[`include/tchar.h`](include/tchar.h)**: Generic text character mapping (`TEXT()`, `_T()`, `TCHAR`, `_tcscpy`, `_stprintf`).
+* **[`include/math.h`](include/math.h)**, **[`include/stdio.h`](include/stdio.h)**, **[`include/stdlib.h`](include/stdlib.h)**, **[`include/string.h`](include/string.h)**: Freestanding C standard library primitives.
+
+### Function Import Mechanism
+
+All Win32 API functions in these headers are declared with the `WIN32_IMPORT` macro:
 ```c
 #ifndef WIN32_IMPORT
 #define WIN32_IMPORT(name) __attribute__((import_module("win32"), import_name(name)))
@@ -37,6 +64,85 @@ Win32 functions in these headers are declared with the `WIN32_IMPORT` attribute:
 
 WIN32_IMPORT("MessageBoxA")
 int WINAPI MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType);
+```
+During WebAssembly linking (`wasm-ld`), these symbols are left undefined with module name `win32`. At runtime, `win32-svelte` provides matching JavaScript/TypeScript functions via `WebAssembly.instantiate`.
+
+---
+
+## ⚡ Direct TypeScript Library Usage (No WASM Required)
+
+`win32-svelte` is structured so that Win32 APIs can be used **directly in TypeScript** without compiling C code to WebAssembly.
+
+All core modules are exported through [`src/win32/index.ts`](src/win32/index.ts):
+
+```typescript
+import {
+  RegisterClass,
+  CreateWindow,
+  ShowWindow,
+  UpdateWindow,
+  BeginPaint,
+  EndPaint,
+  TextOut,
+  Rectangle,
+  SetTextColor,
+  CreateSolidBrush,
+  SelectObject,
+  DefWindowProc,
+  PostQuitMessage,
+  RunMessageLoop,
+  WM_CREATE,
+  WM_PAINT,
+  WM_DESTROY,
+  WS_OVERLAPPEDWINDOW,
+  WS_VISIBLE,
+  SW_SHOW,
+  type HWND,
+  type UINT,
+  type WPARAM,
+  type LPARAM,
+} from "./win32";
+
+// 1. Define standard Win32 WndProc in TypeScript
+function MyWndProc(hwnd: HWND, uMsg: UINT, wParam: WPARAM, lParam: LPARAM) {
+  switch (uMsg) {
+    case WM_PAINT: {
+      const ps: any = {};
+      const hdc = BeginPaint(hwnd, ps);
+      
+      const brush = CreateSolidBrush("#000080");
+      SelectObject(hdc, brush);
+      Rectangle(hdc, 20, 20, 300, 180);
+      
+      SetTextColor(hdc, "#ffffff");
+      TextOut(hdc, 40, 50, "Direct Win32 in TypeScript!");
+      
+      EndPaint(hwnd, ps);
+      return 0;
+    }
+    case WM_DESTROY:
+      PostQuitMessage(0);
+      return 0;
+    default:
+      return DefWindowProc(hwnd, uMsg, wParam, lParam);
+  }
+}
+
+// 2. Register Class & Create Window
+RegisterClass({
+  className: "DirectTsApp",
+  lpfnWndProc: MyWndProc,
+});
+
+const hwnd = CreateWindow(
+  "DirectTsApp",
+  "Native TypeScript Win32 Window",
+  WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+  100, 100, 400, 300
+);
+
+ShowWindow(hwnd, SW_SHOW);
+UpdateWindow(hwnd);
 ```
 
 ---

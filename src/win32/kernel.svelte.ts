@@ -1,6 +1,7 @@
 import {
   WM_NULL,
   WM_CREATE,
+  WM_PAINT,
   WM_DESTROY,
   WM_MOVE,
   WM_SIZE,
@@ -115,9 +116,10 @@ import type {
   DropFileInfo,
   HDROP,
   POINT,
+  RECT,
 } from "./types";
 
-class Win32Kernel {
+export class Win32Kernel {
   private nextHwnd = 100;
   private topZIndex = 10;
   private classes = new Map<string, WNDCLASSEX>();
@@ -958,6 +960,19 @@ class Win32Kernel {
     return true;
   }
 
+  public reset(): void {
+    for (const [_, t] of this.timers.entries()) {
+      clearInterval(t.intervalId);
+    }
+    this.timers.clear();
+    this.messageQueue = [];
+    this.messageQueueWaiters = [];
+    while (this.windows.length > 0) {
+      this.windows.pop();
+    }
+    this.activeHwnd = null;
+  }
+
   public SendMessage(
     hwnd: HWND,
     uMsg: UINT,
@@ -1003,6 +1018,9 @@ class Win32Kernel {
       const waiter = this.messageQueueWaiters.shift()!;
       waiter(msg);
     } else {
+      if (this.messageQueue.length > 500) {
+        this.messageQueue.shift();
+      }
       this.messageQueue.push(msg);
       this.scheduleQueueFlush();
     }
@@ -1334,6 +1352,7 @@ export const ShellExecute = (
   showCmd?: number
 ) => kernel.ShellExecute(hwnd, operation, file, parameters, directory, showCmd);
 export const RegisterClassEx = (wc: WNDCLASSEX) => kernel.RegisterClassEx(wc);
+export const RegisterClass = (wc: WNDCLASSEX) => kernel.RegisterClassEx(wc);
 export const CreateWindowEx = (
   exStyle: number,
   className: string,
@@ -1350,9 +1369,147 @@ export const CreateWindowEx = (
   wndProc?: WndProc
 ) => kernel.CreateWindowEx(exStyle, className, title, style, x, y, w, h, parent, menuId, instance, param, wndProc);
 
+export const CreateWindow = (
+  className: string,
+  title: string,
+  style: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  parent: HWND | null = null,
+  menuId: number | null = null,
+  instance: any = null,
+  param: any = null,
+  wndProc?: WndProc
+) => kernel.CreateWindowEx(0, className, title, style, x, y, w, h, parent, menuId, instance, param, wndProc);
+
 export const ShowWindow = (hwnd: HWND, cmd: number) => kernel.ShowWindow(hwnd, cmd);
+export const UpdateWindow = (hwnd: HWND): boolean => {
+  SendMessage(hwnd, WM_PAINT, 0, 0);
+  return true;
+};
 export const DestroyWindow = (hwnd: HWND) => kernel.DestroyWindow(hwnd);
 export const EnableWindow = (hwnd: HWND, enable: boolean) => kernel.EnableWindow(hwnd, enable);
+export const IsWindow = (hwnd: HWND): boolean => kernel.getWindow(hwnd) !== undefined;
+export const GetParent = (hwnd: HWND): HWND | null => kernel.getWindow(hwnd)?.parentHwnd ?? null;
+export const GetDesktopWindow = (): HWND => 0;
+
+export const GetClientRect = (hwnd: HWND, rect?: RECT): RECT => {
+  const win = kernel.getWindow(hwnd);
+  const w = win?.width ?? 800;
+  const h = win?.height ?? 600;
+  const r: RECT = { left: 0, top: 0, right: w, bottom: h };
+  if (rect) {
+    rect.left = 0;
+    rect.top = 0;
+    rect.right = w;
+    rect.bottom = h;
+  }
+  return r;
+};
+
+export const GetWindowRect = (hwnd: HWND, rect?: RECT): RECT => {
+  const win = kernel.getWindow(hwnd);
+  const x = win?.x ?? 0;
+  const y = win?.y ?? 0;
+  const w = win?.width ?? 800;
+  const h = win?.height ?? 600;
+  const r: RECT = { left: x, top: y, right: x + w, bottom: y + h };
+  if (rect) {
+    rect.left = x;
+    rect.top = y;
+    rect.right = x + w;
+    rect.bottom = y + h;
+  }
+  return r;
+};
+
+export const SetWindowPos = (
+  hwnd: HWND,
+  _hWndInsertAfter: HWND | null,
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  _uFlags = 0
+): boolean => {
+  kernel.MoveWindow(hwnd, x, y, cx, cy, true);
+  return true;
+};
+
+export const GetSystemMetrics = (nIndex: number): number => {
+  switch (nIndex) {
+    case 0: // SM_CXSCREEN
+      return typeof window !== "undefined" ? window.innerWidth : 1024;
+    case 1: // SM_CYSCREEN
+      return typeof window !== "undefined" ? window.innerHeight : 768;
+    case 2: // SM_CXVSCROLL
+    case 3: // SM_CYHSCROLL
+      return 16;
+    case 4: // SM_CYCAPTION
+      return 19;
+    case 5: // SM_CXBORDER
+    case 6: // SM_CYBORDER
+      return 1;
+    case 7: // SM_CXFIXEDFRAME
+    case 8: // SM_CYFIXEDFRAME
+      return 3;
+    case 9: // SM_CYVTHUMB
+    case 10: // SM_CXHTHUMB
+      return 16;
+    case 11: // SM_CXICON
+    case 12: // SM_CYICON
+      return 32;
+    case 13: // SM_CXCURSOR
+    case 14: // SM_CYCURSOR
+      return 32;
+    case 15: // SM_CYMENU
+      return 19;
+    case 16: // SM_CXFULLSCREEN
+      return typeof window !== "undefined" ? window.innerWidth : 1024;
+    case 17: // SM_CYFULLSCREEN
+      return typeof window !== "undefined" ? window.innerHeight - 28 : 740;
+    case 19: // SM_MOUSEPRESENT
+      return 1;
+    case 20: // SM_CYVSCROLL
+    case 21: // SM_CXHSCROLL
+      return 16;
+    case 23: // SM_SWAPBUTTON
+      return 0;
+    case 28: // SM_CXMIN
+    case 29: // SM_CYMIN
+      return 100;
+    case 30: // SM_CXSIZE
+    case 31: // SM_CYSIZE
+      return 16;
+    case 32: // SM_CXSIZEFRAME
+    case 33: // SM_CYSIZEFRAME
+      return 4;
+    case 43: // SM_CMOUSEBUTTONS
+      return 2;
+    case 45: // SM_CXEDGE
+    case 46: // SM_CYEDGE
+      return 2;
+    case 49: // SM_CXSMICON
+    case 50: // SM_CYSMICON
+      return 16;
+    case 51: // SM_CYSMCAPTION
+      return 15;
+    case 52: // SM_CXSMSIZE
+    case 53: // SM_CYSMSIZE
+      return 15;
+    case 54: // SM_CXMENUSIZE
+    case 55: // SM_CYMENUSIZE
+      return 18;
+    case 80: // SM_CMONITORS
+      return 1;
+    case 81: // SM_SAMEDISPLAYFORMAT
+      return 1;
+    default:
+      return 0;
+  }
+};
 export const SendMessage = (hwnd: HWND, msg: UINT, wParam: WPARAM = 0, lParam: LPARAM = 0) =>
   kernel.SendMessage(hwnd, msg, wParam, lParam);
 export const PostMessage = (hwnd: HWND, msg: UINT, wParam: WPARAM = 0, lParam: LPARAM = 0) =>

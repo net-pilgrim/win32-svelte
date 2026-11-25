@@ -88,6 +88,8 @@ function createMockCanvasContext(): CanvasRenderingContext2D {
     restore: () => {},
     translate: () => {},
     scale: () => {},
+    setTransform: () => {},
+    resetTransform: () => {},
     clearRect: () => {},
     fillRect: () => {},
     strokeRect: () => {},
@@ -95,9 +97,14 @@ function createMockCanvasContext(): CanvasRenderingContext2D {
     closePath: () => {},
     moveTo: () => {},
     lineTo: () => {},
+    bezierCurveTo: () => {},
+    quadraticCurveTo: () => {},
     arc: () => {},
+    ellipse: () => {},
+    rect: () => {},
     stroke: () => {},
     fill: () => {},
+    clip: () => {},
     fillText: () => {},
     strokeText: () => {},
     drawImage: () => {},
@@ -369,5 +376,130 @@ export function InvalidateRect(hwnd: HWND, _rc: RECT | null = null, _bErase = tr
       }
     }
   });
+  return true;
+}
+
+export function DeleteObject(_hObj: any): boolean {
+  return true;
+}
+
+export function GetStockObject(i: number): HGDIOBJ {
+  switch (i) {
+    case 0: // WHITE_BRUSH
+      return CreateSolidBrush("#ffffff");
+    case 1: // LTGRAY_BRUSH
+      return CreateSolidBrush("#c0c0c0");
+    case 2: // GRAY_BRUSH
+      return CreateSolidBrush("#808080");
+    case 3: // DKGRAY_BRUSH
+      return CreateSolidBrush("#404040");
+    case 4: // BLACK_BRUSH
+      return CreateSolidBrush("#000000");
+    case 5: // NULL_BRUSH / HOLLOW_BRUSH
+      return CreateSolidBrush("transparent");
+    case 6: // WHITE_PEN
+      return CreatePen(0, 1, "#ffffff");
+    case 7: // BLACK_PEN
+      return CreatePen(0, 1, "#000000");
+    case 8: // NULL_PEN
+      return CreatePen(5, 0, "transparent");
+    default:
+      return CreateSolidBrush("#ffffff");
+  }
+}
+
+export function GetDeviceCaps(_hdc: HDC, nIndex: number): number {
+  switch (nIndex) {
+    case 8: // HORZRES
+      return typeof window !== "undefined" ? window.innerWidth : 1024;
+    case 10: // VERTRES
+      return typeof window !== "undefined" ? window.innerHeight : 768;
+    case 12: // BITSPIXEL
+      return 32;
+    case 14: // PLANES
+      return 1;
+    case 88: // LOGPIXELSX
+    case 90: // LOGPIXELSY
+      return 96;
+    default:
+      return 0;
+  }
+}
+
+export function Polyline(hdc: HDC, points: POINT[]): boolean {
+  const ctx = hdc?.ctx;
+  if (!ctx || !points || points.length < 2) return false;
+  ctx.save();
+  ctx.strokeStyle = hdc.currentPen.color;
+  ctx.lineWidth = hdc.currentPen.width;
+  ctx.beginPath();
+  const p0 = mapLogicalToDevice(hdc, points[0].x, points[0].y);
+  ctx.moveTo(p0.x, p0.y);
+  for (let i = 1; i < points.length; i++) {
+    const pt = mapLogicalToDevice(hdc, points[i].x, points[i].y);
+    ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.stroke();
+  ctx.restore();
+  return true;
+}
+
+export function Polygon(hdc: HDC, points: POINT[]): boolean {
+  const ctx = hdc?.ctx;
+  if (!ctx || !points || points.length < 3) return false;
+  ctx.save();
+  ctx.beginPath();
+  const p0 = mapLogicalToDevice(hdc, points[0].x, points[0].y);
+  ctx.moveTo(p0.x, p0.y);
+  for (let i = 1; i < points.length; i++) {
+    const pt = mapLogicalToDevice(hdc, points[i].x, points[i].y);
+    ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = hdc.currentBrush.color;
+  ctx.fill();
+  if (hdc.currentPen.width > 0) {
+    ctx.strokeStyle = hdc.currentPen.color;
+    ctx.lineWidth = hdc.currentPen.width;
+    ctx.stroke();
+  }
+  ctx.restore();
+  return true;
+}
+
+export function RoundRect(
+  hdc: HDC,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+  width: number,
+  height: number
+): boolean {
+  const ctx = hdc?.ctx;
+  if (!ctx) return false;
+  const p0 = mapLogicalToDevice(hdc, left, top);
+  const p1 = mapLogicalToDevice(hdc, right, bottom);
+  const x = Math.min(p0.x, p1.x);
+  const y = Math.min(p0.y, p1.y);
+  const w = Math.abs(p1.x - p0.x);
+  const h = Math.abs(p1.y - p0.y);
+  const r = Math.min(width, height) / 2;
+
+  ctx.save();
+  ctx.beginPath();
+  if (typeof (ctx as any).roundRect === "function") {
+    (ctx as any).roundRect(x, y, w, h, r);
+  } else {
+    ctx.rect(x, y, w, h);
+  }
+  ctx.fillStyle = hdc.currentBrush.color;
+  ctx.fill();
+  if (hdc.currentPen.width > 0) {
+    ctx.strokeStyle = hdc.currentPen.color;
+    ctx.lineWidth = hdc.currentPen.width;
+    ctx.stroke();
+  }
+  ctx.restore();
   return true;
 }

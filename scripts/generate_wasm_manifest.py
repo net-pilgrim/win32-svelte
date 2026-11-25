@@ -5,7 +5,7 @@ import re
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(ROOT_DIR, 'harness', 'build')
-PUBLIC_DIR = os.path.join(ROOT_DIR, 'public', 'wasm-files')
+PUBLIC_DIR = os.path.join(ROOT_DIR, 'public', 'wasm-demo')
 SRC_DIR = os.path.join(ROOT_DIR, 'harness', 'src')
 
 os.makedirs(PUBLIC_DIR, exist_ok=True)
@@ -88,4 +88,4 @@ ts_path = os.path.join(ROOT_DIR, 'src', 'wasm', 'wasm_files_manifest.ts')
 with open(ts_path, 'w') as tf:
     tf.write(ts_content)
 
-print(f"✓ Generated {len(entries)} WASM manifest entries in public/wasm-files/manifest.json and src/wasm/wasm_files_manifest.ts")
+print(f"✓ Generated {len(entries)} WASM manifest entries in public/wasm-demo/manifest.json and src/wasm/wasm_files_manifest.ts")

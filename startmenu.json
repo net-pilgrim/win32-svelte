@@ -13,8 +13,8 @@
         "params": { "x": 160, "y": 70 }
       },
       {
-        "id": "wasm_files",
-        "label": "WASM Files",
+        "id": "wasm_demo",
+        "label": "WASM Demo",
         "icon": "⚡",
         "items": [
           {
@@ -22,91 +22,91 @@
             "label": "MDI Demonstration",
             "icon": "🗔",
             "action": "wasm",
-            "params": { "path": "/wasm-files/MDIDemo.wasm", "x": 180, "y": 70 }
+            "params": { "path": "/wasm-demo/MDIDemo.wasm", "x": 180, "y": 70 }
           },
           {
             "id": "wasm_endjoin",
             "label": "Ends and Joins Demo",
             "icon": "✏️",
             "action": "wasm",
-            "params": { "path": "/wasm-files/EndJoin.wasm", "x": 200, "y": 80 }
+            "params": { "path": "/wasm-demo/EndJoin.wasm", "x": 200, "y": 80 }
           },
           {
             "id": "wasm_eztest",
             "label": "Font Outline Demo",
             "icon": "🔤",
             "action": "wasm",
-            "params": { "path": "/wasm-files/EZTest.wasm", "x": 220, "y": 90 }
+            "params": { "path": "/wasm-demo/EZTest.wasm", "x": 220, "y": 90 }
           },
           {
             "id": "wasm_emf",
             "label": "Enhanced Metafile (EMF)",
             "icon": "🖼️",
             "action": "wasm",
-            "params": { "path": "/wasm-files/Emf1.wasm", "x": 240, "y": 100 }
+            "params": { "path": "/wasm-demo/Emf1.wasm", "x": 240, "y": 100 }
           },
           {
             "id": "wasm_metafile",
             "label": "16-Bit Metafile Demo",
             "icon": "🎞️",
             "action": "wasm",
-            "params": { "path": "/wasm-files/Metafile.wasm", "x": 260, "y": 110 }
+            "params": { "path": "/wasm-demo/Metafile.wasm", "x": 260, "y": 110 }
           },
           {
             "id": "wasm_sinewave",
             "label": "Sine Wave Curve",
             "icon": "〰️",
             "action": "wasm",
-            "params": { "path": "/wasm-files/SineWave.wasm", "x": 280, "y": 120 }
+            "params": { "path": "/wasm-demo/SineWave.wasm", "x": 280, "y": 120 }
           },
           {
             "id": "wasm_bitblt",
             "label": "BitBlt Bitmap Demo",
             "icon": "🎭",
             "action": "wasm",
-            "params": { "path": "/wasm-files/BitBlt.wasm", "x": 300, "y": 130 }
+            "params": { "path": "/wasm-demo/BitBlt.wasm", "x": 300, "y": 130 }
           },
           {
             "id": "wasm_bounce",
             "label": "Bouncing Ball",
             "icon": "⚽",
             "action": "wasm",
-            "params": { "path": "/wasm-files/Bounce.wasm", "x": 320, "y": 140 }
+            "params": { "path": "/wasm-demo/Bounce.wasm", "x": 320, "y": 140 }
           },
           {
             "id": "wasm_clock",
             "label": "Analog Clock",
             "icon": "🕒",
             "action": "wasm",
-            "params": { "path": "/wasm-files/Clock.wasm", "x": 340, "y": 150 }
+            "params": { "path": "/wasm-demo/Clock.wasm", "x": 340, "y": 150 }
           },
           {
             "id": "wasm_digclock",
             "label": "Digital Clock",
             "icon": "⏰",
             "action": "wasm",
-            "params": { "path": "/wasm-files/DigClock.wasm", "x": 360, "y": 160 }
+            "params": { "path": "/wasm-demo/DigClock.wasm", "x": 360, "y": 160 }
           },
           {
             "id": "wasm_menudemo",
             "label": "Menu Demo",
             "icon": "📋",
             "action": "wasm",
-            "params": { "path": "/wasm-files/MenuDemo.wasm", "x": 280, "y": 100 }
+            "params": { "path": "/wasm-demo/MenuDemo.wasm", "x": 280, "y": 100 }
           },
           {
             "id": "wasm_about",
             "label": "About Dialog Demo",
             "icon": "ℹ️",
             "action": "wasm",
-            "params": { "path": "/wasm-files/About1.wasm", "x": 300, "y": 110 }
+            "params": { "path": "/wasm-demo/About1.wasm", "x": 300, "y": 110 }
           },
           {
             "id": "wasm_hellowin",
             "label": "Hello, Windows 98",
             "icon": "👋",
             "action": "wasm",
-            "params": { "path": "/wasm-files/HelloWin.wasm", "x": 320, "y": 120 }
+            "params": { "path": "/wasm-demo/HelloWin.wasm", "x": 320, "y": 120 }
           }
         ]
       },

@@ -1,48 +1,85 @@
-# Programming Windows 5th edition source code
+# 🧪 Programming Windows (5th Edition) WebAssembly Test Harness
 
-## Introduction
+This directory contains the complete source code from Charles Petzold's classic book **Programming Windows (5th Edition)** (Chapters 01 through 23), compiled to freestanding 32-bit WebAssembly (`wasm32-freestanding`) to serve as a comprehensive integration test harness for `win32-svelte`.
 
-Source code contained in [Charles Petzold's](https://www.charlespetzold.com/) excellent [Programming Windows 5th edition](http://www.charlespetzold.com/pw5/). No representation is made that the source code belongs to me, it's simply reproduced here for convenience (so you don't need to dig up the physical media of the book) and remains the copyright of Charles Petzold. Consult `readme.txt` (the TXT that came with the book) for additional information.
+---
 
-## Building
+## 🎯 Purpose of the Harness
 
-You'll need Visual Studio 2026 with the _Desktop development with C++_ workload installed. Some samples use MFC, so you'll need to install the _C++ MFC for x64/x86 (Latest MSVC)_ Visual Studio component to build them (MFC is not installed by default in newer versions of Visual Studio). You should then be able to open any of the VS solution files and immediately build them. It may be possible to open the VS solution files using older (but still modern) versions of Visual Studio, but I've not tested this.
+Instead of relying solely on synthetic or mock tests, this harness subjects `win32-svelte` to **150 real-world, authentic Win32 C applications** written between 1996 and 1998 by Charles Petzold.
 
-## Changes
+Every chapter exercises specific subsystems of the Win32 API:
+* **Chap 01–04**: Basic message boxes, formatted text output, window classes, `WndProc`, standard system metrics (`GetSystemMetrics`).
+* **Chap 05**: GDI drawing primitives (lines, curves, rectangles, ellipses, sine waves).
+* **Chap 06–07**: Keyboard and mouse message loops, caret management, hit testing (`Checker`, `Typer`).
+* **Chap 08**: Win32 timers and digital clock rendering (`DigClock`, `Beeper`).
+* **Chap 09**: Standard child controls (buttons, checkboxes, radio buttons, groupboxes).
+* **Chap 10**: Menus, keyboard accelerators, popups, and string tables (`MenuDemo`, `PoePoem`).
+* **Chap 11**: Modal and modeless dialog boxes (`About1`, `About2`, `About3`, `HexCalc`).
+* **Chap 12**: System clipboard viewing, clipboard chains, and text transfer (`ClipText`, `ClipView`).
+* **Chap 13**: Windows printing subsystem and print preview (`Print1`, `Print2`, `Print3`).
+* **Chap 14**: Bitmaps, device contexts, raster operations, and BitBlt (`BitBlt`, `Blowup`, `Bounce`).
+* **Chap 15–16**: Device-Independent Bitmaps (DIBs), palettes, and palette animation (`ShowDib`, `SysPal`).
+* **Chap 17**: TrueType fonts, font metrics, text formatting, and font rotation (`EZTest`, `FontRot`).
+* **Chap 18**: Metafiles and 32-bit Enhanced Metafiles (`Emf1`–`Emf13`, `EmfView`).
+* **Chap 19**: Multiple Document Interface (MDI) frames and child windows (`MDIDemo`).
+* **Chap 20**: Multithreading and worker thread synchronization (`BigJob1`, `BigJob2`, `Multi1`, `RndRctMT`).
+* **Chap 21**: Dynamic Link Libraries (`LoadLibrary`, `GetProcAddress`, `EdrTest`, `ShowBit`).
+* **Chap 22**: Sound and multimedia (waveform audio, MIDI synthesizer, MCI strings, `BachTocc`, `WakeUp`).
+* **Chap 23**: Networking (Winsock 2.0 TCP/UDP sockets, WinINet FTP/HTTP client, `NetTime`, `UpdDemo`).
 
-All samples have been updated to use Visual Studio 2022 and retargeted to use the latest Windows SDK. An invalid free that was causing crashes in Chapter 9's Environ sample has been fixed, and a separate crash in Chapter 10's PoePoem sample has also been fixed. The old `*.dep`, `*.dsw`, and `*.dsp` files can be found in the earlier commits if you need them. That being said, the source code is two decades old and has been minimally retouched here. If you're after a more thorough overhaul of the codebase, [see here](https://github.com/recombinant/petzold-pw5e), or do a search on GitHub.
+---
 
-## Considerations
+## 🛠️ How It Works
 
-Most samples still function (credit to Microsoft and their emphasis on backwards compatibility), but some do not, particularly in Chapter 16 due to the requirement of hardware with 256-bit display pallete. Needless to say, decades after these samples were written, such hardware now exists mostly as a historical note of a bygone era in computing.
+1. **Freestanding Compilation (`wasm32-freestanding`)**:
+   Each C source file is compiled with `clang` into freestanding WebAssembly without linking against POSIX or glibc (`-nostdlib`, `-fno-builtin`, `-Wl,--no-entry`).
+2. **Win32 C Headers (`include/`)**:
+   Applications include standard Win32 headers (`<windows.h>`, `<commctrl.h>`, `<mmsystem.h>`, `<winsock2.h>`, `<wininet.h>`). The prototypes in `include/` annotate Win32 APIs with `__attribute__((import_module("win32"), import_name("...")))`.
+3. **Execution in `win32-svelte`**:
+   The compiled `.wasm` files reside in `public/wasm-demo/`. When an app is double-clicked in Windows Explorer or launched from the Start Menu, `Win32WasmRuntime` instantiates the module, provides the imports via `wasm_bridge.ts`, and invokes `WinMain()`.
 
-Some samples generate deprecation and security warnings upon compilation, and I recommend you heed those warnings if you intend to use any code in production. Remember that this is decades old Win32 code -- depending on what you're trying to do, more modern approaches such as [C++/WinRT](https://learn.microsoft.com/en-us/windows/uwp/cpp-and-winrt-apis/), [WinUI 3](https://docs.microsoft.com/en-us/windows/apps/winui/winui3/), [wxWidgets](https://www.wxwidgets.org/), [Qt](https://www.qt.io/), [Ultimate++](https://www.ultimatepp.org/), [Boost](https://www.boost.org/), [POCO C++](https://pocoproject.org/), or newer additions to the C++ standard library (C++11 onwards) may be more appropriate.
+---
 
-When using any Win32 code from this repo in production, always consult the [Windows API Index](https://docs.microsoft.com/en-us/windows/win32/apiindex/windows-api-list) for relevant and updated API usage notes, as some APIs may have since been deprecated or had their behaviour modified in newer versions of Windows.
+## 🏗️ Building the Harness
 
-## Additional resources
+### Prerequisites
+* `clang` (version 14+) with WebAssembly target support (`wasm32-freestanding` or `wasm32-unknown-unknown`).
+* `llvm-mc` and `wasm-ld`.
+* GNU `make`.
+* Python 3.
 
-### General
+### Build Commands
 
-* [The Windows API Index](https://docs.microsoft.com/en-us/windows/win32/apiindex/windows-api-list)
-* [Jeffrey Richter and Christophe Nasarre's Windows via C/C++ 5th edition](https://www.microsoftpressstore.com/store/windows-via-c-c-plus-plus-9780735639218). An excellent book on Windows system programming. [Source code repo here](https://github.com/yottaawesome/windows-via-c-cpp).
+```bash
+# Build all 150 Petzold applications across Chapters 01 to 23
+make all
 
-### Samples
+# Build only a specific chapter (e.g. Chapter 05)
+make chap05
 
-* [Microsoft's Windows Classic Samples](https://github.com/microsoft/Windows-classic-samples)
-* [Microsoft's C++ samples](https://docs.microsoft.com/en-us/samples/browse/?languages=cpp)
+# Copy all compiled WASM files and manifests into public/wasm-demo/
+make copy-wasm-files
 
-### Related technologies
+# Clean build artifacts
+make clean
+```
 
-* [Microsoft's COM and ATL](https://docs.microsoft.com/en-us/cpp/atl/introduction-to-com-and-atl)
-* [Microsoft's Universal Windows Platform](https://learn.microsoft.com/en-us/windows/uwp/get-started/)
-* [Microsoft's C++/WinRT](https://docs.microsoft.com/en-us/windows/uwp/cpp-and-winrt-apis/). A modern C++17 projection over the Windows Runtime APIs.
-* [Microsoft's WinUI 3](https://docs.microsoft.com/en-us/windows/apps/winui/winui3/). WinUI 3 is Microsoft's latest native UI component.
+### Manifest Generation
+After building, the manifest script indexes all compiled applications:
+```bash
+python3 scripts/generate_wasm_manifest.py
+```
+This generates:
+* `public/wasm-demo/manifest.json`: JSON catalog loaded by the web app at runtime.
+* `src/wasm/wasm_files_manifest.ts`: Static manifest imported for automated test suites.
 
-### Tutorials and guides
+---
 
-* [Microsoft's Get Started with Win32 and C++](https://docs.microsoft.com/en-us/windows/win32/learnwin32/learn-to-program-for-windows)
-* [Microsoft's Build desktop Windows apps using the Win32 API](https://docs.microsoft.com/en-us/windows/win32/)
-* [Microsoft's Modernize Your Desktop Apps](https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/). Contains advice and examples on applying the latest Windows 11 UI features to native Windows apps, including Win32 ones.
-* [theForger's Win32 API Programming Tutorial](http://www.winprog.org/tutorial/). The tutorials are old, but still useful. Tutorial source code is available on that site as a zip, and I've [also got a repo of it](https://github.com/yottaawesome/forger-win32-tutorial).
-* [ZetCode's Windows API tutorial](https://zetcode.com/gui/winapi/)
+## 🔍 Auditing Applications
+
+To run the automated headless verification audit across all compiled WASM binaries:
+```bash
+npx tsx -r ./src/test_setup.cjs scripts/audit_wasm_apps.ts
+```
+This verifies module instantiation, `WinMain` execution, window registration, child controls, and GDI drawing calls without requiring a visible browser.

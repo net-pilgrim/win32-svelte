@@ -143,7 +143,7 @@ test.describe("Win32 Svelte Desktop & Start Menu Visual Tests", () => {
 
     // Launch Metafile Viewer via window.__WIN32__
     await page.evaluate(() => {
-      (window as any).__WIN32__.StartMetafileViewer(180, 80, "C:\\wasm-files\\emf8.emf");
+      (window as any).__WIN32__.StartMetafileViewer(180, 80, "C:\\wasm-demo\\emf8.emf");
     });
 
     // Wait for Metafile Viewer window

@@ -38,8 +38,12 @@ async function runTests() {
   console.log("Test 2: getDirectoryEntries for C:\\...");
   const cEntries = await testVfs.getDirectoryEntries("C:\\");
   const names = cEntries.map((e) => e.name);
-  if (!names.includes("My Documents") || !names.includes("wasm_application") || !names.includes("INCLUDE")) {
-    throw new Error(`Expected My Documents, wasm_application, and INCLUDE in C:\\, got: ${names.join(", ")}`);
+  if (!names.includes("My Documents") || !names.includes("wasm_application") || !names.includes("wasm-demo")) {
+    throw new Error(`Expected My Documents, wasm_application, and wasm-demo in C:\\, got: ${names.join(", ")}`);
+  }
+  const wasmAppEntries = await testVfs.getDirectoryEntries("C:\\wasm_application");
+  if (!wasmAppEntries.some((e) => e.name.toLowerCase() === "include")) {
+    throw new Error(`Expected include folder inside C:\\wasm_application, got: ${wasmAppEntries.map((e) => e.name).join(", ")}`);
   }
   console.log(`✓ C:\\ entries: ${names.join(", ")}`);
 
@@ -132,22 +136,22 @@ async function runTests() {
   }
   console.log("✓ Change listeners succeeded");
 
-  // 8. Test wasm-files virtual directory listing
-  console.log("Test 8: wasm-files directory listing & manifest entries...");
-  const wasmEntries = await testVfs.getDirectoryEntries("C:\\wasm-files");
+  // 8. Test wasm-demo virtual directory listing
+  console.log("Test 8: wasm-demo directory listing & manifest entries...");
+  const wasmEntries = await testVfs.getDirectoryEntries("C:\\wasm-demo");
   if (wasmEntries.length < 100) {
-    throw new Error(`Expected at least 100 entries in C:\\wasm-files, got: ${wasmEntries.length}`);
+    throw new Error(`Expected at least 100 entries in C:\\wasm-demo, got: ${wasmEntries.length}`);
   }
   const hasMdi = wasmEntries.some((e) => e.name === "MDIDemo.wasm" && e.icon === "⚡");
   const hasBounce = wasmEntries.some((e) => e.name === "Bounce.wasm" && e.icon === "⚡");
   if (!hasMdi || !hasBounce) {
-    throw new Error("Missing expected WASM binaries in C:\\wasm-files");
+    throw new Error("Missing expected WASM binaries in C:\\wasm-demo");
   }
-  const mdiExists = await testVfs.FileExists("C:\\wasm-files\\MDIDemo.wasm");
+  const mdiExists = await testVfs.FileExists("C:\\wasm-demo\\MDIDemo.wasm");
   if (!mdiExists) {
-    throw new Error("FileExists failed for C:\\wasm-files\\MDIDemo.wasm");
+    throw new Error("FileExists failed for C:\\wasm-demo\\MDIDemo.wasm");
   }
-  console.log(`✓ wasm-files verified with ${wasmEntries.length} entries`);
+  console.log(`✓ wasm-demo verified with ${wasmEntries.length} entries`);
 
   console.log("\nALL OPFS VFS TESTS PASSED! 🚀🎉");
 }

@@ -1333,7 +1333,7 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     await expect(windowEl).toBeHidden();
   });
 
-  test("Windows Explorer: wasm-files directory displays all compiled WASM files and launches on double click", async ({ page }) => {
+  test("Windows Explorer: wasm-demo directory displays all compiled WASM files and launches on double click", async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector(".desktop-container");
 
@@ -1346,8 +1346,8 @@ test.describe("Petzold Programming Windows 5th Edition - WASM Harness", () => {
     const explorerWin = page.locator(".win32-window").filter({ hasText: "Exploring" });
     await expect(explorerWin).toBeVisible();
 
-    // Click on wasm-files in the tree view
-    const wasmFilesNode = explorerWin.locator("ul.tree-view a", { hasText: "wasm-files" });
+    // Click on wasm-demo in the tree view
+    const wasmFilesNode = explorerWin.locator("ul.tree-view a", { hasText: "wasm-demo" });
     await expect(wasmFilesNode).toBeVisible();
     await wasmFilesNode.click();
 

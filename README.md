@@ -28,8 +28,10 @@ Rather than following typical web patterns, `win32-svelte` experiments with:
 - Synchronous `SendMessage` and queued `PostMessage`.
 - An asynchronous message loop pump (`GetMessage`, `TranslateMessage`, `DispatchMessage`).
 - Classic standard control wrappers (`BUTTON`, `EDIT`, `STATIC`, `COMBOBOX`, `MSCTLS_PROGRESS32`, `MSCTLS_TRACKBAR32`).
-- A canvas-based GDI drawing prototype (`BeginPaint`, `MoveToEx`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`).
-- **Experimental C WebAssembly Execution**: Compiling small C snippets targeting minimal `<windows.h>` header stubs into freestanding `.wasm` binaries that run within the browser prototype.
+- A canvas-based GDI drawing prototype (`BeginPaint`, `MoveToEx`, `LineTo`, `Rectangle`, `Ellipse`, `TextOut`, `RoundRect`, `Polyline`, `Polygon`).
+- **Petzold 5th Edition WebAssembly Harness (`wasm-demo`)**: Over 150 authentic C programs from Charles Petzold's *Programming Windows 5th Edition* (Chapters 01–23) compiled into freestanding `.wasm` binaries running inside the browser desktop.
+- **Direct TypeScript API (`src/win32/index.ts`)**: The entire Win32 user/GDI/kernel library can be imported and executed natively in TypeScript without WASM (`CreateWindow`, `ShowWindow`, `BeginPaint`, etc.).
+- **Automated C Header Generation (`include/`)**: Modular C headers (`windows.h`, `windef.h`, `winuser.h`, `wingdi.h`, `commctrl.h`, `mmsystem.h`, `winsock2.h`, `wininet.h`) synchronized directly from TypeScript constant specifications.
 - Synthesized retro system sounds (Chord, Ding, Chime, Tada) using the Web Audio API without external audio files.
 - Nostalgic Windows 98 aesthetics courtesy of [98.css](https://jdan.github.io/98.css/).
 
@@ -69,10 +71,12 @@ Open your browser at `http://localhost:5173` (or the URL displayed in your termi
 | `npm run check` | `svelte-check ... && tsc ...` | Typechecks Svelte components and TypeScript code |
 | `npm test` | `tsx src/win32/__tests__/...` | Runs test suites (VFS, Print Spooler, Registry, ODBC, WASM Bridge, RC Compiler) |
 | `npm run rc` | `tsx src/rc/cli.ts` | Compiles Win32 `.rc` resource scripts to TypeScript/JSON |
+| `npm run generate:headers` | `tsx scripts/generate_headers.ts` | Synchronizes C headers in `include/` and embedded VFS headers |
 | `npm run build:wasm` | `tsx src/wasm/embed_wasm.ts` | Compiles C sample app to freestanding `.wasm` with Zig/Clang |
 | `npm run build:example` | `make -C examples/simple_c_app` | Builds standalone C WebAssembly app with Makefile |
 | `npm run build:mfc` | `make -C examples/starter_mfc_app` | Runs test and check for Starter MFC app via Makefile |
 | `npm run build:mfc-wasm` | `make -C examples/mfc_wasm_app` | Compiles freestanding C++ MFC WebAssembly app with Makefile |
+| `npm run sync:wasm` | `make -C harness copy-wasm-files` | Copies 150 compiled Petzold WASM binaries to `public/wasm-demo/` |
 
 ### Deploying to Vercel
 

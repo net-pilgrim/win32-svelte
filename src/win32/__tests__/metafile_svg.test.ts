@@ -12,7 +12,7 @@ import { getSampleAppWasmBytes } from "../../wasm/sample_app_wasm";
 async function runMetafileSvgTests() {
   console.log("Starting Win32 Metafile (EMF/WMF) SVG Vector Engine Tests...\n");
 
-  const wasmFilesDir = path.resolve(process.cwd(), "public/wasm-files");
+  const wasmFilesDir = path.resolve(process.cwd(), "public/wasm-demo");
 
   // --- Test 1: Real EMF parsing and SVG generation for all 7 Chap18 test files ---
   console.log("Test 1: Parsing binary EMF files and verifying SVG vector generation...");

@@ -497,9 +497,9 @@ chap22: $(CHAP22_BINS)
 chap23: $(CHAP23_BINS)
 
 copy-wasm-files:
-	@mkdir -p $(ROOT_DIR)/public/wasm-files
-	@find $(BUILD_DIR) -name "*.wasm" -exec cp {} $(ROOT_DIR)/public/wasm-files/ \;
-	@find $(SRC_DIR)/Chap18 -name "*.emf" -exec cp {} $(ROOT_DIR)/public/wasm-files/ \;
+	@mkdir -p $(ROOT_DIR)/public/wasm-demo
+	@find $(BUILD_DIR) -name "*.wasm" -exec cp {} $(ROOT_DIR)/public/wasm-demo/ \;
+	@find $(SRC_DIR)/Chap18 -name "*.emf" -exec cp {} $(ROOT_DIR)/public/wasm-demo/ \;
 	@python3 $(ROOT_DIR)/scripts/generate_wasm_manifest.py
 
 clean:

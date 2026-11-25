@@ -98,10 +98,9 @@ const FOLDER_PATH_MAP: Record<string, string> = {
   root: "C:\\",
   drive_a: "A:\\",
   drive_c: "C:\\",
-  wasm_files: "C:\\wasm-files",
+  wasm_demo: "C:\\wasm-demo",
   wasm_app: "C:\\wasm_application",
   my_docs: "C:\\My Documents",
-  include: "C:\\INCLUDE",
   recycle: "C:\\Recycle Bin",
   drive_d: "D:\\",
 };
@@ -197,10 +196,9 @@ function ExplorerWndProc(
                 icon: "💽",
                 expanded: true,
                 children: [
-                  { id: "wasm_files", text: "wasm-files", icon: "📁" },
+                  { id: "wasm_demo", text: "wasm-demo", icon: "📁" },
                   { id: "wasm_app", text: "wasm_application", icon: "📁" },
                   { id: "my_docs", text: "My Documents", icon: "📁" },
-                  { id: "include", text: "INCLUDE", icon: "📁" },
                   { id: "recycle", text: "Recycle Bin", icon: "🗑️" },
                 ],
               },

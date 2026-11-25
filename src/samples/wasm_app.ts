@@ -41,12 +41,12 @@ export async function StartWasmApp(
       try {
         wasmBytes = await vfs.readBinaryFile(pathOrVfsPath);
       } catch (err: any) {
-        // Fallback: check if the file exists in /wasm-files/<basename>
+        // Fallback: check if the file exists in /wasm-demo/<basename>
         const fileName = pathOrVfsPath.split(/[\\/]/).pop();
         let fetched = false;
         if (fileName && typeof fetch !== "undefined") {
           try {
-            const resp = await fetch(`/wasm-files/${fileName}`);
+            const resp = await fetch(`/wasm-demo/${fileName}`);
             if (resp.ok) {
               const contentType = resp.headers.get("content-type") || "";
               if (!contentType.includes("text/html")) {
