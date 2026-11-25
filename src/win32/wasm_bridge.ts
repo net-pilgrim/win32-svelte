@@ -32,6 +32,7 @@ import {
   HDC,
 } from "./gdi";
 import { MessageBeep } from "./audio";
+import { win32Midi } from "./midi";
 import type { HWND, UINT, WPARAM, LPARAM, LRESULT, RECT, WndProc } from "./types";
 import { WM_DESTROY } from "./constants";
 import { StartNotepad } from "../samples/notepad";
@@ -5328,23 +5329,24 @@ export class Win32WasmRuntime {
         waveInReset: (hwi: number) => 0,
 
         midiOutOpen: (phmo: number, uDeviceID: number, dwCallback: number, dwInstance: number, fdwOpen: number) => {
-          logWasmStub("midiOutOpen", phmo, uDeviceID);
-          if (this.memory && phmo) {
-            new DataView(this.memory.buffer).setUint32(phmo, 1, true);
-          }
-          return 0;
+          return win32Midi.midiOutOpen(phmo, uDeviceID, this.memory?.buffer, dwCallback, dwInstance, fdwOpen);
         },
-        midiOutClose: (hmo: number) => 0,
-        midiOutReset: (hmo: number) => 0,
-        midiOutShortMsg: (hmo: number, dwMsg: number) => 0,
-        midiOutGetNumDevs: () => 1,
+        midiOutClose: (hmo: number) => win32Midi.midiOutClose(hmo),
+        midiOutReset: (hmo: number) => win32Midi.midiOutReset(hmo),
+        midiOutShortMsg: (hmo: number, dwMsg: number) => win32Midi.midiOutShortMsg(hmo, dwMsg),
+        midiOutLongMsg: (hmo: number, lpMidiOutHdr: number, uSize: number) => win32Midi.midiOutLongMsg(hmo, lpMidiOutHdr, uSize),
+        midiOutGetNumDevs: () => win32Midi.midiOutGetNumDevs(),
         midiOutGetDevCapsA: (uDeviceID: number, pmoc: number, cbmoc: number) => {
-          if (pmoc && this.memory) {
-            this.writeCString(pmoc + 8, "WASM MIDI Synth", 32);
-          }
-          return 0;
+          return win32Midi.midiOutGetDevCapsA(uDeviceID, this.memory?.buffer, pmoc, cbmoc);
         },
-        midiOutGetDevCapsW: (uDeviceID: number, pmoc: number, cbmoc: number) => 0,
+        midiOutGetDevCapsW: (uDeviceID: number, pmoc: number, cbmoc: number) => {
+          return win32Midi.midiOutGetDevCapsW(uDeviceID, this.memory?.buffer, pmoc, cbmoc);
+        },
+        midiOutGetDevCaps: (...args: any[]) => (win32Imports as any).midiOutGetDevCapsA(...args),
+        midiOutSetVolume: (hmo: number, dwVolume: number) => win32Midi.midiOutSetVolume(hmo, dwVolume),
+        midiOutGetVolume: (hmo: number, pdwVolume: number) => {
+          return win32Midi.midiOutGetVolume(hmo, this.memory?.buffer, pdwVolume);
+        },
 
         timeGetTime: () => Math.floor(performance.now()),
         timeGetDevCaps: (ptc: number, cbtc: number) => {

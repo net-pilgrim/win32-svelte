@@ -3,3 +3,6 @@ globalThis.$state = (init) => init;
 globalThis.$derived = (fn) => (typeof fn === "function" ? fn() : fn);
 globalThis.$effect = () => {};
 globalThis.$props = () => ({});
+if (typeof globalThis.window === "undefined") {
+  globalThis.window = globalThis;
+}
