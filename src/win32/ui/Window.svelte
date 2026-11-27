@@ -22,6 +22,7 @@
     WM_DROPFILES,
     WM_KEYDOWN,
     WM_KEYUP,
+    WM_CHAR,
     WS_THICKFRAME,
     WS_MINIMIZEBOX,
     WS_MAXIMIZEBOX,
@@ -162,6 +163,30 @@
     SendMessage(win.hwnd, msg, wParam, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
   }
 
+  const CODE_TO_SCANCODE: Record<string, number> = {
+    Escape: 1,
+    Digit1: 2, Digit2: 3, Digit3: 4, Digit4: 5, Digit5: 6, Digit6: 7, Digit7: 8, Digit8: 9, Digit9: 10, Digit0: 11,
+    Minus: 12, Equal: 13, Backspace: 14,
+    Tab: 15,
+    KeyQ: 16, KeyW: 17, KeyE: 18, KeyR: 19, KeyT: 20, KeyY: 21, KeyU: 22, KeyI: 23, KeyO: 24, KeyP: 25,
+    BracketLeft: 26, BracketRight: 27, Enter: 28,
+    ControlLeft: 29,
+    KeyA: 30, KeyS: 31, KeyD: 32, KeyF: 33, KeyG: 34, KeyH: 35, KeyJ: 36, KeyK: 37, KeyL: 38,
+    Semicolon: 39, Quote: 40, Backquote: 41,
+    ShiftLeft: 42, Backslash: 43,
+    KeyZ: 44, KeyX: 45, KeyC: 46, KeyV: 47, KeyB: 48, KeyN: 49, KeyM: 50,
+    Comma: 51, Period: 52, Slash: 53,
+    ShiftRight: 54, NumpadMultiply: 55, AltLeft: 56, Space: 57, CapsLock: 58,
+    F1: 59, F2: 60, F3: 61, F4: 62, F5: 63, F6: 64, F7: 65, F8: 66, F9: 67, F10: 68,
+    NumLock: 69, ScrollLock: 70,
+    Numpad7: 71, Numpad8: 72, Numpad9: 73, NumpadSubtract: 74,
+    Numpad4: 75, Numpad5: 76, Numpad6: 77, NumpadAdd: 78,
+    Numpad1: 79, Numpad2: 80, Numpad3: 81, Numpad0: 82, NumpadDecimal: 83,
+    F11: 87, F12: 88,
+    NumpadEnter: 28, ControlRight: 29, NumpadDivide: 53, AltRight: 56,
+    Home: 71, ArrowUp: 72, PageUp: 73, ArrowLeft: 75, ArrowRight: 77, End: 79, ArrowDown: 80, PageDown: 81, Insert: 82, Delete: 83,
+  };
+
   function onWindowKeyDown(e: KeyboardEvent) {
     if (isMdiChild || !isActive) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -170,7 +195,21 @@
     if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.code)) {
       e.preventDefault();
     }
-    SendMessage(win.hwnd, WM_KEYDOWN, e.keyCode, 0);
+    const scanCode = CODE_TO_SCANCODE[e.code] ?? ((e.keyCode || 0) & 0xff);
+    const lParam = 1 | (scanCode << 16);
+    SendMessage(win.hwnd, WM_KEYDOWN, e.keyCode, lParam);
+
+    if (e.key.length === 1) {
+      SendMessage(win.hwnd, WM_CHAR, e.key.charCodeAt(0), lParam);
+    } else if (e.key === "Backspace") {
+      SendMessage(win.hwnd, WM_CHAR, 8, lParam);
+    } else if (e.key === "Enter") {
+      SendMessage(win.hwnd, WM_CHAR, 13, lParam);
+    } else if (e.key === "Tab") {
+      SendMessage(win.hwnd, WM_CHAR, 9, lParam);
+    } else if (e.key === "Escape") {
+      SendMessage(win.hwnd, WM_CHAR, 27, lParam);
+    }
   }
 
   function onWindowKeyUp(e: KeyboardEvent) {
@@ -178,7 +217,9 @@
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
     }
-    SendMessage(win.hwnd, WM_KEYUP, e.keyCode, 0);
+    const scanCode = CODE_TO_SCANCODE[e.code] ?? ((e.keyCode || 0) & 0xff);
+    const lParam = 1 | (scanCode << 16) | (1 << 30) | (1 << 31);
+    SendMessage(win.hwnd, WM_KEYUP, e.keyCode, lParam);
   }
 
   let isActive = $derived(
@@ -442,6 +483,12 @@
           oncontextmenu={(e) => e.preventDefault()}
         ></canvas>
       {/if}
+      {#if win.customProps?.caret?.visible}
+        <div
+          class="win32-caret"
+          style="position: absolute; left: {win.customProps.caret.x}px; top: {win.customProps.caret.y}px; width: {win.customProps.caret.width}px; height: {win.customProps.caret.height}px; background-color: #000; pointer-events: none; animation: win32-caret-blink 1s step-start infinite; z-index: 10;"
+        ></div>
+      {/if}
       {#each children as child (child.hwnd)}
         {#if child.className.toUpperCase() === "MDICLIENT"}
           <div
@@ -549,5 +596,10 @@
 
   .drop-target-active {
     box-shadow: 0 0 0 2px #000080, 2px 2px 8px rgba(0, 0, 128, 0.5) !important;
+  }
+
+  @keyframes win32-caret-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
   }
 </style>

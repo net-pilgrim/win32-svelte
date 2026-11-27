@@ -249,6 +249,8 @@ export const MF_DISABLED = 0x00000002;
 export const MF_GRAYED = 0x00000001;
 export const MF_CHECKED = 0x00000008;
 export const MF_UNCHECKED = 0x00000000;
+export const MF_BYCOMMAND = 0x00000000;
+export const MF_BYPOSITION = 0x00000400;
 
 // DrawText Format Flags (DT_*)
 export const DT_TOP = 0x00000000;

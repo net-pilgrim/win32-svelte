@@ -308,7 +308,11 @@ export function Ellipse(
 export function TextOut(hdc: HDC, x: number, y: number, text: string): boolean {
   const ctx = hdc?.ctx;
   if (!ctx) return false;
-  const pt = mapLogicalToDevice(hdc, x, y);
+  const align = (hdc as any).textAlign || 0;
+  const updateCP = (align & 1) === 1; // TA_UPDATECP (0x0001)
+  const drawX = updateCP ? hdc.currentPoint.x : x;
+  const drawY = updateCP ? hdc.currentPoint.y : y;
+  const pt = mapLogicalToDevice(hdc, drawX, drawY);
   ctx.save();
   const fontObj = (hdc as any).selectedFont;
   if (fontObj) {
@@ -320,7 +324,6 @@ export function TextOut(hdc: HDC, x: number, y: number, text: string): boolean {
     ctx.font = '12px "MS Sans Serif", "Pixelated MS Sans Serif", Tahoma, sans-serif';
   }
   ctx.fillStyle = hdc.textColor;
-  const align = (hdc as any).textAlign || 0;
   if ((align & 24) === 24) {
     ctx.textBaseline = "alphabetic";
   } else if ((align & 8) === 8) {
@@ -336,6 +339,10 @@ export function TextOut(hdc: HDC, x: number, y: number, text: string): boolean {
     ctx.textAlign = "left";
   }
   ctx.fillText(text, pt.x, pt.y);
+  if (updateCP) {
+    const w = ctx.measureText(text).width;
+    hdc.currentPoint.x = drawX + Math.round(w);
+  }
   ctx.restore();
   return true;
 }

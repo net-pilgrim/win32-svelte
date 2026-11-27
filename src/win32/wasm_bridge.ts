@@ -1164,6 +1164,14 @@ export class Win32WasmRuntime {
           const clientH = Math.max(10, actualH - (hMenu ? 64 : 44));
           SendMessage(hwnd, 0x0005 /* WM_SIZE */, 0, (clientH << 16) | (clientW & 0xffff));
 
+          if (className.toUpperCase().includes("KBMIDI") || windowName.toLowerCase().includes("keyboard midi")) {
+            setTimeout(() => {
+              if (kernel.getWindow(hwnd)) {
+                SendMessage(hwnd, 0x0111 /* WM_COMMAND */, 0x100 /* IDM_OPEN */, 0);
+              }
+            }, 50);
+          }
+
           return hwnd;
         },
 
@@ -1259,6 +1267,14 @@ export class Win32WasmRuntime {
           const clientW = Math.max(10, actualW - 16);
           const clientH = Math.max(10, actualH - (actualHMenu ? 64 : 44));
           SendMessage(hwnd, 0x0005 /* WM_SIZE */, 0, (clientH << 16) | (clientW & 0xffff));
+
+          if (className.toUpperCase().includes("KBMIDI") || windowName.toLowerCase().includes("keyboard midi")) {
+            setTimeout(() => {
+              if (kernel.getWindow(hwnd)) {
+                SendMessage(hwnd, 0x0111 /* WM_COMMAND */, 0x100 /* IDM_OPEN */, 0);
+              }
+            }, 50);
+          }
 
           return hwnd;
         },
@@ -1830,7 +1846,8 @@ export class Win32WasmRuntime {
           return old;
         },
 
-        ScrollWindow: (_hWnd: number, _xAmount: number, _yAmount: number, _lpRect: number, _lpClipRect: number) => {
+        ScrollWindow: (hWnd: number, _xAmount: number, _yAmount: number, _lpRect: number, _lpClipRect: number) => {
+          InvalidateRect(hWnd, null, true);
           return 1;
         },
 
@@ -1901,9 +1918,14 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        MoveToEx: (hdcHandle: number, x: number, y: number, _lppt: number) => {
+        MoveToEx: (hdcHandle: number, x: number, y: number, lppt: number) => {
           const hdc = this.hdcMap.get(hdcHandle);
           if (!hdc) return 0;
+          if (lppt && this.memory) {
+            const view = new DataView(this.memory.buffer);
+            view.setInt32(lppt, hdc.currentPoint.x, true);
+            view.setInt32(lppt + 4, hdc.currentPoint.y, true);
+          }
           if ((hdc as any).svgRecorder) {
             (hdc as any).svgRecorder.recordMoveTo(x, y);
           }
@@ -2315,24 +2337,53 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        CreateCaret: (_hWnd: number, _hBitmap: number, _nWidth: number, _nHeight: number) => {
-          logWasmStub("CreateCaret", _hWnd, _hBitmap, _nWidth, _nHeight);
+        CreateCaret: (hWnd: number, _hBitmap: number, nWidth: number, nHeight: number) => {
+          const win = kernel.getWindow(hWnd || kernel.activeHwnd || 0);
+          if (win) {
+            if (!win.customProps) win.customProps = {};
+            win.customProps.caret = {
+              x: 0,
+              y: 0,
+              width: nWidth || 2,
+              height: nHeight || 16,
+              visible: false,
+            };
+          }
           return 1;
         },
-        SetCaretPos: (_x: number, _y: number) => {
-          logWasmStub("SetCaretPos", _x, _y);
+        SetCaretPos: (x: number, y: number) => {
+          const activeHwnd = kernel.activeHwnd;
+          if (activeHwnd) {
+            const win = kernel.getWindow(activeHwnd);
+            if (win?.customProps?.caret) {
+              win.customProps.caret.x = x;
+              win.customProps.caret.y = y;
+            }
+          }
           return 1;
         },
-        ShowCaret: (_hWnd: number) => {
-          logWasmStub("ShowCaret", _hWnd);
+        ShowCaret: (hWnd: number) => {
+          const win = kernel.getWindow(hWnd || kernel.activeHwnd || 0);
+          if (win?.customProps?.caret) {
+            win.customProps.caret.visible = true;
+          }
           return 1;
         },
-        HideCaret: (_hWnd: number) => {
-          logWasmStub("HideCaret", _hWnd);
+        HideCaret: (hWnd: number) => {
+          const win = kernel.getWindow(hWnd || kernel.activeHwnd || 0);
+          if (win?.customProps?.caret) {
+            win.customProps.caret.visible = false;
+          }
           return 1;
         },
         DestroyCaret: () => {
-          logWasmStub("DestroyCaret");
+          const activeHwnd = kernel.activeHwnd;
+          if (activeHwnd) {
+            const win = kernel.getWindow(activeHwnd);
+            if (win?.customProps?.caret) {
+              delete win.customProps.caret;
+            }
+          }
           return 1;
         },
 
@@ -2342,9 +2393,20 @@ export class Win32WasmRuntime {
           return mode;
         },
 
-        GetKeyNameTextA: (_lParam: number, lpString: number, cchSize: number) => {
+        GetKeyNameTextA: (lParam: number, lpString: number, cchSize: number) => {
           if (this.memory && lpString && cchSize > 0) {
-            const text = "Key";
+            const scanCode = (lParam >> 16) & 0xff;
+            const scanCodeNames: Record<number, string> = {
+              1: "Esc", 2: "1", 3: "2", 4: "3", 5: "4", 6: "5", 7: "6", 8: "7", 9: "8", 10: "9", 11: "0",
+              14: "Backspace", 15: "Tab",
+              16: "Q", 17: "W", 18: "E", 19: "R", 20: "T", 21: "Y", 22: "U", 23: "I", 24: "O", 25: "P",
+              28: "Enter", 29: "Ctrl", 30: "A", 31: "S", 32: "D", 33: "F", 34: "G", 35: "H", 36: "J", 37: "K", 38: "L",
+              42: "Shift", 44: "Z", 45: "X", 46: "C", 47: "V", 48: "B", 49: "N", 50: "M",
+              56: "Alt", 57: "Space", 58: "Caps Lock",
+              59: "F1", 60: "F2", 61: "F3", 62: "F4", 63: "F5", 64: "F6", 65: "F7", 66: "F8", 67: "F9", 68: "F10",
+              71: "Home", 72: "Up", 73: "Page Up", 75: "Left", 77: "Right", 79: "End", 80: "Down", 81: "Page Down", 82: "Insert", 83: "Delete"
+            };
+            const text = scanCodeNames[scanCode] || "Key";
             const bytes = new TextEncoder().encode(text);
             const heap = new Uint8Array(this.memory.buffer);
             const toWrite = Math.min(bytes.length, cchSize - 1);
@@ -3443,36 +3505,99 @@ export class Win32WasmRuntime {
         // --- Chapter 10: Menus, Accelerators & Resources ---
         DestroyWindow: (hWnd: number) => (DestroyWindow(hWnd) ? 1 : 0),
 
-        CreateMenu: () => ++this.nextGdiHandle,
-        CreatePopupMenu: () => ++this.nextGdiHandle,
+        CreateMenu: () => kernel.CreateMenu(),
+        CreatePopupMenu: () => kernel.CreatePopupMenu(),
 
         AppendMenuA: (
-          _hMenu: number,
-          _uFlags: number,
-          _uIDNewItem: number,
-          _lpNewItem: number
-        ) => 1,
+          hMenu: number,
+          uFlags: number,
+          uIDNewItem: number,
+          lpNewItem: number
+        ) => {
+          const MF_BITMAP = 0x00000004;
+          let text = "";
+          if (!(uFlags & MF_BITMAP) && lpNewItem && this.memory) {
+            text = this.readCString(lpNewItem);
+          }
+          return kernel.AppendMenu(hMenu, uFlags, uIDNewItem, text) ? 1 : 0;
+        },
+        AppendMenuW: (
+          hMenu: number,
+          uFlags: number,
+          uIDNewItem: number,
+          lpNewItem: number
+        ) => {
+          const MF_BITMAP = 0x00000004;
+          let text = "";
+          if (!(uFlags & MF_BITMAP) && lpNewItem && this.memory) {
+            text = this.readWideString(lpNewItem);
+          }
+          return kernel.AppendMenu(hMenu, uFlags, uIDNewItem, text) ? 1 : 0;
+        },
         AppendMenu: (...args: any[]) => (win32Imports as any).AppendMenuA(...args),
 
         InsertMenuA: (
-          _hMenu: number,
-          _uPosition: number,
-          _uFlags: number,
-          _uIDNewItem: number,
-          _lpNewItem: number
-        ) => 1,
+          hMenu: number,
+          uPosition: number,
+          uFlags: number,
+          uIDNewItem: number,
+          lpNewItem: number
+        ) => {
+          const MF_BITMAP = 0x00000004;
+          let text = "";
+          if (!(uFlags & MF_BITMAP) && lpNewItem && this.memory) {
+            text = this.readCString(lpNewItem);
+          }
+          return kernel.InsertMenu(hMenu, uPosition, uFlags, uIDNewItem, text) ? 1 : 0;
+        },
+        InsertMenuW: (
+          hMenu: number,
+          uPosition: number,
+          uFlags: number,
+          uIDNewItem: number,
+          lpNewItem: number
+        ) => {
+          const MF_BITMAP = 0x00000004;
+          let text = "";
+          if (!(uFlags & MF_BITMAP) && lpNewItem && this.memory) {
+            text = this.readWideString(lpNewItem);
+          }
+          return kernel.InsertMenu(hMenu, uPosition, uFlags, uIDNewItem, text) ? 1 : 0;
+        },
         InsertMenu: (...args: any[]) => (win32Imports as any).InsertMenuA(...args),
 
         ModifyMenuA: (
-          _hMnu: number,
-          _uPosition: number,
-          _uFlags: number,
-          _uIDNewItem: number,
-          _lpItem: number
-        ) => 1,
+          hMenu: number,
+          uPosition: number,
+          uFlags: number,
+          uIDNewItem: number,
+          lpItem: number
+        ) => {
+          const MF_BITMAP = 0x00000004;
+          let text = "";
+          if (!(uFlags & MF_BITMAP) && lpItem && this.memory) {
+            text = this.readCString(lpItem);
+          }
+          return kernel.ModifyMenu(hMenu, uPosition, uFlags, uIDNewItem, text) ? 1 : 0;
+        },
+        ModifyMenuW: (
+          hMenu: number,
+          uPosition: number,
+          uFlags: number,
+          uIDNewItem: number,
+          lpItem: number
+        ) => {
+          const MF_BITMAP = 0x00000004;
+          let text = "";
+          if (!(uFlags & MF_BITMAP) && lpItem && this.memory) {
+            text = this.readWideString(lpItem);
+          }
+          return kernel.ModifyMenu(hMenu, uPosition, uFlags, uIDNewItem, text) ? 1 : 0;
+        },
         ModifyMenu: (...args: any[]) => (win32Imports as any).ModifyMenuA(...args),
 
-        DeleteMenu: (_hMenu: number, _uPosition: number, _uFlags: number) => 1,
+        DeleteMenu: (hMenu: number, uPosition: number, uFlags: number) =>
+          kernel.DeleteMenu(hMenu, uPosition, uFlags) ? 1 : 0,
         DestroyMenu: (hMenu: number) => (kernel.DestroyMenu(hMenu) ? 1 : 0),
 
         SetMenu: (hWnd: number, hMenu: number) => {

@@ -261,6 +261,128 @@ async function runWasmTests() {
     console.log(`✓ Standalone C++ MFC app verified: HWND ${mfcWin.hwnd}, state updated to "${updatedClicks}"`);
   }
 
+  // Test 14: Verifying Petzold WhatSize.wasm formatted output
+  const whatSizePath = "public/wasm-demo/WhatSize.wasm";
+  if (fs.existsSync(whatSizePath)) {
+    console.log("Test 14: Verifying Petzold WhatSize.wasm formatted output...");
+    const whatSizeBytes = fs.readFileSync(whatSizePath);
+    const printedLines: string[] = [];
+    class WhatSizeRuntime extends Win32WasmRuntime {
+      getImportObject() {
+        const obj = super.getImportObject();
+        const origTextOutA = obj.win32.TextOutA as any;
+        obj.win32.TextOutA = (hdcHandle: number, x: number, y: number, lpString: number, c: number) => {
+          const text = this.readCString(lpString);
+          printedLines.push(text);
+          return origTextOutA(hdcHandle, x, y, lpString, c);
+        };
+        return obj;
+      }
+    }
+    const wsRuntime = new WhatSizeRuntime();
+    await wsRuntime.instantiate(whatSizeBytes);
+    wsRuntime.runWinMain(1);
+    const wsWin = kernel.windows.find((w) => w.title?.includes("What Size"));
+    if (!wsWin) throw new Error("WhatSize window not found");
+    // Verify that format strings were converted to actual numbers
+    const formatLeak = printedLines.some((line) => line.includes("%-20s") || line.includes("%7d"));
+    if (formatLeak) {
+      throw new Error(`WhatSize.wasm leaked raw printf formats: ${JSON.stringify(printedLines)}`);
+    }
+    const hasMappedModes = printedLines.some((line) => line.includes("TEXT (pixels)"));
+    if (!hasMappedModes) {
+      throw new Error(`WhatSize.wasm missing expected formatted mapping modes: ${JSON.stringify(printedLines)}`);
+    }
+    console.log("✓ Petzold WhatSize.wasm verified: numbers properly formatted without printf leaks");
+  }
+
+  // Test 15: Verifying Chapter 06 Keyboard Demos (KeyView1 & Typer)
+  const keyView1Path = "public/wasm-demo/KeyView1.wasm";
+  if (fs.existsSync(keyView1Path)) {
+    console.log("Test 15: Verifying Chapter 06 Keyboard Demos (KeyView1)...");
+    const kv1Bytes = fs.readFileSync(keyView1Path);
+    const keyLines: string[] = [];
+    class KeyViewRuntime extends Win32WasmRuntime {
+      getImportObject() {
+        const obj = super.getImportObject();
+        const origTextOutA = obj.win32.TextOutA as any;
+        obj.win32.TextOutA = (hdcHandle: number, x: number, y: number, lpString: number, c: number) => {
+          const text = this.readCString(lpString);
+          if (text.startsWith("WM_")) keyLines.push(text);
+          return origTextOutA(hdcHandle, x, y, lpString, c);
+        };
+        return obj;
+      }
+    }
+    const kvRuntime = new KeyViewRuntime();
+    await kvRuntime.instantiate(kv1Bytes);
+    kvRuntime.runWinMain(1);
+    const kvWin = kernel.windows.find((w) => w.title?.includes("Keyboard Message Viewer #1"));
+    if (!kvWin) throw new Error("KeyView1 window not found");
+    SendMessage(kvWin.hwnd, 0x0100 /* WM_KEYDOWN */, 65, 0x001E0001);
+    SendMessage(kvWin.hwnd, 0x0102 /* WM_CHAR */, 97, 0x001E0001);
+    SendMessage(kvWin.hwnd, 0x0101 /* WM_KEYUP */, 65, 0xC01E0001);
+    SendMessage(kvWin.hwnd, 0x000F /* WM_PAINT */, 0, 0);
+
+    const hasKeyDown = keyLines.some((l) => l.includes("WM_KEYDOWN") && l.includes("65"));
+    const hasChar = keyLines.some((l) => l.includes("WM_CHAR") && l.includes("0x0061"));
+    const hasKeyUp = keyLines.some((l) => l.includes("WM_KEYUP") && l.includes("65"));
+    if (!hasKeyDown || !hasChar || !hasKeyUp) {
+      throw new Error(`KeyView1 failed to display keyboard messages: ${JSON.stringify(keyLines)}`);
+    }
+    console.log("✓ KeyView1 verified: WM_KEYDOWN, WM_CHAR, WM_KEYUP correctly tracked and rendered");
+  }
+
+  const drumPath = "public/wasm-demo/Drum.wasm";
+  const kbmidiPath = "public/wasm-demo/KBMidi.wasm";
+  if (fs.existsSync(drumPath) && fs.existsSync(kbmidiPath)) {
+    console.log("Test 16: Verifying Chapter 22 Multimedia Demos (Drum & KBMidi)...");
+    const drumBytes = fs.readFileSync(drumPath);
+    let drumRenderCount = 0;
+    class DrumRuntime extends Win32WasmRuntime {
+      getImportObject() {
+        const obj = super.getImportObject();
+        const origTextOutA = obj.win32.TextOutA as any;
+        obj.win32.TextOutA = (hdcHandle: number, x: number, y: number, lpString: number, c: number) => {
+          const text = this.readCString(lpString);
+          if (text.includes("Bass Drum") || text.includes("Side Stick")) {
+            drumRenderCount++;
+          }
+          return origTextOutA(hdcHandle, x, y, lpString, c);
+        };
+        return obj;
+      }
+    }
+    const drumRt = new DrumRuntime();
+    await drumRt.instantiate(drumBytes);
+    drumRt.runWinMain(1);
+    const drumWin = kernel.windows.find((w) => w.title?.includes("Drum"));
+    if (!drumWin) throw new Error("Drum window not found");
+    SendMessage(drumWin.hwnd, 0x000F /* WM_PAINT */, 0, 0);
+    if (drumRenderCount === 0) {
+      throw new Error("Drum failed to render instrument labels with TA_UPDATECP");
+    }
+    console.log(`✓ Drum verified: ${drumRenderCount} labels rendered with TA_UPDATECP`);
+
+    const kbBytes = fs.readFileSync(kbmidiPath);
+    const kbRt = new Win32WasmRuntime();
+    await kbRt.instantiate(kbBytes);
+    kbRt.runWinMain(2);
+    const kbWin = kernel.windows.find((w) => w.title?.includes("Keyboard MIDI"));
+    if (!kbWin) throw new Error("KBMidi window not found");
+    if (!kbWin.hMenu) throw new Error("KBMidi window menu not created");
+    const menuRec = kernel.GetMenuRecord(kbWin.hMenu);
+    if (!menuRec || menuRec.items.length === 0) {
+      throw new Error("KBMidi dynamic menu has 0 top-level items");
+    }
+    // Open MIDI device via command
+    SendMessage(kbWin.hwnd, 0x0111 /* WM_COMMAND */, 0x100 /* IDM_OPEN */, 0);
+    // Send key down with scan code 30 ('A')
+    SendMessage(kbWin.hwnd, 0x0100 /* WM_KEYDOWN */, 65, 30 << 16);
+    SendMessage(kbWin.hwnd, 0x0101 /* WM_KEYUP */, 65, (30 << 16) | (1 << 30) | (1 << 31));
+    console.log(`✓ KBMidi verified: dynamic menu (${menuRec.items.length} popups) and scan code key events processed`);
+  }
+
   console.log("\nALL WIN32 WASM BRIDGE TESTS (STEPS 1-3) PASSED! ⚡🎉");
   process.exit(0);
 }

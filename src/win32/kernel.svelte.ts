@@ -54,6 +54,8 @@ import {
   MF_GRAYED,
   MF_CHECKED,
   MF_UNCHECKED,
+  MF_BYCOMMAND,
+  MF_BYPOSITION,
   EN_CHANGE,
   IDOK,
   IDCANCEL,
@@ -1362,9 +1364,116 @@ export class Win32Kernel {
     return win?.hMenu ?? null;
   }
 
+  public InsertMenu(
+    hMenu: HMENU,
+    uPosition: number,
+    uFlags: number,
+    uIDNewItem: number | HMENU,
+    lpNewItem: string,
+    shortcut?: string
+  ): boolean {
+    const record = this.GetMenuRecord(hMenu);
+    if (!record) return false;
+
+    const isSeparator = (uFlags & MF_SEPARATOR) === MF_SEPARATOR;
+    const isPopup = (uFlags & MF_POPUP) === MF_POPUP;
+
+    const item: MenuItem = {
+      id: isPopup ? 0 : (uIDNewItem as number),
+      text: lpNewItem,
+      flags: uFlags,
+      shortcut,
+      checked: (uFlags & MF_CHECKED) === MF_CHECKED,
+      disabled: (uFlags & MF_DISABLED) === MF_DISABLED || (uFlags & MF_GRAYED) === MF_GRAYED,
+      isSeparator,
+      hSubMenu: isPopup ? (uIDNewItem as HMENU) : undefined,
+    };
+
+    if ((uFlags & MF_BYPOSITION) === MF_BYPOSITION) {
+      if (uPosition >= 0 && uPosition < record.items.length) {
+        record.items.splice(uPosition, 0, item);
+      } else {
+        record.items.push(item);
+      }
+    } else {
+      const idx = record.items.findIndex((i) => i.id === uPosition);
+      if (idx !== -1) {
+        record.items.splice(idx, 0, item);
+      } else {
+        record.items.push(item);
+      }
+    }
+    return true;
+  }
+
+  public ModifyMenu(
+    hMenu: HMENU,
+    uPosition: number,
+    uFlags: number,
+    uIDNewItem: number | HMENU,
+    lpNewItem: string,
+    shortcut?: string
+  ): boolean {
+    const record = this.GetMenuRecord(hMenu);
+    if (!record) return false;
+
+    const isSeparator = (uFlags & MF_SEPARATOR) === MF_SEPARATOR;
+    const isPopup = (uFlags & MF_POPUP) === MF_POPUP;
+
+    let targetItem: MenuItem | undefined;
+    if ((uFlags & MF_BYPOSITION) === MF_BYPOSITION) {
+      targetItem = record.items[uPosition];
+    } else {
+      targetItem = record.items.find((i) => i.id === uPosition);
+    }
+
+    if (!targetItem) return false;
+    targetItem.id = isPopup ? 0 : (uIDNewItem as number);
+    targetItem.text = lpNewItem;
+    targetItem.flags = uFlags;
+    if (shortcut !== undefined) targetItem.shortcut = shortcut;
+    targetItem.checked = (uFlags & MF_CHECKED) === MF_CHECKED;
+    targetItem.disabled = (uFlags & MF_DISABLED) === MF_DISABLED || (uFlags & MF_GRAYED) === MF_GRAYED;
+    targetItem.isSeparator = isSeparator;
+    targetItem.hSubMenu = isPopup ? (uIDNewItem as HMENU) : undefined;
+    return true;
+  }
+
+  public DeleteMenu(hMenu: HMENU, uPosition: number, uFlags: number): boolean {
+    const record = this.GetMenuRecord(hMenu);
+    if (!record) return false;
+
+    let idx = -1;
+    if ((uFlags & MF_BYPOSITION) === MF_BYPOSITION) {
+      idx = uPosition;
+    } else {
+      idx = record.items.findIndex((i) => i.id === uPosition);
+    }
+
+    if (idx >= 0 && idx < record.items.length) {
+      const removed = record.items.splice(idx, 1)[0];
+      if (removed?.hSubMenu) {
+        this.DestroyMenu(removed.hSubMenu);
+      }
+      return true;
+    }
+    return false;
+  }
+
   public CheckMenuItem(hMenu: HMENU, uIDCheckItem: number, uCheck: number): boolean {
     const record = this.GetMenuRecord(hMenu);
     if (!record) return false;
+
+    const isByPosition = (uCheck & MF_BYPOSITION) === MF_BYPOSITION;
+    if (isByPosition) {
+      const item = record.items[uIDCheckItem];
+      if (item) {
+        item.checked = (uCheck & MF_CHECKED) === MF_CHECKED;
+        return true;
+      }
+      return false;
+    }
+
     const item = record.items.find((i) => i.id === uIDCheckItem);
     if (item) {
       item.checked = (uCheck & MF_CHECKED) === MF_CHECKED;
@@ -1381,6 +1490,17 @@ export class Win32Kernel {
   public EnableMenuItem(hMenu: HMENU, uIDEnableItem: number, uEnable: number): boolean {
     const record = this.GetMenuRecord(hMenu);
     if (!record) return false;
+
+    const isByPosition = (uEnable & MF_BYPOSITION) === MF_BYPOSITION;
+    if (isByPosition) {
+      const item = record.items[uIDEnableItem];
+      if (item) {
+        item.disabled = (uEnable & MF_DISABLED) === MF_DISABLED || (uEnable & MF_GRAYED) === MF_GRAYED;
+        return true;
+      }
+      return false;
+    }
+
     const item = record.items.find((i) => i.id === uIDEnableItem);
     if (item) {
       item.disabled = (uEnable & MF_DISABLED) === MF_DISABLED || (uEnable & MF_GRAYED) === MF_GRAYED;
@@ -1585,9 +1705,9 @@ export const AdjustWindowRect = (
 export const GetSystemMetrics = (nIndex: number): number => {
   switch (nIndex) {
     case 0: // SM_CXSCREEN
-      return typeof window !== "undefined" ? window.innerWidth : 1024;
+      return (typeof window !== "undefined" && window.innerWidth) || 1024;
     case 1: // SM_CYSCREEN
-      return typeof window !== "undefined" ? window.innerHeight : 768;
+      return (typeof window !== "undefined" && window.innerHeight) || 768;
     case 2: // SM_CXVSCROLL
     case 3: // SM_CYHSCROLL
       return 16;
@@ -1611,9 +1731,9 @@ export const GetSystemMetrics = (nIndex: number): number => {
     case 15: // SM_CYMENU
       return 19;
     case 16: // SM_CXFULLSCREEN
-      return typeof window !== "undefined" ? window.innerWidth : 1024;
+      return (typeof window !== "undefined" && window.innerWidth) || 1024;
     case 17: // SM_CYFULLSCREEN
-      return typeof window !== "undefined" ? window.innerHeight - 28 : 740;
+      return (typeof window !== "undefined" && window.innerHeight ? window.innerHeight - 28 : 740);
     case 19: // SM_MOUSEPRESENT
       return 1;
     case 20: // SM_CYVSCROLL
@@ -1646,6 +1766,14 @@ export const GetSystemMetrics = (nIndex: number): number => {
     case 54: // SM_CXMENUSIZE
     case 55: // SM_CYMENUSIZE
       return 18;
+    case 59: // SM_CXMAXTRACK
+      return (typeof window !== "undefined" && window.innerWidth) || 1024;
+    case 60: // SM_CYMAXTRACK
+      return (typeof window !== "undefined" && window.innerHeight) || 768;
+    case 61: // SM_CXMAXIMIZED
+      return (typeof window !== "undefined" && window.innerWidth) || 1024;
+    case 62: // SM_CYMAXIMIZED
+      return (typeof window !== "undefined" && window.innerHeight ? window.innerHeight - 28 : 740);
     case 80: // SM_CMONITORS
       return 1;
     case 81: // SM_SAMEDISPLAYFORMAT
@@ -1690,6 +1818,24 @@ export const AppendMenu = (
   lpNewItem: string,
   shortcut?: string
 ) => kernel.AppendMenu(hMenu, uFlags, uIDNewItem, lpNewItem, shortcut);
+export const InsertMenu = (
+  hMenu: HMENU,
+  uPosition: number,
+  uFlags: number,
+  uIDNewItem: number | HMENU,
+  lpNewItem: string,
+  shortcut?: string
+) => kernel.InsertMenu(hMenu, uPosition, uFlags, uIDNewItem, lpNewItem, shortcut);
+export const ModifyMenu = (
+  hMenu: HMENU,
+  uPosition: number,
+  uFlags: number,
+  uIDNewItem: number | HMENU,
+  lpNewItem: string,
+  shortcut?: string
+) => kernel.ModifyMenu(hMenu, uPosition, uFlags, uIDNewItem, lpNewItem, shortcut);
+export const DeleteMenu = (hMenu: HMENU, uPosition: number, uFlags: number) =>
+  kernel.DeleteMenu(hMenu, uPosition, uFlags);
 export const SetMenu = (hwnd: HWND, hMenu: HMENU | null) => kernel.SetMenu(hwnd, hMenu);
 export const GetMenu = (hwnd: HWND) => kernel.GetMenu(hwnd);
 export const CheckMenuItem = (hMenu: HMENU, id: number, check: number) =>
