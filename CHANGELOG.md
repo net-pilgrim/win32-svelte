@@ -5,6 +5,11 @@ All notable changes to the `win32-svelte` project will be documented in this fil
 ## [Unreleased] - 2026-11-15
 
 ### Added
+- **Choose Font Common Dialog**: Implemented the `commdlg` font selector (`ChooseFont`) as a Win32-style common dialog (`FontDialogModal.svelte`) with font family, style, size, strikeout/underline effects and a live sample preview.
+- **`ChooseFont` API**: Added `kernel.ChooseFont` (Promise-based, matching `GetOpenFileName`/`ShowPrintDialog`), exported from `src/win32/dialog.ts` and `src/win32/index.ts`, with canvas-based font-family detection and point-size conversion helpers in `src/win32/ui/font_dialog_utils.ts`.
+- **Wasm Bridge Font Dialog**: Replaced the silent `ChooseFontA`/`ChooseFontW` stubs with real `CHOOSEFONT`/`LOGFONT` marshalling honouring `CF_INITTOLOGFONTSTRUCT`, `CF_EFFECTS` and `CF_LIMITSIZE`, writing the chosen font back to guest memory.
+- **Control Gallery Font Demo**: Added a Font group on the Effects tab with a live "Choose Font..." button applying the selection to a sample label.
+- Added `src/win32/__tests__/font_dialog.test.ts` to the `npm test` chain.
 - **Flat Start Menu Presentation**: De-beveled start menu entries in `StartMenu.svelte` to match authentic Windows 95/Windows 98 behavior, eliminating 3D button bevels (`box-shadow: none`) on menu buttons and submenu items.
 - **`flat` Prop on `StartMenu`**: Added optional `flat` boolean prop (default `true`) allowing applications to choose between authentic flat menu entries and legacy beveled buttons.
 - **CSS Variable Theming**: Introduced customizable CSS custom properties (`--win98-menu-bg`, `--win98-menu-color`, `--win98-highlight`, `--win98-highlight-text`, `--win98-menu-disabled`, `--win98-focus-outline`, `--win98-font-family`).
