@@ -3,11 +3,10 @@
   import Desktop from "./win32/ui/Desktop.svelte";
   import { kernel, vfs } from "./win32/kernel.svelte";
   import { Win32WasmRuntime } from "./win32/wasm_bridge";
-  import { StartMinesweeper } from "./samples/minesweeper";
-  import { StartPaintDemo } from "./samples/paint_demo";
   import { StartWasmApp } from "./samples/wasm_app";
   import { StartExplorer } from "./samples/explorer";
   import { StartMetafileViewer } from "./samples/metafile_viewer";
+  import { launchStartupApps } from "./win32/startup";
 
   onMount(() => {
     if (typeof window !== "undefined") {
@@ -21,15 +20,8 @@
       };
     }
 
-    // Launch default windows on startup
-    StartMinesweeper(110, 40);
-    StartPaintDemo(350, 40);
-    StartWasmApp(260, 90);
-    StartWasmApp(160, 120, "/wasm-demo/clock.wasm");
-    StartWasmApp(130, 50, "/wasm-demo/winemine.wasm");
-    import("./samples/regedit").then(({ StartRegEdit }) => {
-      StartRegEdit(200, 70);
-    });
+    // Launch applications configured in startmenu.json and Windows Registry Run keys
+    launchStartupApps();
   });
 </script>
 

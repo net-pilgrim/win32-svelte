@@ -13,6 +13,21 @@
         "params": { "x": 160, "y": 70 }
       },
       {
+        "id": "startup",
+        "label": "StartUp",
+        "mnemonic": "U",
+        "icon": "🚀",
+        "items": [
+          {
+            "id": "startup_wasm",
+            "label": "WASM C App",
+            "icon": "⚡",
+            "action": "wasm",
+            "params": { "x": 260, "y": 90 }
+          }
+        ]
+      },
+      {
         "id": "wasm_demo",
         "label": "WASM Demo",
         "icon": "⚡",

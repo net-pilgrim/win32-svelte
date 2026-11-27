@@ -93,6 +93,7 @@ export interface WasmBridgeOptions {
   initialWidth?: number;
   initialHeight?: number;
   resourceBundle?: ResourceBundle;
+  appId?: string;
 }
 
 export interface WasmStringLogEntry {
@@ -1169,6 +1170,9 @@ export class Win32WasmRuntime {
           // For top-level C windows or custom child windows, attach canvas support for GDI drawing
           const win = kernel.getWindow(hwnd);
           if (win) {
+            if (this.options.appId && win.parentHwnd === null) {
+              win.appId = this.options.appId;
+            }
             if (this.options.resourceBundle) {
               win.resourceBundle = this.options.resourceBundle;
             }
@@ -1314,6 +1318,9 @@ export class Win32WasmRuntime {
 
           const win = kernel.getWindow(hwnd);
           if (win) {
+            if (this.options.appId && win.parentHwnd === null) {
+              win.appId = this.options.appId;
+            }
             if (this.options.resourceBundle) {
               win.resourceBundle = this.options.resourceBundle;
             }
@@ -1709,6 +1716,17 @@ export class Win32WasmRuntime {
         SetActiveWindow: (hwnd: number) => {
           kernel.BringToFront(hwnd);
           return hwnd;
+        },
+
+        FindWindowA: (lpClassName: number, lpWindowName: number) => {
+          const className = lpClassName ? this.readCString(lpClassName, "FindWindowA:className") : null;
+          const windowName = lpWindowName ? this.readCString(lpWindowName, "FindWindowA:windowName") : null;
+          return kernel.FindWindow(className, windowName) || 0;
+        },
+        FindWindowW: (lpClassName: number, lpWindowName: number) => {
+          const className = lpClassName ? this.readWideString(lpClassName, "FindWindowW:className") : null;
+          const windowName = lpWindowName ? this.readWideString(lpWindowName, "FindWindowW:windowName") : null;
+          return kernel.FindWindow(className, windowName) || 0;
         },
 
         SetWindowTextA: (hwnd: number, lpString: number) => {
@@ -7434,6 +7452,9 @@ export class Win32WasmRuntime {
     this.gameHwnd = hwnd;
     const win = kernel.getWindow(hwnd);
     if (win) {
+      if (this.options.appId) {
+        win.appId = this.options.appId;
+      }
       win.customProps = {
         hasCanvas: true,
         canvasWidth: 640,

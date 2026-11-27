@@ -93,6 +93,33 @@
     };
   });
 
+  // Single-instance lock: if an instance of this top-level app window is already running, switch to it and close duplicate
+  $effect(() => {
+    untrack(() => {
+      if (
+        win.parentHwnd === null &&
+        !win.ownerHwnd &&
+        win.className &&
+        win.className !== "#32770" &&
+        win.className !== "STATIC" &&
+        win.className !== "BUTTON" &&
+        win.className !== "EDIT"
+      ) {
+        const existing = kernel.windows.find(
+          (w) =>
+            w.hwnd !== win.hwnd &&
+            w.parentHwnd === null &&
+            !w.ownerHwnd &&
+            (w.className === win.className || (win.title && w.title === win.title))
+        );
+        if (existing) {
+          kernel.SwitchToWindow(existing.hwnd);
+          kernel.DestroyWindow(win.hwnd);
+        }
+      }
+    });
+  });
+
   function onCanvasPointerDown(e: PointerEvent) {
     onFocusWindow();
     let msg = WM_LBUTTONDOWN;

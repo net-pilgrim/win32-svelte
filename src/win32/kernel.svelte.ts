@@ -971,6 +971,35 @@ export class Win32Kernel {
     this.activeHwnd = hwnd;
   }
 
+  public FindWindow(className?: string | null, windowName?: string | null): HWND | null {
+    const win = this.windows.find((w) => {
+      if (w.parentHwnd !== null) return false;
+      if (className && w.className !== className) return false;
+      if (windowName && w.title !== windowName) return false;
+      return true;
+    });
+    return win ? win.hwnd : null;
+  }
+
+  public FindWindowByAppId(appId: string): HWND | null {
+    const win = this.windows.find(
+      (w) => w.parentHwnd === null && (w.appId === appId || w.className === appId)
+    );
+    return win ? win.hwnd : null;
+  }
+
+  public SwitchToWindow(hwnd: HWND): boolean {
+    const win = this.getWindow(hwnd);
+    if (!win) return false;
+    win.visible = true;
+    if (win.minimized) {
+      win.minimized = false;
+    }
+    this.BringToFront(hwnd);
+    this.activeHwnd = hwnd;
+    return true;
+  }
+
   public EnableWindow(hwnd: HWND, enable: boolean): boolean {
     const win = this.getWindow(hwnd);
     if (!win) return false;
@@ -1958,6 +1987,28 @@ export * from "./odbc";
 
 // Win32 Windows Registry Subsystem (advapi32.dll / winreg.h)
 export * from "./registry";
+
+export function FindWindow(className?: string | null, windowName?: string | null): HWND | null {
+  return kernel.FindWindow(className, windowName);
+}
+
+export function FindWindowByAppId(appId: string): HWND | null {
+  return kernel.FindWindowByAppId(appId);
+}
+
+export function SwitchToWindow(hwnd: HWND): boolean {
+  return kernel.SwitchToWindow(hwnd);
+}
+
+export function activateExistingApp(appId: string): HWND | null {
+  const existing = kernel.FindWindowByAppId(appId) || kernel.FindWindow(appId, null);
+  if (existing) {
+    kernel.SwitchToWindow(existing);
+    return existing;
+  }
+  return null;
+}
+
 
 
 

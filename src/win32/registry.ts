@@ -5,6 +5,29 @@
  * with in-memory fallback for non-browser/Node.js/SSR environments.
  */
 
+export {
+  HKEY_CLASSES_ROOT,
+  HKEY_CURRENT_USER,
+  HKEY_LOCAL_MACHINE,
+  HKEY_USERS,
+  HKEY_PERFORMANCE_DATA,
+  HKEY_CURRENT_CONFIG,
+  HKEY_DYN_DATA,
+  REG_NONE,
+  REG_SZ,
+  REG_EXPAND_SZ,
+  REG_BINARY,
+  REG_DWORD,
+  REG_MULTI_SZ,
+  REG_QWORD,
+  ERROR_SUCCESS,
+  ERROR_FILE_NOT_FOUND,
+  ERROR_INVALID_HANDLE,
+  ERROR_ACCESS_DENIED,
+  ERROR_MORE_DATA,
+  ERROR_NO_MORE_ITEMS,
+} from "./constants";
+
 import {
   HKEY_CLASSES_ROOT,
   HKEY_CURRENT_USER,
@@ -387,6 +410,7 @@ export class Win32Registry {
     setSeed("HKEY_LOCAL_MACHINE", "Software\\Microsoft\\Windows\\CurrentVersion", "RegisteredOwner", REG_SZ, "Retro Enthusiast");
     setSeed("HKEY_LOCAL_MACHINE", "Software\\Microsoft\\Windows\\CurrentVersion", "RegisteredOrganization", REG_SZ, "win32-svelte");
     setSeed("HKEY_LOCAL_MACHINE", "Software\\Microsoft\\Windows\\CurrentVersion", "SystemRoot", REG_SZ, "C:\\WINDOWS");
+    setSeed("HKEY_LOCAL_MACHINE", "Software\\Microsoft\\Windows\\CurrentVersion\\Run", "WasmApp", REG_SZ, "wasm:sample_app.wasm");
 
     setSeed("HKEY_LOCAL_MACHINE", "System\\CurrentControlSet\\Control", "ComputerName", REG_SZ, "WIN98-SVELTE");
 

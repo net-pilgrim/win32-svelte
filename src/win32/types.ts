@@ -197,6 +197,7 @@ export interface WindowRecord {
   className: string;
   wndProc: WndProc;
   title: string;
+  appId?: string;
   x: number;
   y: number;
   width: number;

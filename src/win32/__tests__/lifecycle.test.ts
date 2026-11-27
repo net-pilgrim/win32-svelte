@@ -72,6 +72,26 @@ async function runTests() {
   // Cleanup
   DestroyWindow(inspector);
 
+  // Test 4: Single-instance window switching & activation
+  console.log("Test 4: SwitchToWindow restores minimized window and brings to foreground...");
+  kernel.RegisterClassEx({
+    className: "TestAppLock",
+    lpfnWndProc: () => 0,
+  });
+  const appHwnd = kernel.CreateWindowEx(0, "TestAppLock", "Test App Window", 0, 100, 100, 300, 200, null, null);
+  const win = kernel.getWindow(appHwnd)!;
+  win.minimized = true;
+  assert.equal(win.minimized, true, "Window is initially minimized");
+
+  const switched = kernel.SwitchToWindow(appHwnd);
+  assert.equal(switched, true, "SwitchToWindow returned true");
+  assert.equal(win.minimized, false, "Window was unminimized");
+  assert.equal(win.visible, true, "Window is visible");
+  assert.equal(kernel.activeHwnd, appHwnd, "Switched window is the active window");
+  assert.equal(kernel.FindWindow("TestAppLock", null), appHwnd, "FindWindow found window by class");
+  DestroyWindow(appHwnd);
+  console.log("✓ SwitchToWindow unminimizes and brings window to front");
+
   console.log("\nALL WINDOW LIFECYCLE & RESOURCE LEAK TESTS PASSED! 🛡️⚡🎉");
   process.exit(0);
 }
