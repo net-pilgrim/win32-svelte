@@ -131,6 +131,8 @@ export {
   LoadString,
   MapDialogRect,
   RegisterResourceBundle,
+  GetOpenFileName,
+  GetSaveFileName,
 } from "./dialog";
 
 // Virtual File System (Origin Private File System)

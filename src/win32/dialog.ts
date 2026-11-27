@@ -11,6 +11,8 @@ import {
   CreatePopupMenu,
   AppendMenu,
   SetMenu,
+  GetOpenFileName,
+  GetSaveFileName,
 } from "./kernel.svelte.ts";
 
 import {
@@ -597,3 +599,5 @@ export function LoadString(
   }
   return "";
 }
+
+export { GetOpenFileName, GetSaveFileName };

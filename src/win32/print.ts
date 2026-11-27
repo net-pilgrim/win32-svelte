@@ -461,15 +461,28 @@ export function StartPrintPreview(
  * Displays the standard Windows 98 Print Dialog.
  */
 export function PrintDlg(lppd: PRINTDLG): Promise<boolean> {
+  const k = getKernel();
+  if (!k) {
+    return Promise.resolve(true);
+  }
+
+  if (typeof k.ShowPrintDialog === "function") {
+    return k.ShowPrintDialog({
+      hwndOwner: lppd.hwndOwner,
+      printerName: lppd.printerName,
+      nCopies: lppd.nCopies,
+      flags: lppd.flags,
+    }).then((res: any) => {
+      if (res && res.confirmed) {
+        lppd.printerName = res.printerName;
+        lppd.nCopies = res.nCopies;
+        return true;
+      }
+      return false;
+    });
+  }
+
   return new Promise((resolve) => {
-    const k = getKernel();
-    if (!k) {
-      resolve(true);
-      return;
-    }
-
-
-
     const CLASS_NAME = "Win32PrintDialogBox";
     const IDD_PRINTER_COMBO = 1001;
     const IDD_RADIO_ALL = 1002;

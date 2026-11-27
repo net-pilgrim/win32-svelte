@@ -113,6 +113,10 @@ import type {
   MenuRecord,
   MenuItem,
   MessageBoxOptions,
+  OpenFileNameOptions,
+  ActiveFileDialog,
+  PrintDlgOptions,
+  ActivePrintDialog,
   DropFileInfo,
   HDROP,
   POINT,
@@ -136,6 +140,8 @@ export class Win32Kernel {
   public menus = $state<MenuRecord[]>([]);
   public activeHwnd = $state<HWND | null>(null);
   public activeMessageBox = $state<MessageBoxOptions | null>(null);
+  public activeFileDialog = $state<ActiveFileDialog | null>(null);
+  public activePrintDialog = $state<ActivePrintDialog | null>(null);
   public moduleBundles = new Map<number, ResourceBundle>();
 
   public registerModule(hInstance: number, bundle: ResourceBundle): void {
@@ -506,6 +512,10 @@ export class Win32Kernel {
         }
         case WM_GETTEXT: {
           return (win.controlState.statusParts[0]?.text ?? win.title) as any;
+        }
+        case WM_SIZE: {
+          win.height = 20;
+          return 0;
         }
       }
       return this.DefWindowProc(hwnd, msg, wParam, lParam);
@@ -1247,6 +1257,42 @@ export class Win32Kernel {
     });
   }
 
+  public GetOpenFileName(options: OpenFileNameOptions = {}): Promise<string | null> {
+    return new Promise((resolve) => {
+      this.activeFileDialog = {
+        options: { ...options, isSave: false },
+        resolve: (result) => {
+          this.activeFileDialog = null;
+          resolve(result);
+        },
+      };
+    });
+  }
+
+  public GetSaveFileName(options: OpenFileNameOptions = {}): Promise<string | null> {
+    return new Promise((resolve) => {
+      this.activeFileDialog = {
+        options: { ...options, isSave: true },
+        resolve: (result) => {
+          this.activeFileDialog = null;
+          resolve(result);
+        },
+      };
+    });
+  }
+
+  public ShowPrintDialog(options: PrintDlgOptions = {}): Promise<{ confirmed: boolean; printerName: string; nCopies: number } | null> {
+    return new Promise((resolve) => {
+      this.activePrintDialog = {
+        options,
+        resolve: (result) => {
+          this.activePrintDialog = null;
+          resolve(result);
+        },
+      };
+    });
+  }
+
   public CreateMenu(): HMENU {
     const hMenu = ++this.nextHmenu;
     this.menus.push({ hMenu, items: [] });
@@ -1627,6 +1673,12 @@ export const SetTimer = (hwnd: HWND, id: number, elapse: number, func?: any) =>
 export const KillTimer = (hwnd: HWND, id: number) => kernel.KillTimer(hwnd, id);
 export const MessageBox = (hwnd: HWND | null, text: string, caption: string, type?: number) =>
   kernel.MessageBox(hwnd, text, caption, type);
+export const GetOpenFileName = (options?: OpenFileNameOptions) =>
+  kernel.GetOpenFileName(options);
+export const GetSaveFileName = (options?: OpenFileNameOptions) =>
+  kernel.GetSaveFileName(options);
+export const ShowPrintDialog = (options?: PrintDlgOptions) =>
+  kernel.ShowPrintDialog(options);
 export { MessageBeep, audio } from "./audio";
 export const CreateMenu = () => kernel.CreateMenu();
 export const CreatePopupMenu = () => kernel.CreatePopupMenu();

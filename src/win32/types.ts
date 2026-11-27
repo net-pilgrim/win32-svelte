@@ -243,3 +243,35 @@ export interface MessageBoxOptions {
   type: number;
   resolve: (result: number) => void;
 }
+
+export interface OpenFileNameOptions {
+  hwndOwner?: HWND | null;
+  title?: string;
+  filter?: string;
+  initialDir?: string;
+  fileName?: string;
+  defExt?: string;
+  flags?: number;
+  isSave?: boolean;
+}
+
+export interface ActiveFileDialog {
+  options: OpenFileNameOptions;
+  resolve: (result: string | null) => void;
+}
+
+export interface PrintDlgOptions {
+  hwndOwner?: HWND | null;
+  printerName?: string;
+  nCopies?: number;
+  flags?: number;
+  nFromPage?: number;
+  nToPage?: number;
+  nMinPage?: number;
+  nMaxPage?: number;
+}
+
+export interface ActivePrintDialog {
+  options: PrintDlgOptions;
+  resolve: (result: { confirmed: boolean; printerName: string; nCopies: number } | null) => void;
+}

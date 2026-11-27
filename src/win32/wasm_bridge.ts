@@ -12,6 +12,7 @@ import {
   KillTimer,
   DestroyWindow,
   GetSystemMetrics,
+  vfs,
 } from "./kernel.svelte";
 import {
   BeginPaint,
@@ -350,6 +351,7 @@ export class Win32WasmRuntime {
   private globalAllocMap = new Map<number, { size: number; flags: number; locked: number }>();
   private _cmdLineWPtr: number | null = null;
   private openFileMap = new Map<number, { fileName: string; data: Uint8Array; position: number }>();
+  private fileDataCache = new Map<string, Uint8Array>();
   private metafileMap = new Map<number, any>();
   private static sharedEmfFiles = new Map<string, any>();
   private peekMessageCount = 0;
@@ -1056,17 +1058,23 @@ export class Win32WasmRuntime {
           let actualY = y;
           let actualW = nWidth;
           let actualH = nHeight;
-          if (actualX === CW_USEDEFAULT || actualX === 0x80000000) {
-            actualX = this.options.initialX ?? 120;
-          }
-          if (actualY === CW_USEDEFAULT || actualY === 0x80000000) {
-            actualY = this.options.initialY ?? 80;
-          }
-          if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
-            actualW = this.options.initialWidth ?? 600;
-          }
-          if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
-            actualH = this.options.initialHeight ?? 450;
+          if (!hWndParent) {
+            if (actualX === CW_USEDEFAULT || actualX === 0x80000000) {
+              actualX = this.options.initialX ?? 120;
+            }
+            if (actualY === CW_USEDEFAULT || actualY === 0x80000000) {
+              actualY = this.options.initialY ?? 80;
+            }
+            if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
+              actualW = this.options.initialWidth ?? 600;
+            }
+            if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
+              actualH = this.options.initialHeight ?? 450;
+            }
+          } else {
+            if (className.toUpperCase().includes("STATUS")) {
+              actualH = actualH || 20;
+            }
           }
 
           let actualHMenu = hMenu;
@@ -1188,17 +1196,23 @@ export class Win32WasmRuntime {
           let actualY = y;
           let actualW = nWidth;
           let actualH = nHeight;
-          if (actualX === CW_USEDEFAULT || actualX === 0x80000000) {
-            actualX = this.options.initialX ?? 120;
-          }
-          if (actualY === CW_USEDEFAULT || actualY === 0x80000000) {
-            actualY = this.options.initialY ?? 80;
-          }
-          if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
-            actualW = this.options.initialWidth ?? 600;
-          }
-          if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
-            actualH = this.options.initialHeight ?? 450;
+          if (!hWndParent) {
+            if (actualX === CW_USEDEFAULT || actualX === 0x80000000) {
+              actualX = this.options.initialX ?? 120;
+            }
+            if (actualY === CW_USEDEFAULT || actualY === 0x80000000) {
+              actualY = this.options.initialY ?? 80;
+            }
+            if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
+              actualW = this.options.initialWidth ?? 600;
+            }
+            if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
+              actualH = this.options.initialHeight ?? 450;
+            }
+          } else {
+            if (className.toUpperCase().includes("STATUS")) {
+              actualH = actualH || 20;
+            }
           }
 
           let actualHMenu = hMenu;
@@ -3376,8 +3390,20 @@ export class Win32WasmRuntime {
             return -1; // INVALID_HANDLE_VALUE
           }
           const handle = ++this.nextGdiHandle;
-          const mockContent = "Programming Windows / Wine Notepad\nSample Document Content\n";
-          const data = new TextEncoder().encode(mockContent);
+          if (this.fileDataCache.has(fileName)) {
+            const data = this.fileDataCache.get(fileName)!;
+            this.openFileMap.set(handle, { fileName, data: new Uint8Array(data), position: 0 });
+            return handle;
+          }
+          let content = "Welcome to win32-svelte with Origin Private File System (OPFS)!\r\n\r\n" +
+            "This virtual filesystem is backed by the modern W3C Origin Private File System standard.\r\n" +
+            "Features supported:\r\n" +
+            "• Native Win32 File APIs (CreateFile, ReadFile, WriteFile, FindFirstFile, etc.)\r\n" +
+            "• True persistent browser sandboxed storage (persists across refreshes)\r\n" +
+            "• Full drag-and-drop file import from your real host computer\r\n" +
+            "• File export/download back to your desktop\r\n" +
+            "• Live reactive updates in Windows Explorer\r\n";
+          const data = new TextEncoder().encode(content);
           this.openFileMap.set(handle, { fileName, data, position: 0 });
           return handle;
         },
@@ -4407,12 +4433,16 @@ export class Win32WasmRuntime {
             const src = new Uint8Array(this.memory.buffer, lpBuffer, nNumberOfBytesToWrite);
             const neededLen = file.position + nNumberOfBytesToWrite;
             if (neededLen > file.data.byteLength) {
-              const newBuf = new Uint8Array(neededLen);
+              const newBuf = new Uint8Array(Math.max(neededLen, file.data.byteLength * 2));
               newBuf.set(file.data);
               file.data = newBuf;
             }
             file.data.set(src, file.position);
             file.position += nNumberOfBytesToWrite;
+            this.fileDataCache.set(file.fileName, file.data.subarray(0, file.position));
+            if (typeof document !== "undefined") {
+              vfs.writeBinaryFile(file.fileName, file.data.subarray(0, file.position)).catch(() => {});
+            }
           }
           if (this.memory && lpNumberOfBytesWritten) {
             const view = new DataView(this.memory.buffer);
@@ -4464,12 +4494,16 @@ export class Win32WasmRuntime {
           const win = kernel.getWindow(hWnd);
           if (win) {
             const view = new DataView(this.memory.buffer);
+            const showCmd = view.getUint32(lpwndpl + 8, true);
             const left = view.getInt32(lpwndpl + 28, true);
             const top = view.getInt32(lpwndpl + 32, true);
             const right = view.getInt32(lpwndpl + 36, true);
             const bottom = view.getInt32(lpwndpl + 40, true);
             if (right > left && bottom > top) {
               kernel.MoveWindow(hWnd, left, top, right - left, bottom - top, true);
+            }
+            if (showCmd !== 0) {
+              (win32Imports as any).ShowWindow(hWnd, showCmd || 1);
             }
           }
           return 1;
@@ -4516,25 +4550,59 @@ export class Win32WasmRuntime {
         GetOpenFileNameA: (lpofn: number) => {
           if (this.memory && lpofn) {
             const view = new DataView(this.memory.buffer);
+            const hwndOwner = view.getUint32(lpofn + 4, true);
             const lpstrFilter = view.getUint32(lpofn + 12, true);
-            const lpstrDefExt = view.getUint32(lpofn + 60, true);
-            const filterStr = lpstrFilter ? this.readCString(lpstrFilter).toLowerCase() : "";
-            const defExtStr = lpstrDefExt ? this.readCString(lpstrDefExt).toLowerCase() : "";
-            let defaultFile = "Apollo11.bmp";
-            if (filterStr.includes("emf") || defExtStr.includes("emf")) {
-              defaultFile = "emf8.emf";
-            } else if (filterStr.includes("wmf") || defExtStr.includes("wmf")) {
-              defaultFile = "metafile.wmf";
-            }
             const lpstrFile = view.getUint32(lpofn + 28, true);
             const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
-            if (lpstrFile) {
-              this.writeCString(lpstrFile, defaultFile, nMaxFile);
-            }
             const lpstrFileTitle = view.getUint32(lpofn + 36, true);
             const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            const lpstrInitialDir = view.getUint32(lpofn + 44, true);
+            const lpstrTitle = view.getUint32(lpofn + 48, true);
+            const lpstrDefExt = view.getUint32(lpofn + 60, true);
+
+            const filterStr = lpstrFilter ? this.readCString(lpstrFilter) : "";
+            const defExtStr = lpstrDefExt ? this.readCString(lpstrDefExt) : "";
+            const initialDirStr = lpstrInitialDir ? this.readCString(lpstrInitialDir) : "C:\\My Documents";
+            const titleStr = lpstrTitle ? this.readCString(lpstrTitle) : "Open";
+
+            let defaultFile = "Welcome.txt";
+            if (filterStr.toLowerCase().includes("emf") || defExtStr.toLowerCase().includes("emf")) {
+              defaultFile = "emf8.emf";
+            } else if (filterStr.toLowerCase().includes("bmp")) {
+              defaultFile = "Apollo11.bmp";
+            }
+            const fullPath = `${initialDirStr}\\${defaultFile}`;
+
+            if (lpstrFile) {
+              this.writeCString(lpstrFile, fullPath, nMaxFile);
+            }
             if (lpstrFileTitle) {
               this.writeCString(lpstrFileTitle, defaultFile, nMaxFileTitle);
+            }
+
+            if (typeof document !== "undefined") {
+              kernel.GetOpenFileName({
+                hwndOwner: hwndOwner || null,
+                initialDir: initialDirStr,
+                filter: filterStr,
+                title: titleStr,
+                defExt: defExtStr,
+              }).then(async (chosenPath) => {
+                if (!chosenPath) return;
+                const fileName = chosenPath.replace(/\\/g, "/").split("/").pop() || "Untitled";
+                try {
+                  const text = await vfs.readTextFile(chosenPath);
+                  const editChild = kernel.windows.find(
+                    (w) => w.parentHwnd === hwndOwner && w.className?.toLowerCase() === "edit"
+                  );
+                  if (editChild) {
+                    kernel.SetWindowText(editChild.hwnd, text);
+                  }
+                  kernel.SetWindowText(hwndOwner, `${fileName} - Notepad`);
+                } catch (e) {
+                  console.warn("Failed to open file from dialog:", chosenPath, e);
+                }
+              });
             }
           }
           return 1;
@@ -4544,15 +4612,52 @@ export class Win32WasmRuntime {
         GetSaveFileNameA: (lpofn: number) => {
           if (this.memory && lpofn) {
             const view = new DataView(this.memory.buffer);
+            const hwndOwner = view.getUint32(lpofn + 4, true);
+            const lpstrFilter = view.getUint32(lpofn + 12, true);
             const lpstrFile = view.getUint32(lpofn + 28, true);
             const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
-            if (lpstrFile) {
-              this.writeCString(lpstrFile, "Apollo11.bmp", nMaxFile);
-            }
             const lpstrFileTitle = view.getUint32(lpofn + 36, true);
             const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            const lpstrInitialDir = view.getUint32(lpofn + 44, true);
+            const lpstrTitle = view.getUint32(lpofn + 48, true);
+            const lpstrDefExt = view.getUint32(lpofn + 60, true);
+
+            const filterStr = lpstrFilter ? this.readCString(lpstrFilter) : "";
+            const defExtStr = lpstrDefExt ? this.readCString(lpstrDefExt) : "";
+            const initialDirStr = lpstrInitialDir ? this.readCString(lpstrInitialDir) : "C:\\My Documents";
+            const titleStr = lpstrTitle ? this.readCString(lpstrTitle) : "Save As";
+            const defaultFile = "Document.txt";
+            const fullPath = `${initialDirStr}\\${defaultFile}`;
+
+            if (lpstrFile) {
+              this.writeCString(lpstrFile, fullPath, nMaxFile);
+            }
             if (lpstrFileTitle) {
-              this.writeCString(lpstrFileTitle, "Apollo11.bmp", nMaxFileTitle);
+              this.writeCString(lpstrFileTitle, defaultFile, nMaxFileTitle);
+            }
+
+            if (typeof document !== "undefined") {
+              kernel.GetSaveFileName({
+                hwndOwner: hwndOwner || null,
+                initialDir: initialDirStr,
+                filter: filterStr,
+                title: titleStr,
+                fileName: defaultFile,
+                defExt: defExtStr,
+              }).then(async (chosenPath) => {
+                if (!chosenPath) return;
+                const fileName = chosenPath.replace(/\\/g, "/").split("/").pop() || "Untitled";
+                try {
+                  const editChild = kernel.windows.find(
+                    (w) => w.parentHwnd === hwndOwner && w.className?.toLowerCase() === "edit"
+                  );
+                  const text = editChild ? kernel.GetWindowText(editChild.hwnd) : "";
+                  await vfs.writeTextFile(chosenPath, text);
+                  kernel.SetWindowText(hwndOwner, `${fileName} - Notepad`);
+                } catch (e) {
+                  console.warn("Failed to save file from dialog:", chosenPath, e);
+                }
+              });
             }
           }
           return 1;
@@ -4562,15 +4667,53 @@ export class Win32WasmRuntime {
         GetOpenFileNameW: (lpofn: number) => {
           if (this.memory && lpofn) {
             const view = new DataView(this.memory.buffer);
+            const hwndOwner = view.getUint32(lpofn + 4, true);
+            const lpstrFilter = view.getUint32(lpofn + 12, true);
             const lpstrFile = view.getUint32(lpofn + 28, true);
             const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
-            if (lpstrFile) {
-              this.writeWideString(lpstrFile, "README.txt", nMaxFile);
-            }
             const lpstrFileTitle = view.getUint32(lpofn + 36, true);
             const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            const lpstrInitialDir = view.getUint32(lpofn + 44, true);
+            const lpstrTitle = view.getUint32(lpofn + 48, true);
+            const lpstrDefExt = view.getUint32(lpofn + 60, true);
+
+            const filterStr = lpstrFilter ? this.readWideString(lpstrFilter) : "";
+            const defExtStr = lpstrDefExt ? this.readWideString(lpstrDefExt) : "";
+            const initialDirStr = lpstrInitialDir ? this.readWideString(lpstrInitialDir) : "C:\\My Documents";
+            const titleStr = lpstrTitle ? this.readWideString(lpstrTitle) : "Open";
+            const defaultFile = "Welcome.txt";
+            const fullPath = `${initialDirStr}\\${defaultFile}`;
+
+            if (lpstrFile) {
+              this.writeWideString(lpstrFile, fullPath, nMaxFile);
+            }
             if (lpstrFileTitle) {
-              this.writeWideString(lpstrFileTitle, "README.txt", nMaxFileTitle);
+              this.writeWideString(lpstrFileTitle, defaultFile, nMaxFileTitle);
+            }
+
+            if (typeof document !== "undefined") {
+              kernel.GetOpenFileName({
+                hwndOwner: hwndOwner || null,
+                initialDir: initialDirStr,
+                filter: filterStr,
+                title: titleStr,
+                defExt: defExtStr,
+              }).then(async (chosenPath) => {
+                if (!chosenPath) return;
+                const fileName = chosenPath.replace(/\\/g, "/").split("/").pop() || "Untitled";
+                try {
+                  const text = await vfs.readTextFile(chosenPath);
+                  const editChild = kernel.windows.find(
+                    (w) => w.parentHwnd === hwndOwner && w.className?.toLowerCase() === "edit"
+                  );
+                  if (editChild) {
+                    kernel.SetWindowText(editChild.hwnd, text);
+                  }
+                  kernel.SetWindowText(hwndOwner, `${fileName} - Notepad`);
+                } catch (e) {
+                  console.warn("Failed to open file from dialog:", chosenPath, e);
+                }
+              });
             }
           }
           return 1;
@@ -4579,15 +4722,52 @@ export class Win32WasmRuntime {
         GetSaveFileNameW: (lpofn: number) => {
           if (this.memory && lpofn) {
             const view = new DataView(this.memory.buffer);
+            const hwndOwner = view.getUint32(lpofn + 4, true);
+            const lpstrFilter = view.getUint32(lpofn + 12, true);
             const lpstrFile = view.getUint32(lpofn + 28, true);
             const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
-            if (lpstrFile) {
-              this.writeWideString(lpstrFile, "README.txt", nMaxFile);
-            }
             const lpstrFileTitle = view.getUint32(lpofn + 36, true);
             const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            const lpstrInitialDir = view.getUint32(lpofn + 44, true);
+            const lpstrTitle = view.getUint32(lpofn + 48, true);
+            const lpstrDefExt = view.getUint32(lpofn + 60, true);
+
+            const filterStr = lpstrFilter ? this.readWideString(lpstrFilter) : "";
+            const defExtStr = lpstrDefExt ? this.readWideString(lpstrDefExt) : "";
+            const initialDirStr = lpstrInitialDir ? this.readWideString(lpstrInitialDir) : "C:\\My Documents";
+            const titleStr = lpstrTitle ? this.readWideString(lpstrTitle) : "Save As";
+            const defaultFile = "Document.txt";
+            const fullPath = `${initialDirStr}\\${defaultFile}`;
+
+            if (lpstrFile) {
+              this.writeWideString(lpstrFile, fullPath, nMaxFile);
+            }
             if (lpstrFileTitle) {
-              this.writeWideString(lpstrFileTitle, "README.txt", nMaxFileTitle);
+              this.writeWideString(lpstrFileTitle, defaultFile, nMaxFileTitle);
+            }
+
+            if (typeof document !== "undefined") {
+              kernel.GetSaveFileName({
+                hwndOwner: hwndOwner || null,
+                initialDir: initialDirStr,
+                filter: filterStr,
+                title: titleStr,
+                fileName: defaultFile,
+                defExt: defExtStr,
+              }).then(async (chosenPath) => {
+                if (!chosenPath) return;
+                const fileName = chosenPath.replace(/\\/g, "/").split("/").pop() || "Untitled";
+                try {
+                  const editChild = kernel.windows.find(
+                    (w) => w.parentHwnd === hwndOwner && w.className?.toLowerCase() === "edit"
+                  );
+                  const text = editChild ? kernel.GetWindowText(editChild.hwnd) : "";
+                  await vfs.writeTextFile(chosenPath, text);
+                  kernel.SetWindowText(hwndOwner, `${fileName} - Notepad`);
+                } catch (e) {
+                  console.warn("Failed to save file from dialog:", chosenPath, e);
+                }
+              });
             }
           }
           return 1;
@@ -4935,10 +5115,19 @@ export class Win32WasmRuntime {
         PrintDlgA: (lppd: number) => {
           if (!this.memory || !lppd) return 1;
           const dv = new DataView(this.memory.buffer);
+          const hwndOwner = dv.getUint32(lppd + 4, true);
           const flags = dv.getUint32(lppd + 20, true);
           if ((flags & 0x00000100 /* PD_RETURNDC */) || (flags & 0x00000200 /* PD_RETURNIC */)) {
             const printerHdc = (win32Imports as any).CreateDCA();
             dv.setUint32(lppd + 16, printerHdc, true);
+          }
+          dv.setUint16(lppd + 32, 1, true); // nCopies = 1
+          if (typeof document !== "undefined") {
+            kernel.ShowPrintDialog({
+              hwndOwner: hwndOwner || null,
+              nCopies: 1,
+              flags,
+            });
           }
           return 1;
         },

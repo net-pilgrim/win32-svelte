@@ -19,6 +19,8 @@ import {
   audio,
   vfs,
   PrintTextDocument,
+  GetOpenFileName,
+  GetSaveFileName,
 } from "../win32/kernel.svelte";
 
 
@@ -185,24 +187,25 @@ function NotepadWndProc(
           return 0;
 
         case ID_FILE_OPEN: {
-          const defaultPath = state.filePath || "C:\\My Documents\\Welcome.txt";
-          const promptPath = typeof window !== "undefined"
-            ? window.prompt("Open file from OPFS virtual storage:", defaultPath)
-            : defaultPath;
+          GetOpenFileName({
+            hwndOwner: hwnd,
+            initialDir: "C:\\My Documents",
+            filter: "Text Documents (*.txt)|*.txt|All Files (*.*)|*.*",
+          }).then((promptPath) => {
+            if (!promptPath) return;
 
-          if (!promptPath) return 0;
-
-          vfs.readTextFile(promptPath)
-            .then((text) => {
-              state.filePath = promptPath;
-              SetWindowText(hwndEdit, text);
-              const fileName = promptPath.replace(/\\/g, "/").split("/").pop() || "Untitled";
-              SetWindowText(hwnd, `${fileName} - Notepad`);
-              audio.playChime();
-            })
-            .catch(() => {
-              MessageBox(hwnd, `Cannot open file "${promptPath}". File not found in virtual filesystem.`, "Notepad", MB_OK);
-            });
+            vfs.readTextFile(promptPath)
+              .then((text) => {
+                state.filePath = promptPath;
+                SetWindowText(hwndEdit, text);
+                const fileName = promptPath.replace(/\\/g, "/").split("/").pop() || "Untitled";
+                SetWindowText(hwnd, `${fileName} - Notepad`);
+                audio.playChime();
+              })
+              .catch(() => {
+                MessageBox(hwnd, `Cannot open file "${promptPath}". File not found in virtual filesystem.`, "Notepad", MB_OK);
+              });
+          });
           return 0;
         }
 
@@ -211,12 +214,26 @@ function NotepadWndProc(
           let targetPath = state.filePath;
 
           if (!targetPath) {
-            const promptName = typeof window !== "undefined"
-              ? window.prompt("Save file to OPFS virtual storage path:", "C:\\My Documents\\Untitled.txt")
-              : "C:\\My Documents\\Untitled.txt";
-            if (!promptName) return 0;
-            targetPath = promptName;
-            state.filePath = targetPath;
+            GetSaveFileName({
+              hwndOwner: hwnd,
+              initialDir: "C:\\My Documents",
+              fileName: "Untitled.txt",
+              filter: "Text Documents (*.txt)|*.txt|All Files (*.*)|*.*",
+            }).then((promptName) => {
+              if (!promptName) return;
+              state.filePath = promptName;
+              vfs.writeTextFile(promptName, text).then((ok) => {
+                if (ok) {
+                  const fileName = promptName.replace(/\\/g, "/").split("/").pop() || "Untitled";
+                  SetWindowText(hwnd, `${fileName} - Notepad`);
+                  audio.playChime();
+                  MessageBox(hwnd, `File saved successfully to OPFS storage:\n${promptName}`, "Notepad", MB_OK);
+                } else {
+                  MessageBox(hwnd, `Error saving file to ${promptName}`, "Notepad Error", MB_OK);
+                }
+              });
+            });
+            return 0;
           }
 
           vfs.writeTextFile(targetPath, text).then((ok) => {
@@ -235,22 +252,27 @@ function NotepadWndProc(
         case ID_FILE_SAVEAS: {
           const text = GetWindowText(hwndEdit);
           const defaultPath = state.filePath || "C:\\My Documents\\Document.txt";
-          const promptName = typeof window !== "undefined"
-            ? window.prompt("Save As path in OPFS virtual drive:", defaultPath)
-            : defaultPath;
+          const defaultName = defaultPath.replace(/\\/g, "/").split("/").pop() || "Document.txt";
 
-          if (!promptName) return 0;
-          state.filePath = promptName;
+          GetSaveFileName({
+            hwndOwner: hwnd,
+            initialDir: "C:\\My Documents",
+            fileName: defaultName,
+            filter: "Text Documents (*.txt)|*.txt|All Files (*.*)|*.*",
+          }).then((promptName) => {
+            if (!promptName) return;
+            state.filePath = promptName;
 
-          vfs.writeTextFile(promptName, text).then((ok) => {
-            if (ok) {
-              const fileName = promptName.replace(/\\/g, "/").split("/").pop() || "Untitled";
-              SetWindowText(hwnd, `${fileName} - Notepad`);
-              audio.playChime();
-              MessageBox(hwnd, `File saved successfully to OPFS storage:\n${promptName}`, "Notepad", MB_OK);
-            } else {
-              MessageBox(hwnd, `Error saving file to ${promptName}`, "Notepad Error", MB_OK);
-            }
+            vfs.writeTextFile(promptName, text).then((ok) => {
+              if (ok) {
+                const fileName = promptName.replace(/\\/g, "/").split("/").pop() || "Untitled";
+                SetWindowText(hwnd, `${fileName} - Notepad`);
+                audio.playChime();
+                MessageBox(hwnd, `File saved successfully to OPFS storage:\n${promptName}`, "Notepad", MB_OK);
+              } else {
+                MessageBox(hwnd, `Error saving file to ${promptName}`, "Notepad Error", MB_OK);
+              }
+            });
           });
           return 0;
         }

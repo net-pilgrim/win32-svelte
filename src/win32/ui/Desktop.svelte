@@ -4,6 +4,8 @@
   import { SW_RESTORE, SW_MINIMIZE, MB_OK } from "../constants";
   import Window from "./Window.svelte";
   import MessageBoxModal from "./MessageBoxModal.svelte";
+  import FileDialogModal from "./FileDialogModal.svelte";
+  import PrintDialogModal from "./PrintDialogModal.svelte";
   import DesktopIcon from "./DesktopIcon.svelte";
   import StartMenu from "./StartMenu.svelte";
   import { audio } from "../audio";
@@ -433,6 +435,8 @@
   </div>
 
   <MessageBoxModal />
+  <FileDialogModal />
+  <PrintDialogModal />
 </div>
 
 <style>

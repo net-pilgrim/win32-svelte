@@ -28,7 +28,8 @@ async function testWineNotepad() {
     (w) => w.className?.toLowerCase().includes("notepad") || w.title?.toLowerCase().includes("notepad")
   );
   assert(win, "Wine Notepad window was not created in kernel!");
-  console.log(`✓ Notepad window created: HWND ${win.hwnd}, Title: '${win.title}', Class: '${win.className}', Size: ${win.width}x${win.height}`);
+  assert(win.visible, "Wine Notepad window must be visible after SetWindowPlacement!");
+  console.log(`✓ Notepad window created: HWND ${win.hwnd}, Title: '${win.title}', Class: '${win.className}', Size: ${win.width}x${win.height}, Visible: ${win.visible}`);
 
   // Verify menu was loaded and attached
   assert(win.hMenu || win.menuId, "Menu was not attached to Notepad window");
@@ -57,6 +58,48 @@ async function testWineNotepad() {
   console.log("Dispatching CMD_ABOUT command...");
   SendMessage(win.hwnd, 0x0111 /* WM_COMMAND */, 0x110, 0);
   console.log("✓ Dispatched CMD_ABOUT");
+
+  // Test CommDlg: CMD_OPEN (0x101)
+  console.log("Dispatching CMD_OPEN command...");
+  SendMessage(win.hwnd, 0x0111 /* WM_COMMAND */, 0x101, 0);
+  console.log("✓ Dispatched CMD_OPEN (GetOpenFileNameW bridged cleanly)");
+
+  // Test CommDlg: CMD_SAVE_AS (0x103)
+  console.log("Dispatching CMD_SAVE_AS command...");
+  SendMessage(win.hwnd, 0x0111 /* WM_COMMAND */, 0x103, 0);
+  console.log("✓ Dispatched CMD_SAVE_AS (GetSaveFileNameW bridged cleanly)");
+
+  // Test CommDlg: CMD_PRINT (0x104)
+  console.log("Dispatching CMD_PRINT command...");
+  SendMessage(win.hwnd, 0x0111 /* WM_COMMAND */, 0x104, 0);
+  console.log("✓ Dispatched CMD_PRINT (PrintDlgW bridged cleanly)");
+
+  // Test Svelte/TS Common Dialog APIs directly
+  console.log("Testing kernel.GetOpenFileName Promise API...");
+  const ofnPromise = kernel.GetOpenFileName({ initialDir: "C:\\My Documents", title: "Open Test" });
+  assert(kernel.activeFileDialog, "activeFileDialog state should be set");
+  assert.strictEqual(kernel.activeFileDialog.options.title, "Open Test");
+  kernel.activeFileDialog.resolve("C:\\My Documents\\Welcome.txt");
+  const openedFile = await ofnPromise;
+  assert.strictEqual(openedFile, "C:\\My Documents\\Welcome.txt");
+  console.log(`✓ GetOpenFileName resolved: ${openedFile}`);
+
+  console.log("Testing kernel.GetSaveFileName Promise API...");
+  const savePromise = kernel.GetSaveFileName({ fileName: "note.txt", defExt: "txt" });
+  assert(kernel.activeFileDialog, "activeFileDialog state should be set for Save");
+  assert(kernel.activeFileDialog.options.isSave, "isSave should be true");
+  kernel.activeFileDialog.resolve("C:\\My Documents\\note.txt");
+  const savedFile = await savePromise;
+  assert.strictEqual(savedFile, "C:\\My Documents\\note.txt");
+  console.log(`✓ GetSaveFileName resolved: ${savedFile}`);
+
+  console.log("Testing kernel.ShowPrintDialog Promise API...");
+  const printPromise = kernel.ShowPrintDialog({ nCopies: 2 });
+  assert(kernel.activePrintDialog, "activePrintDialog state should be set");
+  kernel.activePrintDialog.resolve({ confirmed: true, printerName: "HP LaserJet 4", nCopies: 2 });
+  const printRes = await printPromise;
+  assert(printRes && printRes.confirmed && printRes.nCopies === 2);
+  console.log(`✓ ShowPrintDialog resolved: ${printRes.printerName}, ${printRes.nCopies} copies`);
 
   // Close window cleanly
   SendMessage(win.hwnd, 0x0010 /* WM_CLOSE */, 0, 0);
