@@ -6,6 +6,7 @@
   import MessageBoxModal from "./MessageBoxModal.svelte";
   import FileDialogModal from "./FileDialogModal.svelte";
   import PrintDialogModal from "./PrintDialogModal.svelte";
+  import FontDialogModal from "./FontDialogModal.svelte";
   import DesktopIcon from "./DesktopIcon.svelte";
   import StartMenu from "./StartMenu.svelte";
   import { audio } from "../audio";
@@ -437,6 +438,7 @@
   <MessageBoxModal />
   <FileDialogModal />
   <PrintDialogModal />
+  <FontDialogModal />
 </div>
 
 <style>

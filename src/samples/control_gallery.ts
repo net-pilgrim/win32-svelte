@@ -8,6 +8,8 @@ import {
   MessageBox,
   RunMessageLoop,
   ShellExecute,
+  SetWindowText,
+  ChooseFont,
 } from "../win32/kernel.svelte";
 
 import {
@@ -73,6 +75,11 @@ const ID_BTN_ABOUT = 6039;
 const ID_BTN_APPLY = 6040;
 const ID_BTN_CANCEL = 6041;
 
+// Font chooser (Effects tab) IDs
+const ID_GRP_FONT = 6065;
+const ID_LBL_FONT_SAMPLE = 6066;
+const ID_BTN_FONT = 6067;
+
 // About tab control IDs
 const ID_GRP_ABOUT = 6050;
 const ID_ABOUT_ICON = 6051;
@@ -114,6 +121,11 @@ interface GalleryControls {
   lblSlider: HWND;
   trackbar: HWND;
   progress: HWND;
+
+  // Font chooser (Effects tab)
+  grpFont: HWND;
+  lblFontSample: HWND;
+  btnFont: HWND;
 
   // Bottom buttons
   btnAbout: HWND;
@@ -170,6 +182,12 @@ function updateTabVisibility(ctrls: GalleryControls, tabIndex: number) {
   ShowWindow(ctrls.lblSlider, levelsCmd);
   ShowWindow(ctrls.trackbar, levelsCmd);
   ShowWindow(ctrls.progress, levelsCmd);
+
+  // Font chooser (Effects tab)
+  const fontCmd = tabIndex === 1 ? SW_SHOW : SW_HIDE;
+  ShowWindow(ctrls.grpFont, fontCmd);
+  ShowWindow(ctrls.lblFontSample, fontCmd);
+  ShowWindow(ctrls.btnFont, fontCmd);
 
   // About controls
   const aboutCmd = showAbout ? SW_SHOW : SW_HIDE;
@@ -305,6 +323,25 @@ function GalleryWndProc(
       );
       SendMessage(progress, PBM_SETPOS, 50, 0);
 
+      // --- GroupBox 5: Font Chooser (Tab 1: Initially hidden) ---
+      const grpFont = CreateWindowEx(
+        0, "BUTTON", "Font",
+        WS_CHILD | BS_GROUPBOX,
+        10, 134, 330, 64, hwnd, ID_GRP_FONT, null, null
+      );
+
+      const lblFontSample = CreateWindowEx(
+        0, "STATIC", "AaBbYyZz (click Choose Font...)",
+        WS_CHILD,
+        22, 158, 200, 18, hwnd, ID_LBL_FONT_SAMPLE, null, null
+      );
+
+      const btnFont = CreateWindowEx(
+        0, "BUTTON", "Choose Font...",
+        WS_CHILD,
+        232, 154, 96, 24, hwnd, ID_BTN_FONT, null, null
+      );
+
       // --- About Controls (Tab 3: Initially hidden) ---
       const grpAbout = CreateWindowEx(
         0, "BUTTON", "About Components Showcase",
@@ -414,6 +451,9 @@ function GalleryWndProc(
         lblSlider,
         trackbar,
         progress,
+        grpFont,
+        lblFontSample,
+        btnFont,
         btnAbout,
         btnApply,
         btnCancel,
@@ -477,6 +517,29 @@ function GalleryWndProc(
             MB_OK | MB_ICONINFORMATION
           );
         }
+        return 0;
+      }
+
+      if (controlId === ID_BTN_FONT) {
+        ChooseFont({
+          hwndOwner: hwnd,
+          title: "Font",
+          faceName: "MS Sans Serif",
+          pointSize: 10,
+        }).then((result) => {
+          if (!result) return;
+          const style = result.bold && result.italic
+            ? "Bold Italic"
+            : result.bold
+              ? "Bold"
+              : result.italic
+                ? "Italic"
+                : "Regular";
+          SetWindowText(
+            ctrls.lblFontSample,
+            `AaBbYyZz — ${result.faceName} ${style} ${result.pointSize}pt`
+          );
+        });
         return 0;
       }
 

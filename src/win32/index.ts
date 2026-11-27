@@ -133,6 +133,7 @@ export {
   RegisterResourceBundle,
   GetOpenFileName,
   GetSaveFileName,
+  ChooseFont,
 } from "./dialog";
 
 // Virtual File System (Origin Private File System)

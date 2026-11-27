@@ -3962,8 +3962,6 @@ export class Win32WasmRuntime {
           return MessageBox(hWnd, `${app}\n\n${other}`, `About ${app}`, 0x0040 /* MB_ICONINFORMATION */);
         },
 
-        ChooseFontW: (_lpcf: number) => 0,
-
         MessageBoxW: (hWnd: number, lpText: number, lpCaption: number, uType: number) => {
           const text = lpText > 0xffff && this.memory ? this.readWideString(lpText) : "";
           const cap = lpCaption > 0xffff && this.memory ? this.readWideString(lpCaption) : "";
@@ -4752,8 +4750,146 @@ export class Win32WasmRuntime {
         ChooseColorA: (_lpcc: number) => 1,
         ChooseColor: (...args: any[]) => (win32Imports as any).ChooseColorA(...args),
 
-        ChooseFontA: (_lpcf: number) => 1,
+        ChooseFontA: (lpcf: number) => {
+          if (this.memory && lpcf) {
+            const view = new DataView(this.memory.buffer);
+            const hwndOwner = view.getUint32(lpcf + 4, true);
+            const lpLogFont = view.getUint32(lpcf + 12, true);
+            const iPointSize = view.getInt32(lpcf + 16, true);
+            const Flags = view.getUint32(lpcf + 20, true);
+            const nSizeMin = view.getInt32(lpcf + 52, true);
+            const nSizeMax = view.getInt32(lpcf + 56, true);
+
+            const CF_INITTOLOGFONTSTRUCT = 0x40;
+            const CF_EFFECTS = 0x100;
+            const CF_LIMITSIZE = 0x2000;
+
+            let faceName = "MS Sans Serif";
+            let bold = false;
+            let italic = false;
+            let underline = false;
+            let strikeout = false;
+            let pointSize = iPointSize > 0 ? iPointSize : 10;
+
+            if (lpLogFont) {
+              const lfHeight = view.getInt32(lpLogFont + 0, true);
+              const lfWeight = view.getInt32(lpLogFont + 16, true);
+              if (Flags & CF_INITTOLOGFONTSTRUCT) {
+                faceName = this.readCString(lpLogFont + 28) || faceName;
+                bold = lfWeight >= 700;
+                italic = view.getUint8(lpLogFont + 20) !== 0;
+                if (Flags & CF_EFFECTS) {
+                  underline = view.getUint8(lpLogFont + 21) !== 0;
+                  strikeout = view.getUint8(lpLogFont + 22) !== 0;
+                }
+                if (lfHeight !== 0) {
+                  pointSize = Math.round((Math.abs(lfHeight) * 72) / 96);
+                }
+              }
+              this.writeCString(lpLogFont + 28, faceName, 32, "ChooseFontA");
+            }
+
+            if (typeof document !== "undefined") {
+              kernel
+                .ChooseFont({
+                  hwndOwner: hwndOwner || null,
+                  title: "Font",
+                  faceName,
+                  pointSize,
+                  bold,
+                  italic,
+                  underline,
+                  strikeout,
+                  flags: Flags,
+                  minSize: Flags & CF_LIMITSIZE ? nSizeMin : undefined,
+                  maxSize: Flags & CF_LIMITSIZE ? nSizeMax : undefined,
+                })
+                .then((result) => {
+                  if (!result || !this.memory || !lpLogFont) return;
+                  const dv = new DataView(this.memory.buffer);
+                  dv.setInt32(lpLogFont + 0, result.lfHeight, true);
+                  dv.setInt32(lpLogFont + 16, result.weight, true);
+                  dv.setUint8(lpLogFont + 20, result.italic ? 1 : 0);
+                  dv.setUint8(lpLogFont + 21, result.underline ? 1 : 0);
+                  dv.setUint8(lpLogFont + 22, result.strikeout ? 1 : 0);
+                  this.writeCString(lpLogFont + 28, result.faceName, 32, "ChooseFontA");
+                  dv.setInt32(lpcf + 16, result.pointSize, true);
+                });
+            }
+          }
+          return 1;
+        },
         ChooseFont: (...args: any[]) => (win32Imports as any).ChooseFontA(...args),
+
+        ChooseFontW: (lpcf: number) => {
+          if (this.memory && lpcf) {
+            const view = new DataView(this.memory.buffer);
+            const hwndOwner = view.getUint32(lpcf + 4, true);
+            const lpLogFont = view.getUint32(lpcf + 12, true);
+            const iPointSize = view.getInt32(lpcf + 16, true);
+            const Flags = view.getUint32(lpcf + 20, true);
+            const nSizeMin = view.getInt32(lpcf + 52, true);
+            const nSizeMax = view.getInt32(lpcf + 56, true);
+
+            const CF_INITTOLOGFONTSTRUCT = 0x40;
+            const CF_EFFECTS = 0x100;
+            const CF_LIMITSIZE = 0x2000;
+
+            let faceName = "MS Sans Serif";
+            let bold = false;
+            let italic = false;
+            let underline = false;
+            let strikeout = false;
+            let pointSize = iPointSize > 0 ? iPointSize : 10;
+
+            if (lpLogFont) {
+              const lfHeight = view.getInt32(lpLogFont + 0, true);
+              const lfWeight = view.getInt32(lpLogFont + 16, true);
+              if (Flags & CF_INITTOLOGFONTSTRUCT) {
+                faceName = this.readWideString(lpLogFont + 28) || faceName;
+                bold = lfWeight >= 700;
+                italic = view.getUint8(lpLogFont + 20) !== 0;
+                if (Flags & CF_EFFECTS) {
+                  underline = view.getUint8(lpLogFont + 21) !== 0;
+                  strikeout = view.getUint8(lpLogFont + 22) !== 0;
+                }
+                if (lfHeight !== 0) {
+                  pointSize = Math.round((Math.abs(lfHeight) * 72) / 96);
+                }
+              }
+              this.writeWideString(lpLogFont + 28, faceName, 32, "ChooseFontW");
+            }
+
+            if (typeof document !== "undefined") {
+              kernel
+                .ChooseFont({
+                  hwndOwner: hwndOwner || null,
+                  title: "Font",
+                  faceName,
+                  pointSize,
+                  bold,
+                  italic,
+                  underline,
+                  strikeout,
+                  flags: Flags,
+                  minSize: Flags & CF_LIMITSIZE ? nSizeMin : undefined,
+                  maxSize: Flags & CF_LIMITSIZE ? nSizeMax : undefined,
+                })
+                .then((result) => {
+                  if (!result || !this.memory || !lpLogFont) return;
+                  const dv = new DataView(this.memory.buffer);
+                  dv.setInt32(lpLogFont + 0, result.lfHeight, true);
+                  dv.setInt32(lpLogFont + 16, result.weight, true);
+                  dv.setUint8(lpLogFont + 20, result.italic ? 1 : 0);
+                  dv.setUint8(lpLogFont + 21, result.underline ? 1 : 0);
+                  dv.setUint8(lpLogFont + 22, result.strikeout ? 1 : 0);
+                  this.writeWideString(lpLogFont + 28, result.faceName, 32, "ChooseFontW");
+                  dv.setInt32(lpcf + 16, result.pointSize, true);
+                });
+            }
+          }
+          return 1;
+        },
 
         GetOpenFileNameA: (lpofn: number) => {
           if (this.memory && lpofn) {

@@ -119,6 +119,9 @@ import type {
   ActiveFileDialog,
   PrintDlgOptions,
   ActivePrintDialog,
+  ChooseFontOptions,
+  ChooseFontResult,
+  ActiveFontDialog,
   DropFileInfo,
   HDROP,
   POINT,
@@ -144,6 +147,7 @@ export class Win32Kernel {
   public activeMessageBox = $state<MessageBoxOptions | null>(null);
   public activeFileDialog = $state<ActiveFileDialog | null>(null);
   public activePrintDialog = $state<ActivePrintDialog | null>(null);
+  public activeFontDialog = $state<ActiveFontDialog | null>(null);
   public moduleBundles = new Map<number, ResourceBundle>();
 
   public registerModule(hInstance: number, bundle: ResourceBundle): void {
@@ -1328,6 +1332,18 @@ export class Win32Kernel {
     });
   }
 
+  public ChooseFont(options: ChooseFontOptions = {}): Promise<ChooseFontResult | null> {
+    return new Promise((resolve) => {
+      this.activeFontDialog = {
+        options,
+        resolve: (result) => {
+          this.activeFontDialog = null;
+          resolve(result);
+        },
+      };
+    });
+  }
+
   public CreateMenu(): HMENU {
     const hMenu = ++this.nextHmenu;
     this.menus.push({ hMenu, items: [] });
@@ -1840,6 +1856,7 @@ export const GetSaveFileName = (options?: OpenFileNameOptions) =>
   kernel.GetSaveFileName(options);
 export const ShowPrintDialog = (options?: PrintDlgOptions) =>
   kernel.ShowPrintDialog(options);
+export const ChooseFont = (options?: ChooseFontOptions) => kernel.ChooseFont(options);
 export { MessageBeep, audio } from "./audio";
 export const CreateMenu = () => kernel.CreateMenu();
 export const CreatePopupMenu = () => kernel.CreatePopupMenu();

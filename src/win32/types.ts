@@ -276,3 +276,33 @@ export interface ActivePrintDialog {
   options: PrintDlgOptions;
   resolve: (result: { confirmed: boolean; printerName: string; nCopies: number } | null) => void;
 }
+
+export interface ChooseFontOptions {
+  hwndOwner?: HWND | null;
+  title?: string;
+  faceName?: string;
+  pointSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikeout?: boolean;
+  flags?: number;
+  minSize?: number;
+  maxSize?: number;
+}
+
+export interface ChooseFontResult {
+  faceName: string;
+  pointSize: number;
+  weight: number;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strikeout: boolean;
+  lfHeight: number;
+}
+
+export interface ActiveFontDialog {
+  options: ChooseFontOptions;
+  resolve: (result: ChooseFontResult | null) => void;
+}

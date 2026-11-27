@@ -13,6 +13,7 @@ import {
   SetMenu,
   GetOpenFileName,
   GetSaveFileName,
+  ChooseFont,
 } from "./kernel.svelte.ts";
 
 import {
@@ -600,4 +601,4 @@ export function LoadString(
   return "";
 }
 
-export { GetOpenFileName, GetSaveFileName };
+export { GetOpenFileName, GetSaveFileName, ChooseFont };
