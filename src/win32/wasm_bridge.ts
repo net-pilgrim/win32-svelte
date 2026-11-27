@@ -37,7 +37,17 @@ import {
 import { MessageBeep } from "./audio";
 import { win32Midi } from "./midi";
 import type { HWND, UINT, WPARAM, LPARAM, LRESULT, RECT, WndProc } from "./types";
-import { WM_DESTROY } from "./constants";
+import {
+  WM_DESTROY,
+  WM_KEYDOWN,
+  WM_KEYUP,
+  WM_LBUTTONDOWN,
+  WM_LBUTTONUP,
+  WM_CLOSE,
+  WM_COMMAND,
+  WS_OVERLAPPEDWINDOW,
+  WS_VISIBLE,
+} from "./constants";
 import { StartNotepad } from "../samples/notepad";
 import { comRuntime } from "./com/runtime";
 import { S_OK, E_POINTER, E_NOINTERFACE, CLSCTX_ALL } from "./com/types";
@@ -370,6 +380,61 @@ export class Win32WasmRuntime {
   private currentThreadInfo: any = null;
   private isRunningWinMain = false;
   private hasExitedGetMessage = false;
+  private gameHwnd: number | null = null;
+  private isRunningGameLoop = false;
+  private gameAnimFrameId: number | null = null;
+  private startTime = 0;
+
+  private mapGameKeyCode(keyCode: number): number {
+    switch (keyCode) {
+      case 8: return 127;  // Backspace
+      case 9: return 9;    // Tab (Automap)
+      case 13: return 13;  // Enter
+      case 16: return 182; // Shift (Speed/Run)
+      case 17: return 157; // Ctrl (Fire)
+      case 18: return 184; // Alt (Strafe)
+      case 27: return 27;  // Esc (Menu)
+      case 32: return 32;  // Space (Open / Use)
+      case 37: return 172; // Left arrow
+      case 38: return 173; // Up arrow
+      case 39: return 174; // Right arrow
+      case 40: return 175; // Down arrow
+      default:
+        if (keyCode >= 65 && keyCode <= 90) return keyCode + 32; // a-z (standard DOS)
+        if (keyCode >= 112 && keyCode <= 123) return keyCode + 75; // F1-F12
+        return keyCode;
+    }
+  }
+
+  private drawGenericScreen(ptr: number): void {
+    if (!this.gameHwnd || !this.memory) return;
+    const canvas = GetWindowCanvas(this.gameHwnd);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const screen = new Uint8ClampedArray(this.memory.buffer, ptr, 640 * 400 * 4);
+    const imgData = new ImageData(screen, 640, 400);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  public handleGenericAppExit(): void {
+    this.stopGameLoop();
+    if (this.gameHwnd) {
+      const hwnd = this.gameHwnd;
+      this.gameHwnd = null;
+      DestroyWindow(hwnd);
+    }
+  }
+
+  public stopGameLoop(): void {
+    this.isRunningGameLoop = false;
+    if (this.gameAnimFrameId !== null) {
+      if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+        window.cancelAnimationFrame(this.gameAnimFrameId);
+      }
+      this.gameAnimFrameId = null;
+    }
+  }
 
   private notifyEventWaiters(hEvent: number): void {
     for (const [, thread] of this.activeThreads) {
@@ -7133,9 +7198,45 @@ export class Win32WasmRuntime {
         InitCommonControls: () => {},
       };
 
+    const jsImports = {
+      js_milliseconds_since_start: () => performance.now() - (this.startTime || (this.startTime = performance.now())),
+      js_console_log: (ptr: number, len: number) => {
+        if (this.memory) {
+          const str = new TextDecoder("utf-8").decode(new Uint8Array(this.memory.buffer, ptr, len));
+          this.logString("console_log", ptr, str);
+        }
+      },
+      js_stdout: (ptr: number, len: number) => {
+        if (this.memory) {
+          const str = new TextDecoder("utf-8").decode(new Uint8Array(this.memory.buffer, ptr, len));
+          this.logString("stdout", ptr, str);
+        }
+      },
+      js_stderr: (ptr: number, len: number) => {
+        if (this.memory) {
+          const str = new TextDecoder("utf-8").decode(new Uint8Array(this.memory.buffer, ptr, len));
+          this.logString("stderr", ptr, str);
+          if (str.toLowerCase().includes("exit")) {
+            this.handleGenericAppExit();
+          }
+        }
+      },
+      js_draw_screen: (ptr: number) => {
+        this.drawGenericScreen(ptr);
+      },
+    };
+
+    if (!this.memory) {
+      this.memory = new WebAssembly.Memory({ initial: 108 });
+    }
+
     return {
       win32: win32Imports,
-      env: win32Imports,
+      env: {
+        ...win32Imports,
+        memory: this.memory,
+      },
+      js: jsImports,
     };
   }
 
@@ -7153,8 +7254,12 @@ export class Win32WasmRuntime {
     }
 
     this.instance = instance;
-    this.memory = instance.exports.memory as WebAssembly.Memory;
-    this.table = instance.exports.__indirect_function_table as WebAssembly.Table;
+    if (instance.exports.memory) {
+      this.memory = instance.exports.memory as WebAssembly.Memory;
+    }
+    if (instance.exports.__indirect_function_table) {
+      this.table = instance.exports.__indirect_function_table as WebAssembly.Table;
+    }
 
     activeWasmRuntimes.add(this);
 
@@ -7162,6 +7267,7 @@ export class Win32WasmRuntime {
   }
 
   public destroy(): void {
+    this.stopGameLoop();
     activeWasmRuntimes.delete(this);
     for (let i = systemClipboardViewers.length - 1; i >= 0; i--) {
       if (systemClipboardViewers[i].runtime === this) {
@@ -7233,17 +7339,141 @@ export class Win32WasmRuntime {
     }
 
     const winMain = this.instance.exports.WinMain as Function;
-    if (typeof winMain !== "function") {
-      throw new Error("WASM module does not export WinMain function");
+    if (typeof winMain === "function") {
+      this.isRunningWinMain = true;
+      this.hasExitedGetMessage = false;
+      try {
+        return winMain(hInstance, 0, 0, 5);
+      } finally {
+        this.isRunningWinMain = false;
+        this.hasExitedGetMessage = false;
+      }
     }
 
-    this.isRunningWinMain = true;
-    this.hasExitedGetMessage = false;
-    try {
-      return winMain(hInstance, 0, 0, 5);
-    } finally {
-      this.isRunningWinMain = false;
-      this.hasExitedGetMessage = false;
+    const doomLoopStep = this.instance.exports.doom_loop_step as Function;
+    if (typeof doomLoopStep === "function") {
+      return this.runGameLoopApp(hInstance);
     }
+
+    throw new Error("WASM module does not export WinMain or doom_loop_step function");
+  }
+
+  private runGameLoopApp(hInstance = 0): number {
+    this.hInstance = hInstance;
+    this.startTime = performance.now();
+
+    const doomWndProc: WndProc = (hwnd, msg, wParam, lParam) => {
+      switch (msg) {
+        case WM_KEYDOWN: {
+          const addEvent = this.instance?.exports.add_browser_event as Function;
+          if (typeof addEvent === "function") {
+            addEvent(0, this.mapGameKeyCode(wParam));
+          }
+          return 0;
+        }
+        case WM_KEYUP: {
+          const addEvent = this.instance?.exports.add_browser_event as Function;
+          if (typeof addEvent === "function") {
+            addEvent(1, this.mapGameKeyCode(wParam));
+          }
+          return 0;
+        }
+        case WM_LBUTTONDOWN: {
+          const addEvent = this.instance?.exports.add_browser_event as Function;
+          if (typeof addEvent === "function") {
+            addEvent(0, 157); // Ctrl (Fire)
+          }
+          return 0;
+        }
+        case WM_LBUTTONUP: {
+          const addEvent = this.instance?.exports.add_browser_event as Function;
+          if (typeof addEvent === "function") {
+            addEvent(1, 157); // Ctrl (Fire)
+          }
+          return 0;
+        }
+        case WM_COMMAND: {
+          const cmd = wParam & 0xffff;
+          if (cmd === 1003 /* Exit */) {
+            this.handleGenericAppExit();
+          }
+          return 0;
+        }
+        case WM_CLOSE: {
+          this.stopGameLoop();
+          DestroyWindow(hwnd);
+          return 0;
+        }
+        case WM_DESTROY: {
+          this.stopGameLoop();
+          return 0;
+        }
+        default:
+          return DefWindowProc(hwnd, msg, wParam, lParam);
+      }
+    };
+
+    kernel.RegisterClassEx({
+      className: "DOOM95",
+      lpfnWndProc: doomWndProc,
+    });
+
+    const hwnd = kernel.CreateWindowEx(
+      0,
+      "DOOM95",
+      "DOOM 95",
+      WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+      this.options.initialX ?? 100,
+      this.options.initialY ?? 50,
+      656,
+      468,
+      null,
+      null
+    );
+
+    this.gameHwnd = hwnd;
+    const win = kernel.getWindow(hwnd);
+    if (win) {
+      win.customProps = {
+        hasCanvas: true,
+        canvasWidth: 640,
+        canvasHeight: 400,
+        canvasStyle: "background: #000000; image-rendering: pixelated; cursor: default;",
+      };
+    }
+
+    const mainFn = this.instance?.exports.main as Function;
+    if (typeof mainFn === "function") {
+      try {
+        mainFn();
+      } catch (err) {
+        console.error("[WASM Game] main() error:", err);
+      }
+    }
+
+    this.isRunningGameLoop = true;
+    const stepFn = this.instance?.exports.doom_loop_step as Function;
+    const loop = () => {
+      if (!this.isRunningGameLoop) return;
+      try {
+        stepFn();
+      } catch (err: any) {
+        this.handleGenericAppExit();
+        return;
+      }
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        this.gameAnimFrameId = window.requestAnimationFrame(loop);
+      }
+    };
+
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      this.gameAnimFrameId = window.requestAnimationFrame(loop);
+    } else {
+      try {
+        stepFn();
+      } catch {}
+    }
+
+    return 0;
   }
 }

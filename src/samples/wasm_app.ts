@@ -37,24 +37,37 @@ export async function StartWasmApp(
     wasmBytes = rawBytes;
   } else if (pathOrVfsPath) {
     if (pathOrVfsPath.startsWith("/") || pathOrVfsPath.startsWith("http")) {
-      try {
-        const resp = await fetch(pathOrVfsPath);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
-        const contentType = resp.headers.get("content-type") || "";
-        if (contentType.includes("text/html")) {
-          throw new Error("Server returned HTML page instead of WebAssembly binary.");
+      // In Node environment, check public/ directory directly if relative path
+      const isNode = typeof process !== "undefined" && Boolean(process.versions?.node);
+      if (isNode && pathOrVfsPath.startsWith("/")) {
+        try {
+          const fs = await import("fs");
+          const localPath = `public${pathOrVfsPath}`;
+          if (fs.existsSync(localPath)) {
+            wasmBytes = new Uint8Array(fs.readFileSync(localPath));
+          }
+        } catch {}
+      }
+      if (!wasmBytes) {
+        try {
+          const resp = await fetch(pathOrVfsPath);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+          const contentType = resp.headers.get("content-type") || "";
+          if (contentType.includes("text/html")) {
+            throw new Error("Server returned HTML page instead of WebAssembly binary.");
+          }
+          const buf = await resp.arrayBuffer();
+          wasmBytes = new Uint8Array(buf);
+        } catch (err: any) {
+          console.error(`Failed to fetch WASM file at "${pathOrVfsPath}":`, err);
+          MessageBox(
+            null,
+            `Cannot load WebAssembly file:\n${pathOrVfsPath}\n\nTo test locally, run:\nnpm run sync:wasm\n(or 'make -C harness copy-wasm-files')`,
+            "WASM File Not Found",
+            MB_ICONERROR
+          );
+          return;
         }
-        const buf = await resp.arrayBuffer();
-        wasmBytes = new Uint8Array(buf);
-      } catch (err: any) {
-        console.error(`Failed to fetch WASM file at "${pathOrVfsPath}":`, err);
-        MessageBox(
-          null,
-          `Cannot load WebAssembly file:\n${pathOrVfsPath}\n\nTo test locally, run:\nnpm run sync:wasm\n(or 'make -C harness copy-wasm-files')`,
-          "WASM File Not Found",
-          MB_ICONERROR
-        );
-        return;
       }
     } else {
       try {
