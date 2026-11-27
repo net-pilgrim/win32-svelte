@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
-import { kernel, SendMessage } from "../kernel.svelte";
+import * as path from "node:path";
+import { kernel, SendMessage, DestroyWindow } from "../kernel.svelte";
 import { Win32WasmRuntime } from "../wasm_bridge";
 import { getSampleAppWasmBytes } from "../../wasm/sample_app_wasm";
 import { StartWasmApp } from "../../samples/wasm_app";
@@ -381,6 +382,40 @@ async function runWasmTests() {
     SendMessage(kbWin.hwnd, 0x0100 /* WM_KEYDOWN */, 65, 30 << 16);
     SendMessage(kbWin.hwnd, 0x0101 /* WM_KEYUP */, 65, (30 << 16) | (1 << 30) | (1 << 31));
     console.log(`✓ KBMidi verified: dynamic menu (${menuRec.items.length} popups) and scan code key events processed`);
+
+    // Test 17: Verify Petzold RandRect.wasm animation loop
+    console.log("Test 17: Verifying Petzold RandRect.wasm real-time animation...");
+    const randRectPath = path.resolve(process.cwd(), "public/wasm-demo/RandRect.wasm");
+    if (fs.existsSync(randRectPath)) {
+      const randRectBytes = fs.readFileSync(randRectPath);
+      let fillRectCalls = 0;
+      class RandRectRuntime extends Win32WasmRuntime {
+        public override getImportObject(): WebAssembly.Imports {
+          const obj = super.getImportObject();
+          const origFillRect = (obj.win32 as any).FillRect;
+          (obj.win32 as any).FillRect = (...args: any[]) => {
+            fillRectCalls++;
+            return origFillRect(...args);
+          };
+          return obj;
+        }
+      }
+      const rrRuntime = new RandRectRuntime();
+      await rrRuntime.instantiate(randRectBytes);
+      rrRuntime.runWinMain(1);
+      const rrWin = kernel.windows.find((w) => w.className === "RandRect");
+      if (!rrWin) throw new Error("RandRect window not found in kernel");
+      // Verify timer registered
+      const hasTimer = Array.from((kernel as any).timers.values()).some((t: any) => t.hwnd === rrWin.hwnd);
+      if (!hasTimer) throw new Error("RandRect did not register timer for animation");
+      // Dispatch 3 timer ticks to draw rectangles
+      SendMessage(rrWin.hwnd, 0x0113 /* WM_TIMER */, 1, 0);
+      SendMessage(rrWin.hwnd, 0x0113 /* WM_TIMER */, 1, 0);
+      SendMessage(rrWin.hwnd, 0x0113 /* WM_TIMER */, 1, 0);
+      if (fillRectCalls === 0) throw new Error("RandRect did not draw any rectangles on WM_TIMER");
+      console.log(`✓ RandRect verified: timer active, ${fillRectCalls} rectangles drawn via FillRect on WM_TIMER`);
+      DestroyWindow(rrWin.hwnd);
+    }
   }
 
   console.log("\nALL WIN32 WASM BRIDGE TESTS (STEPS 1-3) PASSED! ⚡🎉");

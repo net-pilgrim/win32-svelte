@@ -59,14 +59,38 @@ export async function StartWasmApp(
           const buf = await resp.arrayBuffer();
           wasmBytes = new Uint8Array(buf);
         } catch (err: any) {
-          console.error(`Failed to fetch WASM file at "${pathOrVfsPath}":`, err);
-          MessageBox(
-            null,
-            `Cannot load WebAssembly file:\n${pathOrVfsPath}\n\nTo test locally, run:\nnpm run sync:wasm\n(or 'make -C harness copy-wasm-files')`,
-            "WASM File Not Found",
-            MB_ICONERROR
-          );
-          return;
+          // If direct fetch failed, try case-insensitive resolution from /wasm-demo/manifest.json
+          const lowerName = pathOrVfsPath.split(/[\\/]/).pop()?.toLowerCase();
+          if (lowerName && typeof fetch !== "undefined") {
+            try {
+              const mResp = await fetch("/wasm-demo/manifest.json");
+              if (mResp.ok) {
+                const entries = await mResp.json();
+                const matched = entries.find((e: any) => e.name?.toLowerCase() === lowerName);
+                if (matched) {
+                  const retryResp = await fetch(`/wasm-demo/${matched.name}`);
+                  if (retryResp.ok) {
+                    const ct = retryResp.headers.get("content-type") || "";
+                    if (!ct.includes("text/html")) {
+                      const buf = await retryResp.arrayBuffer();
+                      wasmBytes = new Uint8Array(buf);
+                    }
+                  }
+                }
+              }
+            } catch {}
+          }
+
+          if (!wasmBytes) {
+            console.error(`Failed to fetch WASM file at "${pathOrVfsPath}":`, err);
+            MessageBox(
+              null,
+              `Cannot load WebAssembly file:\n${pathOrVfsPath}\n\nTo test locally, run:\nnpm run sync:wasm\n(or 'make -C harness copy-wasm-files')`,
+              "WASM File Not Found",
+              MB_ICONERROR
+            );
+            return;
+          }
         }
       }
     } else {

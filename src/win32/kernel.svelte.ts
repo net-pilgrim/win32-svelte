@@ -930,6 +930,10 @@ export class Win32Kernel {
       return 0;
     }
 
+    const clientW = isChild ? width : Math.max(0, width - 16);
+    const clientH = isChild ? height : Math.max(0, height - (menuId ? 64 : 44));
+    this.SendMessage(hwnd, WM_SIZE, 0, (clientH << 16) | (clientW & 0xffff));
+
     return hwnd;
   }
 

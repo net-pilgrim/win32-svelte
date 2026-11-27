@@ -46,18 +46,10 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance,
      ShowWindow (hwnd, iCmdShow) ;
      UpdateWindow (hwnd) ;
      
-     while (TRUE)
+     while (GetMessage (&msg, NULL, 0, 0))
      {
-          if (PeekMessage (&msg, NULL, 0, 0, PM_REMOVE))
-          {
-               if (msg.message == WM_QUIT)
-                    break ;
-               
-               TranslateMessage (&msg) ;
-               DispatchMessage (&msg) ;
-          }
-          else
-               DrawRectangle (hwnd) ;
+          TranslateMessage (&msg) ;
+          DispatchMessage (&msg) ;
      }
      return msg.wParam ;
 }
@@ -66,12 +58,22 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
      switch (iMsg)
      {
+     case WM_CREATE:
+          SetTimer (hwnd, 1, 16, NULL) ;
+          return 0 ;
+
+     case WM_TIMER:
+          for (int i = 0 ; i < 4 ; i++)
+               DrawRectangle (hwnd) ;
+          return 0 ;
+
      case WM_SIZE:
           cxClient = LOWORD (lParam) ;
           cyClient = HIWORD (lParam) ;
           return 0 ;
           
      case WM_DESTROY:
+          KillTimer (hwnd, 1) ;
           PostQuitMessage (0) ;
           return 0 ;
      }

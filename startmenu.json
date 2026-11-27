@@ -89,6 +89,13 @@
             "params": { "path": "/wasm-demo/Bounce.wasm", "x": 320, "y": 140 }
           },
           {
+            "id": "wasm_randrect",
+            "label": "Random Rectangles",
+            "icon": "🎲",
+            "action": "wasm",
+            "params": { "path": "/wasm-demo/RandRect.wasm", "x": 260, "y": 80 }
+          },
+          {
             "id": "wasm_clock",
             "label": "Analog Clock",
             "icon": "🕒",
