@@ -47,7 +47,7 @@ Every chapter exercises specific subsystems of the Win32 API:
 * `clang` (version 14+) with WebAssembly target support (`wasm32-freestanding` or `wasm32-unknown-unknown`).
 * `llvm-mc` and `wasm-ld`.
 * GNU `make`.
-* Python 3.
+* Node.js (with `npx tsx`).
 
 ### Build Commands
 
@@ -68,7 +68,7 @@ make clean
 ### Manifest Generation
 After building, the manifest script indexes all compiled applications:
 ```bash
-python3 scripts/generate_wasm_manifest.py
+npm run manifest:wasm
 ```
 This generates:
 * `public/wasm-demo/manifest.json`: JSON catalog loaded by the web app at runtime.

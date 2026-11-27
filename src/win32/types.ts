@@ -1,3 +1,5 @@
+import type { ResourceBundle } from "../rc/types";
+
 export type HWND = number;
 export type HMENU = number;
 export type HANDLE = number;
@@ -190,6 +192,8 @@ export interface WindowRecord {
   hwnd: HWND;
   parentHwnd: HWND | null;
   ownerHwnd?: HWND | null;
+  hInstance?: number;
+  resourceBundle?: ResourceBundle;
   className: string;
   wndProc: WndProc;
   title: string;

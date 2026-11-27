@@ -3,6 +3,7 @@
     kernel,
     SendMessage,
     PostMessage,
+    getRadioGroupName,
   } from "../kernel.svelte";
   import {
     WM_LBUTTONDOWN,
@@ -71,20 +72,16 @@
     );
   }
 
+  let btnType = $derived(win.className.toUpperCase() === "BUTTON" ? (win.style & 0x0f) : -1);
+
+  let isGroupbox = $derived(btnType === BS_GROUPBOX);
   let isCheckbox = $derived(
-    win.className.toUpperCase() === "BUTTON" &&
-    ((win.style & BS_AUTOCHECKBOX) === BS_AUTOCHECKBOX || (win.style & BS_CHECKBOX) === BS_CHECKBOX)
+    btnType === BS_CHECKBOX ||
+    btnType === BS_AUTOCHECKBOX ||
+    btnType === 5 || // BS_3STATE
+    btnType === 6    // BS_AUTO3STATE
   );
-
-  let isRadio = $derived(
-    win.className.toUpperCase() === "BUTTON" &&
-    ((win.style & BS_AUTORADIOBUTTON) === BS_AUTORADIOBUTTON || (win.style & BS_RADIOBUTTON) === BS_RADIOBUTTON)
-  );
-
-  let isGroupbox = $derived(
-    win.className.toUpperCase() === "BUTTON" &&
-    (win.style & BS_GROUPBOX) === BS_GROUPBOX
-  );
+  let isRadio = $derived(btnType === BS_RADIOBUTTON || btnType === BS_AUTORADIOBUTTON);
 
   function onButtonPointerDown(e: PointerEvent) {
     e.stopPropagation();
@@ -280,7 +277,7 @@
         <input
           type="radio"
           id={"rad_" + win.hwnd}
-          name={win.customProps?.groupName ?? ("rad_group_" + win.parentHwnd)}
+          name={getRadioGroupName(win)}
           checked={win.controlState?.checked === BST_CHECKED}
           onchange={onRadioSelect}
           disabled={!win.enabled}
@@ -612,11 +609,35 @@
     color: #ff0000 !important;
   }
 
+  .win32-button {
+    min-width: unset;
+    min-height: unset;
+    padding: 0 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    box-sizing: border-box;
+  }
+
   .win32-checkbox-row,
   .win32-radio-row {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    overflow: visible;
+  }
+
+  .win32-checkbox-row label,
+  .win32-radio-row label {
+    font-size: 11px;
+    cursor: default;
   }
 
   .win32-groupbox {

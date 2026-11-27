@@ -169,6 +169,23 @@ static inline char *wasm_strtok(char *str, const char *delim) {
 #define strtok wasm_strtok
 #endif
 
+static inline char *wasm_strrev(char *str) {
+    if (!str) return 0;
+    int i = 0;
+    int j = (int)wasm_strlen(str) - 1;
+    while (i < j) {
+        char c = str[i];
+        str[i] = str[j];
+        str[j] = c;
+        i++;
+        j--;
+    }
+    return str;
+}
+#ifndef strrev
+#define strrev wasm_strrev
+#endif
+
 #ifdef __cplusplus
 }
 #endif

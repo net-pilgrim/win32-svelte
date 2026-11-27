@@ -118,6 +118,7 @@ import type {
   POINT,
   RECT,
 } from "./types";
+import type { ResourceBundle } from "../rc/types";
 
 export class Win32Kernel {
   private nextHwnd = 100;
@@ -135,6 +136,36 @@ export class Win32Kernel {
   public menus = $state<MenuRecord[]>([]);
   public activeHwnd = $state<HWND | null>(null);
   public activeMessageBox = $state<MessageBoxOptions | null>(null);
+  public moduleBundles = new Map<number, ResourceBundle>();
+
+  public registerModule(hInstance: number, bundle: ResourceBundle): void {
+    this.moduleBundles.set(hInstance, bundle);
+  }
+
+  public getModuleBundle(hInstance: number): ResourceBundle | undefined {
+    return this.moduleBundles.get(hInstance);
+  }
+
+  public getWindowResourceBundle(hwnd: HWND): ResourceBundle | undefined {
+    let curr: HWND | null = hwnd;
+    while (curr !== null) {
+      const win = this.getWindow(curr);
+      if (!win) break;
+      if (win.resourceBundle) return win.resourceBundle;
+      if (win.hInstance && this.moduleBundles.has(win.hInstance)) {
+        return this.moduleBundles.get(win.hInstance);
+      }
+      curr = win.parentHwnd ?? win.ownerHwnd ?? null;
+    }
+    return undefined;
+  }
+
+  public setWindowResourceBundle(hwnd: HWND, bundle: ResourceBundle): void {
+    const win = this.getWindow(hwnd);
+    if (win) {
+      win.resourceBundle = bundle;
+    }
+  }
 
   constructor() {
     this.registerBuiltInClasses();
@@ -159,22 +190,24 @@ export class Win32Kernel {
             if (win.controlState) {
               win.controlState.isPressed = false;
 
+              const btnType = win.style & 0x0f;
               // Checkbox auto-toggle
-              if ((win.style & BS_AUTOCHECKBOX) === BS_AUTOCHECKBOX || (win.style & BS_CHECKBOX) === BS_CHECKBOX) {
+              if (btnType === BS_AUTOCHECKBOX || btnType === BS_CHECKBOX || btnType === 5 || btnType === 6) {
                 win.controlState.checked = win.controlState.checked === BST_CHECKED ? BST_UNCHECKED : BST_CHECKED;
               }
 
               // Radio button auto-select
-              if ((win.style & BS_AUTORADIOBUTTON) === BS_AUTORADIOBUTTON || (win.style & BS_RADIOBUTTON) === BS_RADIOBUTTON) {
+              if (btnType === BS_AUTORADIOBUTTON || btnType === BS_RADIOBUTTON) {
                 win.controlState.checked = BST_CHECKED;
-                // Uncheck sibling radio buttons with same parent
+                // Uncheck sibling radio buttons with same parent in the same group
                 if (win.parentHwnd !== null) {
+                  const myGroup = getRadioGroupName(win);
                   const siblings = this.windows.filter(
                     (w) => w.parentHwnd === win.parentHwnd &&
                            w.hwnd !== win.hwnd &&
                            w.className.toUpperCase() === "BUTTON" &&
-                           ((w.style & BS_AUTORADIOBUTTON) === BS_AUTORADIOBUTTON || (w.style & BS_RADIOBUTTON) === BS_RADIOBUTTON) &&
-                           (w.customProps?.groupName ?? "") === (win.customProps?.groupName ?? "")
+                           ((w.style & 0x0f) === BS_AUTORADIOBUTTON || (w.style & 0x0f) === BS_RADIOBUTTON) &&
+                           getRadioGroupName(w) === myGroup
                   );
                   for (const s of siblings) {
                     if (s.controlState) s.controlState.checked = BST_UNCHECKED;
@@ -813,10 +846,29 @@ export class Win32Kernel {
     const actualParent = isChild ? parentHwnd : null;
     const ownerHwnd = isChild ? null : parentHwnd;
 
+    const parentWin =
+      actualParent !== null
+        ? this.getWindow(actualParent)
+        : ownerHwnd !== null
+        ? this.getWindow(ownerHwnd)
+        : undefined;
+
+    const resolvedInstance =
+      (typeof _instance === "number" ? _instance : undefined) ?? parentWin?.hInstance;
+
+    const resolvedBundle =
+      (typeof _instance === "object" && _instance && "menus" in _instance
+        ? (_instance as ResourceBundle)
+        : undefined) ??
+      (resolvedInstance ? this.moduleBundles.get(resolvedInstance) : undefined) ??
+      parentWin?.resourceBundle;
+
     const record: WindowRecord = {
       hwnd,
       parentHwnd: actualParent,
       ownerHwnd,
+      hInstance: resolvedInstance,
+      resourceBundle: resolvedBundle,
       className,
       wndProc: wndProc ?? classDef.lpfnWndProc,
       title,
@@ -1111,8 +1163,12 @@ export class Win32Kernel {
     win.width = width;
     win.height = height;
 
+    const isChild = (win.style & WS_CHILD) !== 0 || !!win.parentHwnd;
+    const clientW = isChild ? width : Math.max(0, width - 16);
+    const clientH = isChild ? height : Math.max(0, height - (win.hMenu ? 64 : 44));
+
     this.SendMessage(hwnd, WM_MOVE, 0, (y << 16) | (x & 0xffff));
-    this.SendMessage(hwnd, WM_SIZE, 0, (height << 16) | (width & 0xffff));
+    this.SendMessage(hwnd, WM_SIZE, 0, (clientH << 16) | (clientW & 0xffff));
     return true;
   }
 
@@ -1396,6 +1452,14 @@ export const IsWindow = (hwnd: HWND): boolean => kernel.getWindow(hwnd) !== unde
 export const GetParent = (hwnd: HWND): HWND | null => kernel.getWindow(hwnd)?.parentHwnd ?? null;
 export const GetDesktopWindow = (): HWND => 0;
 
+export function getRadioGroupName(win: WindowRecord): string {
+  if (win.customProps?.groupName) return win.customProps.groupName;
+  if (win.menuId !== null && win.menuId !== undefined && win.menuId > 0) {
+    return `rad_grp_${win.parentHwnd}_${Math.floor(win.menuId / 10)}`;
+  }
+  return `rad_grp_${win.parentHwnd}`;
+}
+
 export const GetClientRect = (hwnd: HWND, rect?: RECT): RECT => {
   const win = kernel.getWindow(hwnd);
   const w = win?.width ?? 800;
@@ -1433,11 +1497,44 @@ export const SetWindowPos = (
   y: number,
   cx: number,
   cy: number,
-  _uFlags = 0
+  uFlags = 0
 ): boolean => {
-  kernel.MoveWindow(hwnd, x, y, cx, cy, true);
+  const win = kernel.getWindow(hwnd);
+  if (!win) return false;
+  const SWP_NOSIZE = 0x0001;
+  const SWP_NOMOVE = 0x0002;
+  const newX = (uFlags & SWP_NOMOVE) ? win.x : x;
+  const newY = (uFlags & SWP_NOMOVE) ? win.y : y;
+  const newW = (uFlags & SWP_NOSIZE) ? win.width : cx;
+  const newH = (uFlags & SWP_NOSIZE) ? win.height : cy;
+  kernel.MoveWindow(hwnd, newX, newY, newW, newH, true);
   return true;
 };
+
+export const AdjustWindowRectEx = (
+  lpRect: RECT,
+  dwStyle: number,
+  bMenu: boolean | number,
+  _dwExStyle: number = 0
+): boolean => {
+  const isChild = (dwStyle & WS_CHILD) !== 0;
+  if (!isChild) {
+    const borderWidth = 8;
+    const borderBottom = 8;
+    const topBar = bMenu ? 56 : 36;
+    lpRect.left -= borderWidth;
+    lpRect.right += borderWidth;
+    lpRect.top -= topBar;
+    lpRect.bottom += borderBottom;
+  }
+  return true;
+};
+
+export const AdjustWindowRect = (
+  lpRect: RECT,
+  dwStyle: number,
+  bMenu: boolean | number
+): boolean => AdjustWindowRectEx(lpRect, dwStyle, bMenu, 0);
 
 export const GetSystemMetrics = (nIndex: number): number => {
   switch (nIndex) {

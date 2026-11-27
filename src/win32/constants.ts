@@ -40,6 +40,17 @@ export const WM_LBUTTONUP = 0x0202;
 export const WM_LBUTTONDBLCLK = 0x0203;
 export const WM_RBUTTONDOWN = 0x0204;
 export const WM_RBUTTONUP = 0x0205;
+export const WM_RBUTTONDBLCLK = 0x0206;
+export const WM_MBUTTONDOWN = 0x0207;
+export const WM_MBUTTONUP = 0x0208;
+export const WM_MBUTTONDBLCLK = 0x0209;
+
+// Mouse key flags (wParam for mouse messages)
+export const MK_LBUTTON = 0x0001;
+export const MK_RBUTTON = 0x0002;
+export const MK_SHIFT = 0x0004;
+export const MK_CONTROL = 0x0008;
+export const MK_MBUTTON = 0x0010;
 
 // Hit test return codes
 export const HTERROR = -2;
@@ -211,6 +222,12 @@ export const MB_ICONASTERISK = 0x00000040;
 export const MB_ICONWARNING = MB_ICONEXCLAMATION;
 export const MB_ICONERROR = MB_ICONHAND;
 export const MB_ICONINFORMATION = MB_ICONASTERISK;
+
+export const MB_DEFBUTTON1 = 0x00000000;
+export const MB_DEFBUTTON2 = 0x00000100;
+export const MB_DEFBUTTON3 = 0x00000200;
+export const MB_DEFBUTTON4 = 0x00000300;
+
 
 // Dialog Box Return Values & Control IDs
 export const IDOK = 1;

@@ -2,6 +2,7 @@ import fs from "fs";
 import assert from "node:assert";
 import { Win32WasmRuntime } from "../wasm_bridge";
 import { kernel, SendMessage } from "../kernel.svelte";
+import clockResources from "../../resources/clock_rc";
 
 async function testWineClock() {
   console.log("=== Testing Wine Clock in win32-svelte WASM Runtime ===");
@@ -14,12 +15,12 @@ async function testWineClock() {
   const wasmBuf = fs.readFileSync(wasmPath);
   console.log(`Loaded ${wasmPath} (${wasmBuf.length} bytes)`);
 
-  const runtime = new Win32WasmRuntime();
+  const runtime = new Win32WasmRuntime({ resourceBundle: clockResources });
   await runtime.instantiate(wasmBuf);
   console.log("✓ WebAssembly module successfully instantiated with Win32 imports");
 
   // Run WinMain
-  runtime.runWinMain();
+  runtime.runWinMain(2);
   console.log("✓ WinMain executed");
 
   // Check window in kernel

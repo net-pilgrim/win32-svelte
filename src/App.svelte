@@ -26,6 +26,7 @@
     StartPaintDemo(350, 40);
     StartWasmApp(260, 90);
     StartWasmApp(160, 120, "/wasm-demo/clock.wasm");
+    StartWasmApp(130, 50, "/wasm-demo/winemine.wasm");
     import("./samples/regedit").then(({ StartRegEdit }) => {
       StartRegEdit(200, 70);
     });

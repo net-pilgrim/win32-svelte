@@ -1250,6 +1250,71 @@ typedef DWORD LCTYPE;
 #define COLOR_3DLIGHT           22
 #define COLOR_INFOTEXT          23
 #define COLOR_INFOBK            24
+#define COLOR_3DFACE            COLOR_BTNFACE
+#define COLOR_3DSHADOW          COLOR_BTNSHADOW
+#define COLOR_3DHIGHLIGHT       COLOR_BTNHIGHLIGHT
+#define COLOR_3DHILIGHT         COLOR_BTNHIGHLIGHT
+#endif
+
+#ifndef DATE_LONGDATE
+#define DATE_SHORTDATE          0x00000001
+#define DATE_LONGDATE           0x00000002
+#endif
+
+#ifndef SWP_DRAWFRAME
+#define SWP_DRAWFRAME           0x0020
+#endif
+
+#ifndef HWND_TOPMOST
+#define HWND_TOPMOST            ((HWND)-1)
+#define HWND_NOTOPMOST          ((HWND)-2)
+#endif
+
+#ifndef WM_NCLBUTTONDBLCLK
+#define WM_NCLBUTTONDBLCLK      0x00A3
+#endif
+
+WIN32_IMPORT("CheckMenuRadioItem")
+BOOL WINAPI CheckMenuRadioItem(HMENU hMenu, UINT first, UINT last, UINT check, UINT flags);
+
+WIN32_IMPORT("GetWindowLongW")
+LONG WINAPI GetWindowLongW(HWND hWnd, int nIndex);
+
+WIN32_IMPORT("SetWindowLongW")
+LONG WINAPI SetWindowLongW(HWND hWnd, int nIndex, LONG dwNewLong);
+
+WIN32_IMPORT("SetWindowRgn")
+int WINAPI SetWindowRgn(HWND hWnd, HRGN hRgn, BOOL bRedraw);
+
+WIN32_IMPORT("GetSysColorBrush")
+HBRUSH WINAPI GetSysColorBrush(int nIndex);
+
+WIN32_IMPORT("GetTextExtentPointW")
+BOOL WINAPI GetTextExtentPointW(HDC hdc, LPCWSTR lpString, int c, LPSIZE lpsz);
+
+WIN32_IMPORT("MapWindowPoints")
+int WINAPI MapWindowPoints(HWND hWndFrom, HWND hWndTo, LPPOINT lpPoints, UINT cPoints);
+
+WIN32_IMPORT("OffsetRgn")
+int WINAPI OffsetRgn(HRGN hrgn, int x, int y);
+
+#ifndef _WNDCLASSW_DEFINED
+#define _WNDCLASSW_DEFINED
+typedef struct tagWNDCLASSW {
+    UINT        style;
+    WNDPROC     lpfnWndProc;
+    int         cbClsExtra;
+    int         cbWndExtra;
+    HINSTANCE   hInstance;
+    HICON       hIcon;
+    HCURSOR     hCursor;
+    HBRUSH      hbrBackground;
+    LPCWSTR     lpszMenuName;
+    LPCWSTR     lpszClassName;
+} WNDCLASSW, *PWNDCLASSW, *NPWNDCLASSW, *LPWNDCLASSW;
+
+WIN32_IMPORT("RegisterClassW")
+ATOM WINAPI RegisterClassW(const WNDCLASSW *lpWndClass);
 #endif
 
 WIN32_IMPORT("GetLocalTime")
@@ -1820,6 +1885,8 @@ DWORD WINAPI CheckMenuItem(HMENU hMenu, UINT uIDCheckItem, UINT uCheck);
 
 WIN32_IMPORT("LoadMenuA")
 HMENU WINAPI LoadMenuA(HINSTANCE hInstance, LPCSTR lpMenuName);
+WIN32_IMPORT("LoadMenuW")
+HMENU WINAPI LoadMenuW(HINSTANCE hInstance, LPCWSTR lpMenuName);
 #ifndef LoadMenu
 #define LoadMenu LoadMenuA
 #endif
@@ -1973,6 +2040,40 @@ typedef struct tagLOGFONTA {
 
 typedef LOGFONTA LOGFONT;
 typedef LPLOGFONTA LPLOGFONT;
+
+typedef struct tagLOGFONTW {
+    LONG      lfHeight;
+    LONG      lfWidth;
+    LONG      lfEscapement;
+    LONG      lfOrientation;
+    LONG      lfWeight;
+    BYTE      lfItalic;
+    BYTE      lfUnderline;
+    BYTE      lfStrikeOut;
+    BYTE      lfCharSet;
+    BYTE      lfOutPrecision;
+    BYTE      lfClipPrecision;
+    BYTE      lfQuality;
+    BYTE      lfPitchAndFamily;
+    WCHAR     lfFaceName[LF_FACESIZE];
+} LOGFONTW, *PLOGFONTW, *NPLOGFONTW, *LPLOGFONTW;
+
+WIN32_IMPORT("CreateFontIndirectW")
+HFONT WINAPI CreateFontIndirectW(const LOGFONTW *lplf);
+
+#ifndef FW_DONTCARE
+#define FW_DONTCARE         0
+#define FW_THIN             100
+#define FW_EXTRALIGHT       200
+#define FW_LIGHT            300
+#define FW_NORMAL           400
+#define FW_REGULAR          400
+#define FW_MEDIUM           500
+#define FW_SEMIBOLD         600
+#define FW_BOLD             700
+#define FW_EXTRABOLD        800
+#define FW_HEAVY            900
+#endif
 #endif
 
 #ifndef WM_SETFONT
@@ -2614,6 +2715,24 @@ WIN32_IMPORT("GetMenuItemInfoA")
 BOOL WINAPI GetMenuItemInfoA(HMENU hMenu, UINT item, BOOL fByPosition, LPMENUITEMINFOA lpmii);
 #ifndef GetMenuItemInfo
 #define GetMenuItemInfo GetMenuItemInfoA
+#endif
+
+#ifndef MFT_STRING
+#define MFT_STRING       0x00000000
+#define MFT_BITMAP       0x00000004
+#define MFT_MENUBARBREAK 0x00000020
+#define MFT_MENUBREAK    0x00000040
+#define MFT_OWNERDRAW    0x00000100
+#define MFT_RADIOCHECK   0x00000200
+#define MFT_SEPARATOR    0x00000800
+#define MFT_RIGHTORDER   0x00002000
+#define MFT_RIGHTJUSTIFY 0x00004000
+#endif
+
+WIN32_IMPORT("SetMenuItemInfoA")
+BOOL WINAPI SetMenuItemInfoA(HMENU hMenu, UINT item, BOOL fByPosition, const MENUITEMINFOA *lpmii);
+#ifndef SetMenuItemInfo
+#define SetMenuItemInfo SetMenuItemInfoA
 #endif
 
 // --- Chapter 15: Device-Independent Bitmaps (DIBs) ---
@@ -3659,6 +3778,722 @@ BOOL WINAPI FindNextFileA(HANDLE hFindFile, struct tagWIN32_FIND_DATAA *lpFindFi
 
 WIN32_IMPORT("FindClose")
 BOOL WINAPI FindClose(HANDLE hFindFile);
+
+// ============================================================================
+// WineMine & Win32 Extended Definitions & Polyfills
+// ============================================================================
+
+#ifndef WM_MBUTTONDOWN
+#define WM_MBUTTONDOWN      0x0207
+#define WM_MBUTTONUP        0x0208
+#endif
+
+#ifndef IMAGE_BITMAP
+#define IMAGE_BITMAP        0
+#define IMAGE_ICON          1
+#define IMAGE_CURSOR        2
+#define LR_SHARED           0x8000
+#endif
+
+#ifndef REGSAM
+typedef DWORD REGSAM;
+#endif
+
+#ifndef tagWNDCLASSEXW
+typedef struct tagWNDCLASSEXW {
+    UINT        cbSize;
+    UINT        style;
+    WNDPROC     lpfnWndProc;
+    int         cbClsExtra;
+    int         cbWndExtra;
+    HINSTANCE   hInstance;
+    HICON       hIcon;
+    HCURSOR     hCursor;
+    HBRUSH      hbrBackground;
+    LPCWSTR     lpszMenuName;
+    LPCWSTR     lpszClassName;
+    HICON       hIconSm;
+} WNDCLASSEXW, *PWNDCLASSEXW, *NPWNDCLASSEXW, *LPWNDCLASSEXW;
+#endif
+
+#ifndef tagCREATESTRUCTW
+typedef struct tagCREATESTRUCTW {
+    LPVOID      lpCreateParams;
+    HINSTANCE   hInstance;
+    HMENU       hMenu;
+    HWND        hwndParent;
+    int         cy;
+    int         cx;
+    int         y;
+    int         x;
+    LONG        style;
+    LPCWSTR     lpszName;
+    LPCWSTR     lpszClass;
+    DWORD       dwExStyle;
+} CREATESTRUCTW, *LPCREATESTRUCTW;
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
+
+#ifndef MB_DEFBUTTON1
+#define MB_DEFBUTTON1 0x00000000
+#define MB_DEFBUTTON2 0x00000100
+#define MB_DEFBUTTON3 0x00000200
+#define MB_DEFBUTTON4 0x00000300
+#endif
+#ifndef MB_ICONWARNING
+#define MB_ICONWARNING 0x00000030
+#endif
+
+#ifndef RDW_INVALIDATE
+#define RDW_INVALIDATE      0x0001
+#define RDW_INTERNALPAINT   0x0002
+#define RDW_ERASE           0x0004
+#define RDW_VALIDATE        0x0008
+#define RDW_NOINTERNALPAINT 0x0010
+#define RDW_NOERASE         0x0020
+#define RDW_NOCHILDREN      0x0040
+#define RDW_ALLCHILDREN     0x0080
+#define RDW_UPDATENOW       0x0100
+#define RDW_ERASENOW        0x0200
+#define RDW_FRAME           0x0400
+#define RDW_NOFRAME         0x0800
+#endif
+
+#ifndef MONITOR_DEFAULTTONULL
+DECLARE_HANDLE(HMONITOR);
+#define MONITOR_DEFAULTTONULL    0x00000000
+#define MONITOR_DEFAULTTOPRIMARY 0x00000001
+#define MONITOR_DEFAULTTONEAREST 0x00000002
+
+typedef struct tagMONITORINFO {
+    DWORD cbSize;
+    RECT  rcMonitor;
+    RECT  rcWork;
+    DWORD dwFlags;
+} MONITORINFO, *LPMONITORINFO;
+#endif
+
+#ifndef HKEY_CLASSES_ROOT
+typedef HANDLE HKEY;
+typedef HKEY *PHKEY;
+
+#define HKEY_CLASSES_ROOT     ((HKEY)(ULONG_PTR)0x80000000)
+#define HKEY_CURRENT_USER     ((HKEY)(ULONG_PTR)0x80000001)
+#define HKEY_LOCAL_MACHINE    ((HKEY)(ULONG_PTR)0x80000002)
+#define HKEY_USERS            ((HKEY)(ULONG_PTR)0x80000003)
+#define HKEY_PERFORMANCE_DATA ((HKEY)(ULONG_PTR)0x80000004)
+#define HKEY_CURRENT_CONFIG   ((HKEY)(ULONG_PTR)0x80000005)
+#define HKEY_DYN_DATA         ((HKEY)(ULONG_PTR)0x80000006)
+
+#define REG_NONE              0
+#define REG_SZ                1
+#define REG_EXPAND_SZ         2
+#define REG_BINARY            3
+#define REG_DWORD             4
+#define REG_MULTI_SZ          7
+
+#define KEY_QUERY_VALUE       0x0001
+#define KEY_SET_VALUE         0x0002
+#define KEY_CREATE_SUB_KEY    0x0004
+#define KEY_ENUMERATE_SUB_KEYS 0x0008
+#define KEY_NOTIFY            0x0010
+#define KEY_CREATE_LINK       0x0020
+#define KEY_READ              0x20019
+#define KEY_WRITE             0x20006
+#define KEY_EXECUTE           0x20019
+#define KEY_ALL_ACCESS        0xF003F
+
+#define REG_OPTION_NON_VOLATILE 0
+#define REG_OPTION_VOLATILE     1
+
+#define REG_CREATED_NEW_KEY     1
+#define REG_OPENED_EXISTING_KEY 2
+
+#define ERROR_SUCCESS           0
+#endif
+
+static inline BOOL wasm_PtInRect(const RECT *lprc, POINT pt) {
+    if (!lprc) return FALSE;
+    return (pt.x >= lprc->left && pt.x < lprc->right && pt.y >= lprc->top && pt.y < lprc->bottom);
+}
+#ifndef PtInRect
+#define PtInRect wasm_PtInRect
+#endif
+
+static inline BOOL wasm_IntersectRect(LPRECT lprcDst, const RECT *lprcSrc1, const RECT *lprcSrc2) {
+    if (!lprcDst || !lprcSrc1 || !lprcSrc2) return FALSE;
+    int left = lprcSrc1->left > lprcSrc2->left ? lprcSrc1->left : lprcSrc2->left;
+    int top = lprcSrc1->top > lprcSrc2->top ? lprcSrc1->top : lprcSrc2->top;
+    int right = lprcSrc1->right < lprcSrc2->right ? lprcSrc1->right : lprcSrc2->right;
+    int bottom = lprcSrc1->bottom < lprcSrc2->bottom ? lprcSrc1->bottom : lprcSrc2->bottom;
+    if (left < right && top < bottom) {
+        lprcDst->left = left;
+        lprcDst->top = top;
+        lprcDst->right = right;
+        lprcDst->bottom = bottom;
+        return TRUE;
+    }
+    lprcDst->left = lprcDst->top = lprcDst->right = lprcDst->bottom = 0;
+    return FALSE;
+}
+#ifndef IntersectRect
+#define IntersectRect wasm_IntersectRect
+#endif
+
+static inline LPWSTR wasm_lstrcpynW(LPWSTR dst, LPCWSTR src, int iMaxLength) {
+    if (!dst || iMaxLength <= 0) return dst;
+    int i = 0;
+    while (i < iMaxLength - 1 && src && src[i]) {
+        dst[i] = src[i];
+        i++;
+    }
+    dst[i] = 0;
+    return dst;
+}
+#ifndef lstrcpynW
+#define lstrcpynW wasm_lstrcpynW
+#endif
+
+static inline int wasm_wsprintfW(LPWSTR buffer, LPCWSTR format, ...) {
+    va_list args;
+    va_start(args, format);
+    LPWSTR dst = buffer;
+    LPCWSTR src = format;
+    while (src && *src) {
+        if (*src == L'%' && *(src + 1)) {
+            src++;
+            if (*src == L'u' || *src == L'd') {
+                unsigned int val = va_arg(args, unsigned int);
+                WCHAR temp[16];
+                int idx = 0;
+                if (val == 0) temp[idx++] = L'0';
+                else {
+                    while (val > 0) {
+                        temp[idx++] = L'0' + (val % 10);
+                        val /= 10;
+                    }
+                }
+                for (int j = idx - 1; j >= 0; j--) {
+                    *dst++ = temp[j];
+                }
+            } else if (*src == L's') {
+                LPCWSTR str = va_arg(args, LPCWSTR);
+                while (str && *str) *dst++ = *str++;
+            } else {
+                *dst++ = *src;
+            }
+        } else {
+            *dst++ = *src;
+        }
+        src++;
+    }
+    *dst = 0;
+    va_end(args);
+    return (int)(dst - buffer);
+}
+#ifndef wsprintfW
+#define wsprintfW wasm_wsprintfW
+#endif
+
+WIN32_IMPORT("SetDlgItemTextW")
+BOOL WINAPI SetDlgItemTextW(HWND hDlg, int nIDDlgItem, LPCWSTR lpString);
+
+WIN32_IMPORT("GetDlgItemTextW")
+UINT WINAPI GetDlgItemTextW(HWND hDlg, int nIDDlgItem, LPWSTR lpString, int cchMax);
+
+WIN32_IMPORT("LoadStringW")
+int WINAPI LoadStringW(HINSTANCE hInstance, UINT uID, LPWSTR lpBuffer, int cchBufferMax);
+
+WIN32_IMPORT("MessageBoxW")
+int WINAPI MessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType);
+
+WIN32_IMPORT("DialogBoxParamW")
+INT_PTR WINAPI DialogBoxParamW(HINSTANCE hInstance, LPCWSTR lpTemplateName, HWND hWndParent, DLGPROC lpDialogFunc, LPARAM dwInitParam);
+#ifndef DialogBoxW
+#define DialogBoxW(hInstance, lpTemplate, hWndParent, lpDialogFunc) DialogBoxParamW(hInstance, lpTemplate, hWndParent, lpDialogFunc, 0L)
+#endif
+
+#ifndef HELP_INDEX
+#define HELP_INDEX 0x0003
+#endif
+
+WIN32_IMPORT("WinHelpW")
+BOOL WINAPI WinHelpW(HWND hWndMain, LPCWSTR lpszHelp, UINT uCommand, ULONG_PTR dwData);
+
+WIN32_IMPORT("CreateWindowExW")
+HWND WINAPI CreateWindowExW(
+    DWORD dwExStyle,
+    LPCWSTR lpClassName,
+    LPCWSTR lpWindowName,
+    DWORD dwStyle,
+    int X,
+    int Y,
+    int nWidth,
+    int nHeight,
+    HWND hWndParent,
+    HMENU hMenu,
+    HINSTANCE hInstance,
+    LPVOID lpParam
+);
+
+#ifndef CreateWindowW
+#define CreateWindowW(lpClassName, lpWindowName, dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam) \
+    CreateWindowExW(0L, lpClassName, lpWindowName, dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam)
+#endif
+
+WIN32_IMPORT("RegisterClassExW")
+ATOM WINAPI RegisterClassExW(const WNDCLASSEXW *lpwcx);
+
+WIN32_IMPORT("DefWindowProcW")
+LRESULT WINAPI DefWindowProcW(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+WIN32_IMPORT("GetMessageW")
+BOOL WINAPI GetMessageW(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax);
+
+WIN32_IMPORT("DispatchMessageW")
+LRESULT WINAPI DispatchMessageW(const MSG *lpMsg);
+
+WIN32_IMPORT("SendMessageW")
+LRESULT WINAPI SendMessageW(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+WIN32_IMPORT("LoadAcceleratorsW")
+HACCEL WINAPI LoadAcceleratorsW(HINSTANCE hInstance, LPCWSTR lpTableName);
+
+WIN32_IMPORT("LoadIconW")
+HICON WINAPI LoadIconW(HINSTANCE hInstance, LPCWSTR lpIconName);
+
+WIN32_IMPORT("LoadCursorW")
+HCURSOR WINAPI LoadCursorW(HINSTANCE hInstance, LPCWSTR lpCursorName);
+
+WIN32_IMPORT("TranslateAcceleratorW")
+int WINAPI TranslateAcceleratorW(HWND hWnd, HACCEL hAccTable, LPMSG lpMsg);
+
+WIN32_IMPORT("LoadBitmapW")
+HBITMAP WINAPI LoadBitmapW(HINSTANCE hInstance, LPCWSTR lpBitmapName);
+
+WIN32_IMPORT("LoadImageW")
+HANDLE WINAPI LoadImageW(HINSTANCE hInst, LPCWSTR name, UINT type, int cx, int cy, UINT fuLoad);
+
+WIN32_IMPORT("MonitorFromRect")
+HMONITOR WINAPI MonitorFromRect(LPCRECT lprc, DWORD dwFlags);
+
+WIN32_IMPORT("GetMonitorInfoW")
+BOOL WINAPI GetMonitorInfoW(HMONITOR hMonitor, LPMONITORINFO lpmi);
+
+WIN32_IMPORT("RedrawWindow")
+BOOL WINAPI RedrawWindow(HWND hWnd, const RECT *lprcUpdate, HRGN hrgnUpdate, UINT flags);
+
+WIN32_IMPORT("ExitProcess")
+void WINAPI ExitProcess(UINT uExitCode);
+
+WIN32_IMPORT("ShellAboutW")
+INT WINAPI ShellAboutW(HWND hWnd, LPCWSTR szApp, LPCWSTR szOtherStuff, HICON hIcon);
+
+WIN32_IMPORT("RegOpenKeyExW")
+LONG WINAPI RegOpenKeyExW(HKEY hKey, LPCWSTR lpSubKey, DWORD ulOptions, REGSAM samDesired, PHKEY phkResult);
+
+WIN32_IMPORT("RegCreateKeyExW")
+LONG WINAPI RegCreateKeyExW(HKEY hKey, LPCWSTR lpSubKey, DWORD Reserved, LPWSTR lpClass, DWORD dwOptions, REGSAM samDesired, const void *lpSecurityAttributes, PHKEY phkResult, LPDWORD lpdwDisposition);
+
+WIN32_IMPORT("RegCloseKey")
+LONG WINAPI RegCloseKey(HKEY hKey);
+
+WIN32_IMPORT("RegQueryValueExW")
+LONG WINAPI RegQueryValueExW(HKEY hKey, LPCWSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData);
+
+WIN32_IMPORT("RegSetValueExW")
+LONG WINAPI RegSetValueExW(HKEY hKey, LPCWSTR lpValueName, DWORD Reserved, DWORD dwType, const BYTE *lpData, DWORD cbData);
+
+#ifndef _WINDOWPLACEMENT_DEFINED
+#define _WINDOWPLACEMENT_DEFINED
+typedef struct tagWINDOWPLACEMENT {
+    UINT  length;
+    UINT  flags;
+    UINT  showCmd;
+    POINT ptMinPosition;
+    POINT ptMaxPosition;
+    RECT  rcNormalPosition;
+} WINDOWPLACEMENT, *PWINDOWPLACEMENT, *LPWINDOWPLACEMENT;
+
+WIN32_IMPORT("GetWindowPlacement")
+BOOL WINAPI GetWindowPlacement(HWND hWnd, WINDOWPLACEMENT *lpwndpl);
+
+WIN32_IMPORT("SetWindowPlacement")
+BOOL WINAPI SetWindowPlacement(HWND hWnd, const WINDOWPLACEMENT *lpwndpl);
+#endif
+
+#ifndef _CPINFOEXW_DEFINED
+#define _CPINFOEXW_DEFINED
+typedef struct tagCPINFOEXW {
+    UINT    MaxCharSize;
+    BYTE    DefaultChar[2];
+    BYTE    LeadByte[12];
+    WCHAR   UnicodeDefaultChar;
+    UINT    CodePage;
+    WCHAR   CodePageName[MAX_PATH];
+} CPINFOEXW, *LPCPINFOEXW;
+
+WIN32_IMPORT("GetCPInfoExW")
+BOOL WINAPI GetCPInfoExW(UINT CodePage, DWORD dwFlags, LPCPINFOEXW lpCPInfoEx);
+#endif
+
+static inline int MulDiv(int nNumber, int nNumerator, int nDenominator) {
+    if (nDenominator == 0) return -1;
+    return (int)(((long long)nNumber * nNumerator) / nDenominator);
+}
+
+static inline UINT GetDpiForWindow(HWND hwnd) {
+    (void)hwnd;
+    return 96;
+}
+
+#define SB_SETTEXTA           (WM_USER+1)
+#define SB_SETTEXTW           (WM_USER+11)
+
+#ifndef SWP_NOOWNERZORDER
+#define SWP_NOOWNERZORDER     0x0200
+#endif
+
+#ifndef FORMAT_MESSAGE_ALLOCATE_BUFFER
+#define FORMAT_MESSAGE_ALLOCATE_BUFFER 0x00000100
+#define FORMAT_MESSAGE_FROM_SYSTEM     0x00001000
+#define FORMAT_MESSAGE_IGNORE_INSERTS  0x00000200
+#define FORMAT_MESSAGE_FROM_STRING     0x00000400
+#define FORMAT_MESSAGE_ARGUMENT_ARRAY  0x00002000
+#endif
+
+#ifndef MB_ICONMASK
+#define MB_ICONMASK 0x000000F0
+#endif
+
+#ifndef WC_NO_BEST_FIT_CHARS
+#define WC_NO_BEST_FIT_CHARS 0x00000400
+#endif
+
+#ifndef EM_SETMODIFY
+#define EM_SETMODIFY 0x00B9
+#endif
+
+#ifndef NO_ERROR
+#define NO_ERROR 0L
+#endif
+
+WIN32_IMPORT("FormatMessageW")
+DWORD WINAPI FormatMessageW(DWORD dwFlags, LPCVOID lpSource, DWORD dwMessageId, DWORD dwLanguageId, LPWSTR lpBuffer, DWORD nSize, va_list *Arguments);
+
+static inline HLOCAL WINAPI LocalFree(HLOCAL hMem) {
+    (void)hMem;
+    return (HLOCAL)0;
+}
+
+WIN32_IMPORT("RegOpenKeyW")
+LONG WINAPI RegOpenKeyW(HKEY hKey, LPCWSTR lpSubKey, PHKEY phkResult);
+
+WIN32_IMPORT("GetWindowTextW")
+int WINAPI GetWindowTextW(HWND hWnd, LPWSTR lpString, int nMaxCount);
+
+WIN32_IMPORT("GetWindowTextLengthW")
+int WINAPI GetWindowTextLengthW(HWND hWnd);
+
+WIN32_IMPORT("SetWindowTextW")
+BOOL WINAPI SetWindowTextW(HWND hWnd, LPCWSTR lpString);
+
+#ifndef _WIN32_FIND_DATAW_DEFINED
+#define _WIN32_FIND_DATAW_DEFINED
+typedef struct _WIN32_FIND_DATAW {
+    DWORD    dwFileAttributes;
+    FILETIME ftCreationTime;
+    FILETIME ftLastAccessTime;
+    FILETIME ftLastWriteTime;
+    DWORD    nFileSizeHigh;
+    DWORD    nFileSizeLow;
+    DWORD    dwReserved0;
+    DWORD    dwReserved1;
+    WCHAR    cFileName[MAX_PATH];
+    WCHAR    cAlternateFileName[14];
+} WIN32_FIND_DATAW, *PWIN32_FIND_DATAW, *LPWIN32_FIND_DATAW;
+
+WIN32_IMPORT("FindFirstFileW")
+HANDLE WINAPI FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData);
+
+WIN32_IMPORT("FindNextFileW")
+BOOL WINAPI FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData);
+
+WIN32_IMPORT("FindClose")
+BOOL WINAPI FindClose(HANDLE hFindFile);
+
+WIN32_IMPORT("CreateFileW")
+HANDLE WINAPI CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, const void *lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+
+WIN32_IMPORT("SetEndOfFile")
+BOOL WINAPI SetEndOfFile(HANDLE hFile);
+#endif
+
+#ifndef STATUSCLASSNAMEW
+#define STATUSCLASSNAMEW L"msctls_statusbar32"
+#endif
+
+typedef LRESULT (CALLBACK *SUBCLASSPROC)(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+static inline BOOL SetWindowSubclass(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+    (void)hWnd; (void)pfnSubclass; (void)uIdSubclass; (void)dwRefData;
+    return TRUE;
+}
+static inline LRESULT DefSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+}
+
+typedef HANDLE HDROP;
+static inline UINT DragQueryFileW(HDROP hDrop, UINT iFile, LPWSTR lpszFile, UINT cch) {
+    (void)hDrop; (void)iFile; (void)lpszFile; (void)cch;
+    return 0;
+}
+static inline void DragFinish(HDROP hDrop) {
+    (void)hDrop;
+}
+
+#ifndef EM_GETMODIFY
+#define EM_GETMODIFY 0x00B8
+#endif
+
+#ifndef IS_TEXT_UNICODE_ODD_LENGTH
+#define IS_TEXT_UNICODE_ODD_LENGTH 0x0200
+#endif
+
+#ifndef CB_ERR
+#define CB_ERR (-1)
+#endif
+
+#ifndef ETO_CLIPPED
+#define ETO_OPAQUE             0x0002
+#define ETO_CLIPPED            0x0004
+#endif
+
+WIN32_IMPORT("ExtTextOutW")
+BOOL WINAPI ExtTextOutW(HDC hdc, int x, int y, UINT options, const RECT *lprect, LPCWSTR lpString, UINT c, const INT *lpDx);
+
+#ifndef _TEXTMETRICW_DEFINED
+#define _TEXTMETRICW_DEFINED
+typedef struct tagTEXTMETRICW {
+    LONG tmHeight;
+    LONG tmAscent;
+    LONG tmDescent;
+    LONG tmInternalLeading;
+    LONG tmExternalLeading;
+    LONG tmAveCharWidth;
+    LONG tmMaxCharWidth;
+    LONG tmWeight;
+    LONG tmOverhang;
+    LONG tmDigitizedAspectX;
+    LONG tmDigitizedAspectY;
+    WCHAR tmFirstChar;
+    WCHAR tmLastChar;
+    WCHAR tmDefaultChar;
+    WCHAR tmBreakChar;
+    BYTE tmItalic;
+    BYTE tmUnderlined;
+    BYTE tmStruckOut;
+    BYTE tmPitchAndFamily;
+    BYTE tmCharSet;
+} TEXTMETRICW, *PTEXTMETRICW, *LPTEXTMETRICW;
+
+WIN32_IMPORT("GetTextMetricsW")
+BOOL WINAPI GetTextMetricsW(HDC hdc, LPTEXTMETRICW lptm);
+
+WIN32_IMPORT("GetTextExtentExPointW")
+BOOL WINAPI GetTextExtentExPointW(HDC hdc, LPCWSTR lpszStr, int cchString, int nMaxExtent, LPINT lpnFit, LPINT alpDx, LPSIZE lpSize);
+#endif
+
+#ifndef _DOCINFOW_DEFINED
+#define _DOCINFOW_DEFINED
+typedef struct tagDOCINFOW {
+    int     cbSize;
+    LPCWSTR lpszDocName;
+    LPCWSTR lpszOutput;
+    LPCWSTR lpszDatatype;
+    DWORD   fwType;
+} DOCINFOW, *LPDOCINFOW;
+
+WIN32_IMPORT("StartDocW")
+int WINAPI StartDocW(HDC hdc, const DOCINFOW *lpdi);
+#endif
+
+WIN32_IMPORT("RegisterWindowMessageW")
+UINT WINAPI RegisterWindowMessageW(LPCWSTR lpString);
+
+static inline void DragAcceptFiles(HWND hWnd, BOOL fAccept) { (void)hWnd; (void)fAccept; }
+
+WIN32_IMPORT("GetCommandLineW")
+LPCWSTR WINAPI GetCommandLineW(void);
+
+WIN32_IMPORT("IsDialogMessageW")
+BOOL WINAPI IsDialogMessageW(HWND hDlg, LPMSG lpMsg);
+
+WIN32_IMPORT("PostMessageW")
+BOOL WINAPI PostMessageW(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+WIN32_IMPORT("SetActiveWindow")
+HWND WINAPI SetActiveWindow(HWND hWnd);
+
+#ifndef TIME_NOSECONDS
+#define TIME_NOSECONDS 0x00000002
+#endif
+#ifndef LOCALE_USER_DEFAULT
+#define LOCALE_USER_DEFAULT 0x0400
+#endif
+
+WIN32_IMPORT("GetTimeFormatW")
+int WINAPI GetTimeFormatW(LCID Locale, DWORD dwFlags, const SYSTEMTIME *lpTime, LPCWSTR lpFormat, LPWSTR lpTimeStr, int cchTime);
+
+WIN32_IMPORT("GetDateFormatW")
+int WINAPI GetDateFormatW(LCID Locale, DWORD dwFlags, const SYSTEMTIME *lpTime, LPCWSTR lpFormat, LPWSTR lpDateStr, int cchDate);
+
+static inline wchar_t *wasm_wcschr_p(const wchar_t *s, wchar_t c) {
+    if (!s) return NULL;
+    while (*s) {
+        if (*s == c) return (wchar_t *)s;
+        s++;
+    }
+    return (c == 0) ? (wchar_t *)s : NULL;
+}
+#ifndef wcschr
+#define wcschr wasm_wcschr_p
+#endif
+
+WIN32_IMPORT("GetProfileStringA")
+DWORD WINAPI GetProfileStringA(LPCSTR lpAppName, LPCSTR lpKeyName, LPCSTR lpDefault, LPSTR lpReturnedString, DWORD nSize);
+#ifndef GetProfileString
+#define GetProfileString GetProfileStringA
+#endif
+
+WIN32_IMPORT("WriteProfileStringA")
+BOOL WINAPI WriteProfileStringA(LPCSTR lpAppName, LPCSTR lpKeyName, LPCSTR lpString);
+#ifndef WriteProfileString
+#define WriteProfileString WriteProfileStringA
+#endif
+
+static inline LPWSTR wasm_lstrcpyW(LPWSTR dst, LPCWSTR src) {
+    if (!dst || !src) return dst;
+    LPWSTR d = dst;
+    while ((*d++ = *src++));
+    return dst;
+}
+#ifndef lstrcpyW
+#define lstrcpyW wasm_lstrcpyW
+#endif
+
+static inline LPWSTR wasm_lstrcatW(LPWSTR dst, LPCWSTR src) {
+    if (!dst || !src) return dst;
+    LPWSTR d = dst;
+    while (*d) d++;
+    while ((*d++ = *src++));
+    return dst;
+}
+#ifndef lstrcatW
+#define lstrcatW wasm_lstrcatW
+#endif
+
+static inline int wasm_lstrcmpW(LPCWSTR s1, LPCWSTR s2) {
+    if (!s1 || !s2) return 0;
+    while (*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return (int)*s1 - (int)*s2;
+}
+#ifndef lstrcmpW
+#define lstrcmpW wasm_lstrcmpW
+#endif
+
+static inline int wasm_lstrcmpiW(LPCWSTR s1, LPCWSTR s2) {
+    if (!s1 || !s2) return 0;
+    while (*s1 && *s2) {
+        WCHAR c1 = (*s1 >= L'a' && *s1 <= L'z') ? (*s1 - 32) : *s1;
+        WCHAR c2 = (*s2 >= L'a' && *s2 <= L'z') ? (*s2 - 32) : *s2;
+        if (c1 != c2) return (int)c1 - (int)c2;
+        s1++;
+        s2++;
+    }
+    return (int)*s1 - (int)*s2;
+}
+#ifndef lstrcmpiW
+#define lstrcmpiW wasm_lstrcmpiW
+#endif
+
+static inline short GetFileTitleW(LPCWSTR lpszFile, LPWSTR lpszTitle, WORD cbBuf) {
+    if (!lpszFile || !lpszTitle || cbBuf == 0) return -1;
+    LPCWSTR p = lpszFile;
+    LPCWSTR lastSlash = 0;
+    while (*p) {
+        if (*p == L'\\' || *p == L'/') lastSlash = p + 1;
+        p++;
+    }
+    LPCWSTR start = lastSlash ? lastSlash : lpszFile;
+    WORD i = 0;
+    while (start[i] && i + 1 < cbBuf) {
+        lpszTitle[i] = start[i];
+        i++;
+    }
+    lpszTitle[i] = 0;
+    return 0;
+}
+
+static inline int wasm_swprintf(LPWSTR buf, size_t maxLen, LPCWSTR format, ...) {
+    va_list args;
+    va_start(args, format);
+    LPWSTR dst = buf;
+    LPCWSTR src = format;
+    size_t count = 0;
+    while (src && *src && count + 1 < maxLen) {
+        if (*src == L'%' && *(src + 1)) {
+            src++;
+            if (*src == L'u' || *src == L'd' || *src == L'i') {
+                int val = va_arg(args, int);
+                WCHAR temp[16];
+                int idx = 0;
+                unsigned int uval = (unsigned int)val;
+                if (*src == L'd' || *src == L'i') {
+                    if (val < 0) {
+                        if (count + 1 < maxLen) { *dst++ = L'-'; count++; }
+                        uval = (unsigned int)(-val);
+                    }
+                }
+                if (uval == 0) temp[idx++] = L'0';
+                else {
+                    while (uval > 0) {
+                        temp[idx++] = L'0' + (uval % 10);
+                        uval /= 10;
+                    }
+                }
+                for (int j = idx - 1; j >= 0; j--) {
+                    if (count + 1 < maxLen) { *dst++ = temp[j]; count++; }
+                }
+            } else if (*src == L's') {
+                LPCWSTR str = va_arg(args, LPCWSTR);
+                while (str && *str && count + 1 < maxLen) {
+                    *dst++ = *str++;
+                    count++;
+                }
+            } else {
+                *dst++ = *src;
+                count++;
+            }
+        } else {
+            *dst++ = *src;
+            count++;
+        }
+        src++;
+    }
+    if (count < maxLen) *dst = 0;
+    va_end(args);
+    return (int)count;
+}
+#ifndef swprintf
+#define swprintf wasm_swprintf
+#endif
+
 
 
 

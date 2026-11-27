@@ -2,6 +2,10 @@ import { Win32WasmRuntime } from "../win32/wasm_bridge";
 import { getSampleAppWasmBytes } from "../wasm/sample_app_wasm";
 import { kernel, vfs, MessageBox } from "../win32/kernel.svelte";
 import { MB_ICONERROR } from "../win32/constants";
+import clockResources from "../resources/clock_rc";
+import winemineResources from "../resources/winemine_rc";
+import notepadResources from "../resources/notepad_rc";
+import winecalcResources from "../resources/winecalc_rc";
 
 let wasmInstanceCount = 0;
 
@@ -11,7 +15,22 @@ export async function StartWasmApp(
   pathOrVfsPath?: string,
   rawBytes?: Uint8Array
 ): Promise<void> {
-  const runtime = new Win32WasmRuntime();
+  let bundle: any = undefined;
+  if (pathOrVfsPath) {
+    const lower = pathOrVfsPath.toLowerCase();
+    if (lower.includes("calc")) bundle = winecalcResources;
+    else if (lower.includes("notepad")) bundle = notepadResources;
+    else if (lower.includes("mine")) bundle = winemineResources;
+    else if (lower.includes("clock")) bundle = clockResources;
+  }
+
+  const runtime = new Win32WasmRuntime({
+    initialX: x,
+    initialY: y,
+    initialWidth: 600,
+    initialHeight: 450,
+    resourceBundle: bundle,
+  });
   let wasmBytes: Uint8Array | null = null;
 
   if (rawBytes) {

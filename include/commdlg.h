@@ -76,7 +76,7 @@ BOOL WINAPI ChooseColorA(LPCHOOSECOLORA lpcc);
 #define CF_TTONLY                  0x00040000
 #define CF_NOFACESEL               0x00080000
 #define CF_NOSTYLESEL              0x00100000
-#define CF_NOSIZESEL               0x00200000
+#define CF_NOVERTFONTS             0x01000000
 
 typedef UINT_PTR (CALLBACK *LPCFHOOKPROC)(HWND, UINT, WPARAM, LPARAM);
 
@@ -99,11 +99,32 @@ typedef struct tagCHOOSEFONTA {
     INT             nSizeMax;
 } CHOOSEFONTA, *LPCHOOSEFONTA;
 
+typedef struct tagCHOOSEFONTW {
+    DWORD           lStructSize;
+    HWND            hwndOwner;
+    HDC             hDC;
+    LOGFONTW*       lpLogFont;
+    INT             iPointSize;
+    DWORD           Flags;
+    COLORREF        rgbColors;
+    LPARAM          lCustData;
+    LPCFHOOKPROC    lpfnHook;
+    LPCWSTR         lpTemplateName;
+    HINSTANCE       hInstance;
+    LPWSTR          lpszStyle;
+    WORD            nFontType;
+    WORD            ___MISSING_ALIGNMENT__;
+    INT             nSizeMin;
+    INT             nSizeMax;
+} CHOOSEFONTW, *LPCHOOSEFONTW;
+
 typedef CHOOSEFONTA CHOOSEFONT;
 typedef LPCHOOSEFONTA LPCHOOSEFONT;
 
 WIN32_IMPORT("ChooseFontA")
 BOOL WINAPI ChooseFontA(LPCHOOSEFONTA lpcf);
+WIN32_IMPORT("ChooseFontW")
+BOOL WINAPI ChooseFontW(LPCHOOSEFONTW lpcf);
 #ifndef ChooseFont
 #define ChooseFont ChooseFontA
 #endif
@@ -134,6 +155,28 @@ BOOL WINAPI ChooseFontA(LPCHOOSEFONTA lpcf);
 #define OFN_EXPLORER                 0x00080000
 #define OFN_NODEREFERENCELINKS       0x00100000
 #define OFN_LONGNAMES                0x00200000
+#ifndef OFN_ENABLESIZING
+#define OFN_ENABLESIZING             0x00800000
+#endif
+
+#define CDN_FIRST              (0U-601U)
+#define CDN_INITDONE           (CDN_FIRST - 0x0000)
+#define CDN_SELCHANGE          (CDN_FIRST - 0x0001)
+#define CDN_FOLDERCHANGE       (CDN_FIRST - 0x0002)
+#define CDN_SHAREVIOLATION     (CDN_FIRST - 0x0003)
+#define CDN_HELP               (CDN_FIRST - 0x0004)
+#define CDN_FILEOK             (CDN_FIRST - 0x0005)
+#define CDN_TYPECHANGE         (CDN_FIRST - 0x0006)
+#define CDN_INCLUDEITEM        (CDN_FIRST - 0x0007)
+
+#define CDM_FIRST              (WM_USER + 100)
+#define CDM_GETSPEC            (CDM_FIRST + 0x0000)
+#define CDM_GETFILEPATH        (CDM_FIRST + 0x0001)
+#define CDM_GETFOLDERPATH      (CDM_FIRST + 0x0002)
+#define CDM_GETFOLDERIDLIST    (CDM_FIRST + 0x0003)
+#define CDM_SETCONTROLTEXT     (CDM_FIRST + 0x0004)
+#define CDM_HIDECONTROL        (CDM_FIRST + 0x0005)
+#define CDM_SETDEFEXT          (CDM_FIRST + 0x0006)
 
 typedef UINT_PTR (CALLBACK *LPOFNHOOKPROC)(HWND, UINT, WPARAM, LPARAM);
 
@@ -160,17 +203,50 @@ typedef struct tagOFNA {
     LPCSTR        lpTemplateName;
 } OPENFILENAMEA, *LPOPENFILENAMEA;
 
+typedef struct tagOFNW {
+    DWORD         lStructSize;
+    HWND          hwndOwner;
+    HINSTANCE     hInstance;
+    LPCWSTR       lpstrFilter;
+    LPWSTR        lpstrCustomFilter;
+    DWORD         nMaxCustFilter;
+    DWORD         nFilterIndex;
+    LPWSTR        lpstrFile;
+    DWORD         nMaxFile;
+    LPWSTR        lpstrFileTitle;
+    DWORD         nMaxFileTitle;
+    LPCWSTR       lpstrInitialDir;
+    LPCWSTR       lpstrTitle;
+    DWORD         Flags;
+    WORD          nFileOffset;
+    WORD          nFileExtension;
+    LPCWSTR       lpstrDefExt;
+    LPARAM        lCustData;
+    LPOFNHOOKPROC lpfnHook;
+    LPCWSTR       lpTemplateName;
+} OPENFILENAMEW, *LPOPENFILENAMEW;
+
+typedef struct _OFNOTIFYW {
+    NMHDR           hdr;
+    LPOPENFILENAMEW lpOFN;
+    LPWSTR          pszFile;
+} OFNOTIFYW, *LPOFNOTIFYW;
+
 typedef OPENFILENAMEA OPENFILENAME;
 typedef LPOPENFILENAMEA LPOPENFILENAME;
 
 WIN32_IMPORT("GetOpenFileNameA")
 BOOL WINAPI GetOpenFileNameA(LPOPENFILENAMEA lpofn);
+WIN32_IMPORT("GetOpenFileNameW")
+BOOL WINAPI GetOpenFileNameW(LPOPENFILENAMEW lpofn);
 #ifndef GetOpenFileName
 #define GetOpenFileName GetOpenFileNameA
 #endif
 
 WIN32_IMPORT("GetSaveFileNameA")
 BOOL WINAPI GetSaveFileNameA(LPOPENFILENAMEA lpofn);
+WIN32_IMPORT("GetSaveFileNameW")
+BOOL WINAPI GetSaveFileNameW(LPOPENFILENAMEW lpofn);
 #ifndef GetSaveFileName
 #define GetSaveFileName GetSaveFileNameA
 #endif
@@ -198,6 +274,7 @@ BOOL WINAPI GetSaveFileNameA(LPOPENFILENAMEA lpofn);
 #define FR_HIDEWHOLEWORD             0x00010000
 
 #define FINDMSGSTRING                "commdlg_FindReplace"
+#define FINDMSGSTRINGW               L"commdlg_FindReplace"
 
 // PrintDlg Flags
 #define PD_ALLPAGES                   0x00000000
@@ -241,19 +318,102 @@ typedef struct tagFINDREPLACEA {
     LPCSTR       lpTemplateName;
 } FINDREPLACEA, *LPFINDREPLACEA;
 
+typedef struct tagFINDREPLACEW {
+    DWORD        lStructSize;
+    HWND         hwndOwner;
+    HINSTANCE    hInstance;
+    DWORD        Flags;
+    LPWSTR       lpstrFindWhat;
+    LPWSTR       lpstrReplaceWith;
+    WORD         wFindWhatLen;
+    WORD         wReplaceWithLen;
+    LPARAM       lCustData;
+    LPFRHOOKPROC lpfnHook;
+    LPCWSTR      lpTemplateName;
+} FINDREPLACEW, *LPFINDREPLACEW;
+
 typedef FINDREPLACEA FINDREPLACE;
 typedef LPFINDREPLACEA LPFINDREPLACE;
 
 WIN32_IMPORT("FindTextA")
 HWND WINAPI FindTextA(LPFINDREPLACEA lpfr);
+WIN32_IMPORT("FindTextW")
+HWND WINAPI FindTextW(LPFINDREPLACEW lpfr);
 #ifndef FindText
 #define FindText FindTextA
 #endif
 
 WIN32_IMPORT("ReplaceTextA")
 HWND WINAPI ReplaceTextA(LPFINDREPLACEA lpfr);
+WIN32_IMPORT("ReplaceTextW")
+HWND WINAPI ReplaceTextW(LPFINDREPLACEW lpfr);
 #ifndef ReplaceText
 #define ReplaceText ReplaceTextA
+#endif
+
+// PageSetupDlg
+#define PSD_DEFAULTMINMARGINS             0x00000000
+#define PSD_INWININIINTLMEASURE           0x00000000
+#define PSD_MINMARGINS                    0x00000001
+#define PSD_MARGINS                       0x00000002
+#define PSD_INTHOUSANDTHSOFINCHES         0x00000004
+#define PSD_INHUNDREDTHSOFMILLIMETERS     0x00000008
+#define PSD_DISABLEMARGINS                0x00000010
+#define PSD_DISABLEPRINTER                0x00000020
+#define PSD_NOWARNING                     0x00000080
+#define PSD_DISABLEORIENTATION            0x00000100
+#define PSD_RETURNDEFAULT                 0x00000400
+#define PSD_SHOWHELP                      0x00000800
+#define PSD_ENABLEPAGESETUPHOOK           0x00002000
+#define PSD_ENABLEPAGESETUPTEMPLATE       0x00008000
+#define PSD_ENABLEPAGESETUPTEMPLATEHANDLE 0x00020000
+#define PSD_ENABLEPAGEPAINTHOOK           0x00040000
+#define PSD_DISABLEPAGEPAINTING           0x00080000
+#define PSD_NONETWORKBUTTON               0x00200000
+
+typedef UINT_PTR (CALLBACK *LPPAGESETUPHOOK)(HWND, UINT, WPARAM, LPARAM);
+typedef UINT_PTR (CALLBACK *LPPAGEPAINTHOOK)(HWND, UINT, WPARAM, LPARAM);
+
+typedef struct tagPAGESETUPDLGA {
+    DWORD           lStructSize;
+    HWND            hwndOwner;
+    HGLOBAL         hDevMode;
+    HGLOBAL         hDevNames;
+    DWORD           Flags;
+    POINT           ptPaperSize;
+    RECT            rtMinMargin;
+    RECT            rtMargin;
+    HINSTANCE       hInstance;
+    LPARAM          lCustData;
+    LPPAGESETUPHOOK lpfnPageSetupHook;
+    LPPAGEPAINTHOOK lpfnPagePaintHook;
+    LPCSTR          lpPageSetupTemplateName;
+    HGLOBAL         hPageSetupTemplate;
+} PAGESETUPDLGA, *LPPAGESETUPDLGA;
+
+typedef struct tagPAGESETUPDLGW {
+    DWORD           lStructSize;
+    HWND            hwndOwner;
+    HGLOBAL         hDevMode;
+    HGLOBAL         hDevNames;
+    DWORD           Flags;
+    POINT           ptPaperSize;
+    RECT            rtMinMargin;
+    RECT            rtMargin;
+    HINSTANCE       hInstance;
+    LPARAM          lCustData;
+    LPPAGESETUPHOOK lpfnPageSetupHook;
+    LPPAGEPAINTHOOK lpfnPagePaintHook;
+    LPCWSTR         lpPageSetupTemplateName;
+    HGLOBAL         hPageSetupTemplate;
+} PAGESETUPDLGW, *LPPAGESETUPDLGW;
+
+WIN32_IMPORT("PageSetupDlgA")
+BOOL WINAPI PageSetupDlgA(LPPAGESETUPDLGA lppsd);
+WIN32_IMPORT("PageSetupDlgW")
+BOOL WINAPI PageSetupDlgW(LPPAGESETUPDLGW lppsd);
+#ifndef PageSetupDlg
+#define PageSetupDlg PageSetupDlgA
 #endif
 
 typedef UINT_PTR (CALLBACK *LPPRINTHOOKPROC)(HWND, UINT, WPARAM, LPARAM);
@@ -281,11 +441,35 @@ typedef struct tagPDA {
     HGLOBAL          hSetupTemplate;
 } PRINTDLGA, *LPPRINTDLGA;
 
+typedef struct tagPDW {
+    DWORD            lStructSize;
+    HWND             hwndOwner;
+    HGLOBAL          hDevMode;
+    HGLOBAL          hDevNames;
+    HDC              hDC;
+    DWORD            Flags;
+    WORD             nFromPage;
+    WORD             nToPage;
+    WORD             nMinPage;
+    WORD             nMaxPage;
+    WORD             nCopies;
+    HINSTANCE        hInstance;
+    LPARAM           lCustData;
+    LPPRINTHOOKPROC  lpfnPrintHook;
+    LPSETUPHOOKPROC  lpfnSetupHook;
+    LPCWSTR          lpPrintTemplateName;
+    LPCWSTR          lpSetupTemplateName;
+    HGLOBAL          hPrintTemplate;
+    HGLOBAL          hSetupTemplate;
+} PRINTDLGW, *LPPRINTDLGW;
+
 typedef PRINTDLGA PRINTDLG;
 typedef LPPRINTDLGA LPPRINTDLG;
 
 WIN32_IMPORT("PrintDlgA")
 BOOL WINAPI PrintDlgA(LPPRINTDLGA lppd);
+WIN32_IMPORT("PrintDlgW")
+BOOL WINAPI PrintDlgW(LPPRINTDLGW lppd);
 #ifndef PrintDlg
 #define PrintDlg PrintDlgA
 #endif

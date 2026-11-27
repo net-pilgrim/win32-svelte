@@ -269,7 +269,7 @@ CHAP23_BINS = \
 all: chap01 chap02 chap03 chap04 chap05 chap06 chap07 chap08 chap09 chap10 chap11 chap12 chap13 chap14 chap15 chap16 chap17 chap18 chap19 chap20 chap21 chap22 chap23
 
 scan:
-	python3 scan_chapters.py
+	npx tsx scan_chapters.ts
 
 $(BUILD_DIR)/Chap11/PopPad3/PopPad3.wasm: $(CHAP11_POPPAD3_SRCS)
 	@mkdir -p $(dir $@)
@@ -496,11 +496,40 @@ chap21: $(CHAP21_BINS)
 chap22: $(CHAP22_BINS)
 chap23: $(CHAP23_BINS)
 
+# --- Wine Apps ---
+WINE_CLOCK_SRCS := src/Wine/clock/main.c src/Wine/clock/winclock.c
+WINE_WINEMINE_SRCS := src/Wine/winemine/main.c src/Wine/winemine/dialog.c
+WINE_NOTEPAD_SRCS := src/Wine/notepad/main.c src/Wine/notepad/dialog.c
+WINE_CALC_SRCS := src/Wine/calc/winecalc.c src/Wine/calc/dialog.c src/Wine/calc/stats.c
+
+$(BUILD_DIR)/Wine/clock.wasm: $(WINE_CLOCK_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Wine/clock $(WINE_CLOCK_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Wine/winemine.wasm: $(WINE_WINEMINE_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc/Wine/winemine $(WINE_WINEMINE_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Wine/notepad.wasm: $(WINE_NOTEPAD_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -fshort-wchar -Isrc/Wine/notepad $(WINE_NOTEPAD_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+$(BUILD_DIR)/Wine/calc.wasm: $(WINE_CALC_SRCS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -fshort-wchar -Isrc/Wine/calc $(WINE_CALC_SRCS) $(LDFLAGS) -o $@
+	@echo "✓ Compiled: $@"
+
+wine: $(BUILD_DIR)/Wine/clock.wasm $(BUILD_DIR)/Wine/winemine.wasm $(BUILD_DIR)/Wine/notepad.wasm $(BUILD_DIR)/Wine/calc.wasm
+
+
 copy-wasm-files:
 	@mkdir -p $(ROOT_DIR)/public/wasm-demo
 	@find $(BUILD_DIR) -name "*.wasm" -exec cp {} $(ROOT_DIR)/public/wasm-demo/ \;
 	@find $(SRC_DIR)/Chap18 -name "*.emf" -exec cp {} $(ROOT_DIR)/public/wasm-demo/ \;
-	@python3 $(ROOT_DIR)/scripts/generate_wasm_manifest.py
+	@npx tsx $(ROOT_DIR)/scripts/generate_wasm_manifest.ts
 
 clean:
 	rm -rf $(BUILD_DIR)

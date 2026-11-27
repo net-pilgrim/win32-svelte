@@ -119,7 +119,7 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "name": "Bounce.wasm",
     "size": 12360,
     "chapter": "Chap16",
-    "description": "Bounce"
+    "description": "This program requires Windows NT!"
   },
   {
     "name": "Bricks1.wasm",
@@ -269,13 +269,13 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "name": "Drum.wasm",
     "size": 547760,
     "chapter": "Chap22",
-    "description": "Acoustic Bass Drum"
+    "description": "Drum"
   },
   {
     "name": "EZTest.wasm",
     "size": 18348,
     "chapter": "Chap17",
-    "description": "EZTest"
+    "description": "FontDemo"
   },
   {
     "name": "EdrTest.wasm",
@@ -593,7 +593,7 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "name": "PopPad.wasm",
     "size": 37535,
     "chapter": "Chap13",
-    "description": "PopPad"
+    "description": "PrintDlgBox"
   },
   {
     "name": "PopPad1.wasm",
@@ -617,7 +617,7 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "name": "Print1.wasm",
     "size": 12124,
     "chapter": "Chap13",
-    "description": "This program requires Windows NT!"
+    "description": "Print1"
   },
   {
     "name": "Print2.wasm",
@@ -695,7 +695,7 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "name": "ShowDib2.wasm",
     "size": 20254,
     "chapter": "Chap15",
-    "description": "Bitmap Files (*.BMP)\\0*.bmp\\0"
+    "description": "ShowDib2"
   },
   {
     "name": "ShowDib3.wasm",
@@ -736,7 +736,7 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
   {
     "name": "SineWave.wasm",
     "size": 520119,
-    "chapter": "Chap05",
+    "chapter": "Chap22",
     "description": "SineWave"
   },
   {
@@ -860,6 +860,18 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "description": "WhatSize"
   },
   {
+    "name": "calc.wasm",
+    "size": 638075,
+    "chapter": "Wine",
+    "description": "calc"
+  },
+  {
+    "name": "clock.wasm",
+    "size": 542999,
+    "chapter": "Wine",
+    "description": "clock"
+  },
+  {
     "name": "emf11.emf",
     "size": 4168,
     "chapter": "Chap18",
@@ -906,5 +918,17 @@ export const WASM_FILES_MANIFEST: WasmManifestEntry[] = [
     "size": 10697,
     "chapter": "Chap09",
     "description": "head"
+  },
+  {
+    "name": "notepad.wasm",
+    "size": 605929,
+    "chapter": "Wine",
+    "description": "notepad"
+  },
+  {
+    "name": "winemine.wasm",
+    "size": 50595,
+    "chapter": "Wine",
+    "description": "winemine"
   }
 ];

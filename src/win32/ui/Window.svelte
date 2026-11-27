@@ -11,6 +11,13 @@
     WM_SIZE,
     WM_LBUTTONDOWN,
     WM_LBUTTONUP,
+    WM_LBUTTONDBLCLK,
+    WM_RBUTTONDOWN,
+    WM_RBUTTONUP,
+    WM_RBUTTONDBLCLK,
+    WM_MBUTTONDOWN,
+    WM_MBUTTONUP,
+    WM_MBUTTONDBLCLK,
     WM_MOUSEMOVE,
     WM_DROPFILES,
     WM_KEYDOWN,
@@ -19,6 +26,11 @@
     WS_MINIMIZEBOX,
     WS_MAXIMIZEBOX,
     WS_EX_ACCEPTFILES,
+    MK_LBUTTON,
+    MK_RBUTTON,
+    MK_MBUTTON,
+    MK_SHIFT,
+    MK_CONTROL,
     MAKELPARAM,
   } from "../constants";
   import type { WindowRecord, HDROP, DropFileInfo } from "../types";
@@ -43,7 +55,7 @@
         ? (isMdiChild
             ? (kernel.getWindow(win.parentHwnd ?? 0)?.width ?? 600)
             : (typeof window !== "undefined" ? window.innerWidth : 800))
-        : win.width) - 16
+        : win.width) - 8
     )
   );
   let clientCanvasHeight = $derived(
@@ -53,7 +65,7 @@
         ? (isMdiChild
             ? (kernel.getWindow(win.parentHwnd ?? 0)?.height ?? 400)
             : (typeof window !== "undefined" ? window.innerHeight - 30 : 600))
-        : win.height) - (win.hMenu ? 64 : 44)
+        : win.height) - (win.hMenu ? 48 : 28)
     )
   );
 
@@ -81,20 +93,73 @@
   });
 
   function onCanvasPointerDown(e: PointerEvent) {
-    SendMessage(win.hwnd, WM_LBUTTONDOWN, 1, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
+    onFocusWindow();
+    let msg = WM_LBUTTONDOWN;
+    let wParam = 0;
+    if (e.button === 2) {
+      msg = WM_RBUTTONDOWN;
+      wParam |= MK_RBUTTON;
+    } else if (e.button === 1) {
+      msg = WM_MBUTTONDOWN;
+      wParam |= MK_MBUTTON;
+    } else {
+      msg = WM_LBUTTONDOWN;
+      wParam |= MK_LBUTTON;
+    }
+    if (e.shiftKey) wParam |= MK_SHIFT;
+    if (e.ctrlKey) wParam |= MK_CONTROL;
+
+    SendMessage(win.hwnd, msg, wParam, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
   }
 
   function onCanvasPointerMove(e: PointerEvent) {
+    let wParam = 0;
+    if (e.buttons & 1) wParam |= MK_LBUTTON;
+    if (e.buttons & 2) wParam |= MK_RBUTTON;
+    if (e.buttons & 4) wParam |= MK_MBUTTON;
+    if (e.shiftKey) wParam |= MK_SHIFT;
+    if (e.ctrlKey) wParam |= MK_CONTROL;
+
     SendMessage(
       win.hwnd,
       WM_MOUSEMOVE,
-      e.buttons === 1 ? 1 : 0,
+      wParam,
       MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY))
     );
   }
 
   function onCanvasPointerUp(e: PointerEvent) {
-    SendMessage(win.hwnd, WM_LBUTTONUP, 0, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
+    let msg = WM_LBUTTONUP;
+    let wParam = 0;
+    if (e.button === 2) {
+      msg = WM_RBUTTONUP;
+    } else if (e.button === 1) {
+      msg = WM_MBUTTONUP;
+    } else {
+      msg = WM_LBUTTONUP;
+    }
+    if (e.shiftKey) wParam |= MK_SHIFT;
+    if (e.ctrlKey) wParam |= MK_CONTROL;
+    if (e.buttons & 1) wParam |= MK_LBUTTON;
+    if (e.buttons & 2) wParam |= MK_RBUTTON;
+    if (e.buttons & 4) wParam |= MK_MBUTTON;
+
+    SendMessage(win.hwnd, msg, wParam, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
+  }
+
+  function onCanvasDblClick(e: MouseEvent) {
+    let msg = WM_LBUTTONDBLCLK;
+    let wParam = MK_LBUTTON;
+    if (e.button === 2) {
+      msg = WM_RBUTTONDBLCLK;
+      wParam = MK_RBUTTON;
+    } else if (e.button === 1) {
+      msg = WM_MBUTTONDBLCLK;
+      wParam = MK_MBUTTON;
+    }
+    if (e.shiftKey) wParam |= MK_SHIFT;
+    if (e.ctrlKey) wParam |= MK_CONTROL;
+    SendMessage(win.hwnd, msg, wParam, MAKELPARAM(Math.round(e.offsetX), Math.round(e.offsetY)));
   }
 
   function onWindowKeyDown(e: KeyboardEvent) {
@@ -373,6 +438,8 @@
           onpointerdown={onCanvasPointerDown}
           onpointermove={onCanvasPointerMove}
           onpointerup={onCanvasPointerUp}
+          ondblclick={onCanvasDblClick}
+          oncontextmenu={(e) => e.preventDefault()}
         ></canvas>
       {/if}
       {#each children as child (child.hwnd)}
@@ -445,7 +512,7 @@
     position: relative;
     flex: 1;
     overflow: hidden;
-    margin: 4px;
+    margin: 1px;
     background: #c0c0c0;
   }
 
@@ -457,7 +524,7 @@
     width: 100%;
     height: 100%;
     background: #ffffff;
-    cursor: crosshair;
+    cursor: default;
   }
 
   .inactive .title-bar,

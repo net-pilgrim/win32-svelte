@@ -132,11 +132,39 @@
         "params": { "x": 100, "y": 50 }
       },
       {
+        "id": "wine_clock",
+        "label": "Wine Clock",
+        "icon": "⏰",
+        "action": "wasm",
+        "params": { "path": "/wasm-demo/clock.wasm", "x": 160, "y": 120 }
+      },
+      {
         "id": "minesweeper",
         "label": "Minesweeper",
         "icon": "💣",
         "action": "minesweeper",
         "params": { "x": 120, "y": 80 }
+      },
+      {
+        "id": "wine_winemine",
+        "label": "WineMine (WASM)",
+        "icon": "🚩",
+        "action": "wasm",
+        "params": { "path": "/wasm-demo/winemine.wasm", "x": 140, "y": 60 }
+      },
+      {
+        "id": "wine_notepad",
+        "label": "Wine Notepad (WASM)",
+        "icon": "📝",
+        "action": "wasm",
+        "params": { "path": "/wasm-demo/notepad.wasm", "x": 150, "y": 100 }
+      },
+      {
+        "id": "wine_calc",
+        "label": "Wine Calculator (WASM)",
+        "icon": "🧮",
+        "action": "wasm",
+        "params": { "path": "/wasm-demo/calc.wasm", "x": 180, "y": 120 }
       },
       {
         "id": "paint",

@@ -37,6 +37,85 @@ static inline int abs(int n) {
     return n < 0 ? -n : n;
 }
 
+static inline int wasm_atoi(const char *s) {
+    int res = 0;
+    int sign = 1;
+    if (!s) return 0;
+    while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r') s++;
+    if (*s == '-') { sign = -1; s++; }
+    else if (*s == '+') { s++; }
+    while (*s >= '0' && *s <= '9') {
+        res = res * 10 + (*s - '0');
+        s++;
+    }
+    return sign * res;
+}
+#ifndef atoi
+#define atoi wasm_atoi
+#endif
+
+static inline void exit(int code) {
+    (void)code;
+}
+
+static inline double wasm_atof(const char *s) {
+    if (!s) return 0.0;
+    while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r') s++;
+    double sign = 1.0;
+    if (*s == '-') { sign = -1.0; s++; }
+    else if (*s == '+') { s++; }
+    double val = 0.0;
+    while (*s >= '0' && *s <= '9') {
+        val = val * 10.0 + (*s - '0');
+        s++;
+    }
+    if (*s == '.') {
+        s++;
+        double frac = 0.1;
+        while (*s >= '0' && *s <= '9') {
+            val += (*s - '0') * frac;
+            frac *= 0.1;
+            s++;
+        }
+    }
+    return sign * val;
+}
+#ifndef atof
+#define atof wasm_atof
+#endif
+
+static inline long wasm_strtol(const char *nptr, char **endptr, int base) {
+    if (!nptr) return 0;
+    const char *s = nptr;
+    while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r') s++;
+    int sign = 1;
+    if (*s == '-') { sign = -1; s++; }
+    else if (*s == '+') { s++; }
+    if (base == 0) {
+        if (*s == '0' && (s[1] == 'x' || s[1] == 'X')) { base = 16; s += 2; }
+        else if (*s == '0') { base = 8; s++; }
+        else base = 10;
+    } else if (base == 16 && *s == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        s += 2;
+    }
+    long res = 0;
+    while (*s) {
+        int digit;
+        if (*s >= '0' && *s <= '9') digit = *s - '0';
+        else if (*s >= 'a' && *s <= 'z') digit = *s - 'a' + 10;
+        else if (*s >= 'A' && *s <= 'Z') digit = *s - 'A' + 10;
+        else break;
+        if (digit >= base) break;
+        res = res * base + digit;
+        s++;
+    }
+    if (endptr) *endptr = (char *)s;
+    return sign * res;
+}
+#ifndef strtol
+#define strtol wasm_strtol
+#endif
+
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif

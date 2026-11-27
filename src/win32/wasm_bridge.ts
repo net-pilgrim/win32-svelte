@@ -52,15 +52,36 @@ import {
   LoadString as LoadStringFromBundle,
   LoadMenu as LoadMenuFromBundle,
   RegisterResourceBundle,
+  CreateDialogParam,
+  SetDlgItemText,
+  GetDlgItemText,
+  SetDlgItemInt,
+  GetDlgItemInt,
+  CheckRadioButton,
+  CheckDlgButton,
+  IsDlgButtonChecked,
+  GetDlgCtrlID,
+  hInstanceBundleMap,
+  resolveResourceBundle,
+  FindBitmapResource,
+  FindIconResource,
 } from "./dialog";
-import clockResources from "../resources/clock_rc";
-
-// Pre-register compiled resource bundles so Wine & Win32 apps can load string & menu resources dynamically
-RegisterResourceBundle(clockResources);
+import type { ResourceBundle } from "../rc/types";
+import {
+  registry,
+  RegOpenKeyEx,
+  RegCreateKeyEx,
+  RegCloseKey,
+  RegQueryValueEx,
+  RegSetValueEx,
+} from "./registry";
 
 export interface WasmBridgeOptions {
   initialX?: number;
   initialY?: number;
+  initialWidth?: number;
+  initialHeight?: number;
+  resourceBundle?: ResourceBundle;
 }
 
 export interface WasmStringLogEntry {
@@ -327,6 +348,7 @@ export class Win32WasmRuntime {
   private hdcRop2 = new Map<number, number>();
   private poePoemPtr = 0;
   private globalAllocMap = new Map<number, { size: number; flags: number; locked: number }>();
+  private _cmdLineWPtr: number | null = null;
   private openFileMap = new Map<number, { fileName: string; data: Uint8Array; position: number }>();
   private metafileMap = new Map<number, any>();
   private static sharedEmfFiles = new Map<string, any>();
@@ -522,6 +544,8 @@ export class Win32WasmRuntime {
       toSvg: (w?: number, h?: number) => metafile.toSvg(w, h),
     };
   }
+
+  public hInstance = 0;
 
   constructor(private options: WasmBridgeOptions = {}) {}
 
@@ -934,15 +958,80 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        LoadIconA: (_hInstance: number, _lpIconName: number) => {
+        RegisterClassExW: (ptr: number) => {
+          if (!this.memory || !this.table) return 0;
+          const view = new DataView(this.memory.buffer);
+          const fnIdx = view.getUint32(ptr + 8, true);
+          this.registeredWndProcIndices.push(fnIdx);
+          const menuNamePtr = view.getUint32(ptr + 36, true);
+          const classNamePtr = view.getUint32(ptr + 40, true);
+          const className = this.readWideString(classNamePtr, "RegisterClassExW:lpszClassName");
+          const hbrBg = view.getUint32(ptr + 32, true);
+          if (hbrBg) {
+            this.registeredClassBgColors.set(className.toUpperCase(), this.resolveBrushColor(hbrBg));
+          }
+          if (menuNamePtr) {
+            const menuName = menuNamePtr > 0xffff ? this.readWideString(menuNamePtr) : String(menuNamePtr);
+            this.registeredClassMenuNames.set(className.toUpperCase(), menuName);
+          }
+
+          const wndProc = (
+            hwnd: HWND,
+            uMsg: UINT,
+            wParam: WPARAM,
+            lParam: LPARAM
+          ): LRESULT => {
+            if (!this.table) return 0;
+            const targetFn = this.table.get(fnIdx);
+            let res: any = 0;
+            if (typeof targetFn === "function") {
+              res = targetFn(
+                hwnd,
+                uMsg,
+                typeof wParam === "number" ? wParam : 0,
+                typeof lParam === "number" ? lParam : 0
+              );
+            } else {
+              res = DefWindowProc(hwnd, uMsg, wParam, lParam);
+            }
+            if (uMsg === WM_DESTROY) {
+              this.destroy();
+            }
+            return typeof res === "number" ? res : 0;
+          };
+
+          this.registeredClasses.set(className.toUpperCase(), wndProc);
+
+          kernel.RegisterClassEx({
+            className,
+            lpfnWndProc: wndProc,
+          });
+          return 1;
+        },
+
+        LoadIconA: (hInstance: number, lpIconName: number) => {
+          const resId = lpIconName > 0xffff && this.memory ? (this.readCString(lpIconName) || 0) : lpIconName;
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInstance) || resolveResourceBundle(this.hInstance);
+          const iconRes = FindIconResource(resId, bundle);
+          if (iconRes) {
+            const handle = ++this.nextGdiHandle;
+            this.gdiMap.set(handle, {
+              type: "icon",
+              width: iconRes.width || 32,
+              height: iconRes.height || 32,
+              canvas: iconRes.canvas,
+              ctx: iconRes.ctx,
+            });
+            return handle;
+          }
           return 1; // Standard icon handle
         },
-        LoadIconW: (_hInstance: number, _lpIconName: number) => 1,
+        LoadIconW: (hInstance: number, lpIconName: number) => (win32Imports as any).LoadIconA(hInstance, lpIconName),
 
         LoadCursorA: (_hInstance: number, _lpCursorName: number) => {
           return 1; // Standard cursor handle
         },
-        LoadCursorW: (_hInstance: number, _lpCursorName: number) => 1,
+        LoadCursorW: (hInstance: number, lpCursorName: number) => (win32Imports as any).LoadCursorA(hInstance, lpCursorName),
 
         CreateWindowExA: (
           dwExStyle: number,
@@ -974,17 +1063,17 @@ export class Win32WasmRuntime {
             actualY = this.options.initialY ?? 80;
           }
           if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
-            actualW = 500;
+            actualW = this.options.initialWidth ?? 600;
           }
           if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
-            actualH = 350;
+            actualH = this.options.initialHeight ?? 450;
           }
 
           let actualHMenu = hMenu;
           if ((!actualHMenu || actualHMenu === 0) && !hWndParent) {
             const classMenuName = this.registeredClassMenuNames.get(className.toUpperCase());
             if (classMenuName) {
-              actualHMenu = (win32Imports as any).LoadMenuA(0, classMenuName);
+              actualHMenu = (win32Imports as any).LoadMenuA(hInstance || this.hInstance, classMenuName);
             }
           }
 
@@ -999,7 +1088,7 @@ export class Win32WasmRuntime {
             actualH,
             hWndParent === 0 ? null : hWndParent,
             actualHMenu === 0 ? null : actualHMenu,
-            null,
+            this.options.resourceBundle || hInstance || this.hInstance,
             null,
             localWndProc
           );
@@ -1007,6 +1096,9 @@ export class Win32WasmRuntime {
           // For top-level C windows or custom child windows, attach canvas support for GDI drawing
           const win = kernel.getWindow(hwnd);
           if (win) {
+            if (this.options.resourceBundle) {
+              win.resourceBundle = this.options.resourceBundle;
+            }
             const defaultBg = this.registeredClassBgColors.get(className.toUpperCase()) ?? "#ffffff";
             win.customProps = {
               ...(win.customProps ?? {}),
@@ -1103,17 +1195,17 @@ export class Win32WasmRuntime {
             actualY = this.options.initialY ?? 80;
           }
           if (actualW === CW_USEDEFAULT || actualW === 0x80000000 || actualW <= 0) {
-            actualW = 280;
+            actualW = this.options.initialWidth ?? 600;
           }
           if (actualH === CW_USEDEFAULT || actualH === 0x80000000 || actualH <= 0) {
-            actualH = 260;
+            actualH = this.options.initialHeight ?? 450;
           }
 
           let actualHMenu = hMenu;
           if ((!actualHMenu || actualHMenu === 0) && !hWndParent) {
             const classMenuName = this.registeredClassMenuNames.get(className.toUpperCase());
             if (classMenuName) {
-              actualHMenu = (win32Imports as any).LoadMenuW(0, classMenuName);
+              actualHMenu = (win32Imports as any).LoadMenuW(hInstance || this.hInstance, classMenuName);
             }
           }
 
@@ -1128,13 +1220,16 @@ export class Win32WasmRuntime {
             actualH,
             hWndParent === 0 ? null : hWndParent,
             actualHMenu === 0 ? null : actualHMenu,
-            null,
+            this.options.resourceBundle || hInstance || this.hInstance,
             null,
             localWndProc
           );
 
           const win = kernel.getWindow(hwnd);
           if (win) {
+            if (this.options.resourceBundle) {
+              win.resourceBundle = this.options.resourceBundle;
+            }
             const defaultBg = this.registeredClassBgColors.get(className.toUpperCase()) ?? "#ffffff";
             win.customProps = {
               ...(win.customProps ?? {}),
@@ -1153,6 +1248,8 @@ export class Win32WasmRuntime {
 
           return hwnd;
         },
+        CreateWindowW: (...args: any[]) => (win32Imports as any).CreateWindowExW(0, ...args),
+
 
         ShowWindow: (hwnd: number, nCmdShow: number) => {
           ShowWindow(hwnd, nCmdShow);
@@ -1357,8 +1454,8 @@ export class Win32WasmRuntime {
                 const cascadeIdx = children.length;
                 if (x === CW_USEDEFAULT || x === 0x80000000) x = 20 + (cascadeIdx * 24) % 200;
                 if (y === CW_USEDEFAULT || y === 0x80000000) y = 20 + (cascadeIdx * 24) % 150;
-                if (cx === CW_USEDEFAULT || cx === 0x80000000 || cx <= 0) cx = 300;
-                if (cy === CW_USEDEFAULT || cy === 0x80000000 || cy <= 0) cy = 200;
+                if (cx === CW_USEDEFAULT || cx === 0x80000000 || cx <= 0) cx = this.options.initialWidth ?? 400;
+                if (cy === CW_USEDEFAULT || cy === 0x80000000 || cy <= 0) cy = this.options.initialHeight ?? 300;
 
                 const mdiStyle =
                   0x40000000 /* WS_CHILD */ |
@@ -1488,6 +1585,15 @@ export class Win32WasmRuntime {
           }
           return SendMessage(hwnd, Msg, wParam, lParam);
         },
+        SendMessageW: (
+          hwnd: number,
+          Msg: number,
+          wParam: number,
+          lParam: number
+        ) => {
+          return (win32Imports as any).SendMessageA(hwnd, Msg, wParam, lParam);
+        },
+
 
         PostMessageA: (
           hwnd: number,
@@ -1496,6 +1602,18 @@ export class Win32WasmRuntime {
           lParam: number
         ) => {
           return PostMessage(hwnd, Msg, wParam, lParam) ? 1 : 0;
+        },
+        PostMessageW: (
+          hwnd: number,
+          Msg: number,
+          wParam: number,
+          lParam: number
+        ) => {
+          return PostMessage(hwnd, Msg, wParam, lParam) ? 1 : 0;
+        },
+        SetActiveWindow: (hwnd: number) => {
+          kernel.BringToFront(hwnd);
+          return hwnd;
         },
 
         SetWindowTextA: (hwnd: number, lpString: number) => {
@@ -1527,8 +1645,8 @@ export class Win32WasmRuntime {
           if (!this.memory || !lpRect) return 0;
           const win = kernel.getWindow(hwnd);
           const canvas = GetWindowCanvas(hwnd);
-          const w = win?.width ?? (canvas ? canvas.width : 0);
-          const h = win?.height ?? (canvas ? canvas.height : 0);
+          const w = canvas ? canvas.width : (win?.width ?? 0);
+          const h = canvas ? canvas.height : (win?.height ?? 0);
           const view = new DataView(this.memory.buffer);
           view.setInt32(lpRect, 0, true);
           view.setInt32(lpRect + 4, 0, true);
@@ -3244,6 +3362,26 @@ export class Win32WasmRuntime {
           this.openFileMap.set(handle, { fileName, data, position: 0 });
           return handle;
         },
+        CreateFileW: (
+          lpFileName: number,
+          _dwDesiredAccess: number,
+          _dwShareMode: number,
+          _lpSecurityAttributes: number,
+          _dwCreationDisposition: number,
+          _dwFlagsAndAttributes: number,
+          _hTemplateFile: number
+        ) => {
+          const fileName = lpFileName && this.memory ? this.readWideString(lpFileName) : "";
+          if (fileName.includes("nonexistent") || fileName.includes("fail")) {
+            return -1; // INVALID_HANDLE_VALUE
+          }
+          const handle = ++this.nextGdiHandle;
+          const mockContent = "Programming Windows / Wine Notepad\nSample Document Content\n";
+          const data = new TextEncoder().encode(mockContent);
+          this.openFileMap.set(handle, { fileName, data, position: 0 });
+          return handle;
+        },
+        SetEndOfFile: (_hFile: number) => 1,
         CreateFile: (...args: any[]) => (win32Imports as any).CreateFileA(...args),
 
         ReadFile: (
@@ -3344,7 +3482,7 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        LoadMenuA: (_hInstance: number, lpMenuName: any) => {
+        LoadMenuA: (hInstance: number, lpMenuName: any) => {
           let nameStr = "";
           if (typeof lpMenuName === "string") {
             nameStr = lpMenuName.toUpperCase();
@@ -3355,7 +3493,12 @@ export class Win32WasmRuntime {
                 : String(lpMenuName).toUpperCase();
           }
 
-          const bundleMenu = LoadMenuFromBundle(null, nameStr);
+          const bundle =
+            this.options.resourceBundle ||
+            resolveResourceBundle(hInstance) ||
+            resolveResourceBundle(this.hInstance);
+
+          const bundleMenu = LoadMenuFromBundle(bundle, nameStr);
           if (bundleMenu) {
             return bundleMenu;
           }
@@ -3543,7 +3686,7 @@ export class Win32WasmRuntime {
           return kernel.CreateMenu();
         },
         LoadMenu: (...args: any[]) => (win32Imports as any).LoadMenuA(...args),
-        LoadMenuW: (_hInstance: number, lpMenuName: any) => {
+        LoadMenuW: (hInstance: number, lpMenuName: any) => {
           let nameStr = "";
           if (typeof lpMenuName === "string") {
             nameStr = lpMenuName.toUpperCase();
@@ -3554,11 +3697,16 @@ export class Win32WasmRuntime {
                 : String(lpMenuName).toUpperCase();
           }
 
-          const bundleMenu = LoadMenuFromBundle(null, nameStr);
+          const bundle =
+            this.options.resourceBundle ||
+            resolveResourceBundle(hInstance) ||
+            resolveResourceBundle(this.hInstance);
+
+          const bundleMenu = LoadMenuFromBundle(bundle, nameStr);
           if (bundleMenu) {
             return bundleMenu;
           }
-          return (win32Imports as any).LoadMenuA(_hInstance, nameStr);
+          return (win32Imports as any).LoadMenuA(hInstance, nameStr);
         },
 
         CheckMenuRadioItem: (
@@ -3666,29 +3814,49 @@ export class Win32WasmRuntime {
         FreeResource: (_hResData: number) => 1,
 
         LoadStringA: (
-          _hInstance: number,
+          hInstance: number,
           uID: number,
           lpBuffer: number,
           cchBufferMax: number
         ) => {
-          const str = LoadStringFromBundle(null, uID);
-          if (str) {
-            return this.writeCString(lpBuffer, str, cchBufferMax);
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInstance) || resolveResourceBundle(this.hInstance);
+          let str = LoadStringFromBundle(hInstance || this.hInstance || bundle, uID, bundle);
+          if (!str) {
+            if (uID === 1) str = "PoePoem";
+            else if (uID === 2) str = "\"Annabel Lee\" by Edgar Allan Poe";
+            else if (uID === 3) str = "This program requires Windows NT!";
           }
-          if (uID === 1) return this.writeCString(lpBuffer, "PoePoem", cchBufferMax);
-          if (uID === 2) return this.writeCString(lpBuffer, "\"Annabel Lee\" by Edgar Allan Poe", cchBufferMax);
-          if (uID === 3) return this.writeCString(lpBuffer, "This program requires Windows NT!", cchBufferMax);
+          if (str !== undefined && str !== null) {
+            if (cchBufferMax === 0 && lpBuffer && this.memory) {
+              const ptr = this.allocateMemory(str.length + 1);
+              this.writeCString(ptr, str, str.length + 1);
+              new DataView(this.memory.buffer).setUint32(lpBuffer, ptr, true);
+              return str.length;
+            }
+            if (lpBuffer) {
+              return this.writeCString(lpBuffer, str, cchBufferMax);
+            }
+          }
           return 0;
         },
         LoadStringW: (
-          _hInstance: number,
+          hInstance: number,
           uID: number,
           lpBuffer: number,
           cchBufferMax: number
         ) => {
-          const str = LoadStringFromBundle(null, uID);
-          if (str) {
-            return this.writeWideString(lpBuffer, str, cchBufferMax);
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInstance) || resolveResourceBundle(this.hInstance);
+          const str = LoadStringFromBundle(hInstance || this.hInstance || bundle, uID, bundle);
+          if (str !== undefined && str !== null) {
+            if (cchBufferMax === 0 && lpBuffer && this.memory) {
+              const ptr = this.allocateMemory((str.length + 1) * 2);
+              this.writeWideString(ptr, str);
+              new DataView(this.memory.buffer).setUint32(lpBuffer, ptr, true);
+              return str.length;
+            }
+            if (lpBuffer) {
+              return this.writeWideString(lpBuffer, str, cchBufferMax);
+            }
           }
           return 0;
         },
@@ -3757,61 +3925,157 @@ export class Win32WasmRuntime {
 
         // --- Chapter 11: Dialog Boxes & Common Dialogs ---
         DialogBoxParamA: (
-          _hInstance: number,
-          _lpTemplateName: number,
-          _hWndParent: number,
-          _lpDialogFunc: number,
-          _dwInitParam: number
-        ) => 1,
+          hInstance: number,
+          lpTemplateName: number,
+          hWndParent: number,
+          lpDialogFunc: number,
+          dwInitParam: number
+        ) => {
+          const templateId = lpTemplateName > 0xffff && this.memory ? this.readCString(lpTemplateName) : lpTemplateName;
+          const dlgFn = this.table ? this.table.get(lpDialogFunc) : null;
+          const dlgProc = (hDlg: number, uMsg: number, wParam: number, lParam: number) => {
+            if (typeof dlgFn === "function") {
+              return dlgFn(hDlg, uMsg, wParam, lParam);
+            }
+            return 0;
+          };
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInstance) || (hWndParent ? resolveResourceBundle(hWndParent) : undefined) || resolveResourceBundle(this.hInstance);
+          const hDlg = CreateDialogParam(
+            hInstance,
+            templateId,
+            hWndParent === 0 ? null : hWndParent,
+            dlgProc,
+            dwInitParam,
+            bundle
+          );
+          return hDlg ? 0 : 1;
+        },
         DialogBoxParam: (...args: any[]) => (win32Imports as any).DialogBoxParamA(...args),
         DialogBoxA: (...args: any[]) => (win32Imports as any).DialogBoxParamA(...args),
         DialogBox: (...args: any[]) => (win32Imports as any).DialogBoxParamA(...args),
 
+        DialogBoxParamW: (
+          hInstance: number,
+          lpTemplateName: number,
+          hWndParent: number,
+          lpDialogFunc: number,
+          dwInitParam: number
+        ) => {
+          const templateId = lpTemplateName > 0xffff && this.memory ? this.readWideString(lpTemplateName) : lpTemplateName;
+          const dlgFn = this.table ? this.table.get(lpDialogFunc) : null;
+          const dlgProc = (hDlg: number, uMsg: number, wParam: number, lParam: number) => {
+            if (typeof dlgFn === "function") {
+              return dlgFn(hDlg, uMsg, wParam, lParam);
+            }
+            return 0;
+          };
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInstance) || (hWndParent ? resolveResourceBundle(hWndParent) : undefined) || resolveResourceBundle(this.hInstance);
+          const hDlg = CreateDialogParam(
+            hInstance,
+            templateId,
+            hWndParent === 0 ? null : hWndParent,
+            dlgProc,
+            dwInitParam,
+            bundle
+          );
+          return hDlg ? 0 : 1;
+        },
+
         CreateDialogParamA: (
-          _hInstance: number,
-          _lpTemplateName: number,
-          _hWndParent: number,
-          _lpDialogFunc: number,
-          _dwInitParam: number
-        ) => ++this.nextGdiHandle,
+          hInstance: number,
+          lpTemplateName: number,
+          hWndParent: number,
+          lpDialogFunc: number,
+          dwInitParam: number
+        ) => {
+          const templateId = lpTemplateName > 0xffff && this.memory ? this.readCString(lpTemplateName) : lpTemplateName;
+          const dlgFn = this.table ? this.table.get(lpDialogFunc) : null;
+          const dlgProc = (hDlg: number, uMsg: number, wParam: number, lParam: number) => {
+            if (typeof dlgFn === "function") {
+              return dlgFn(hDlg, uMsg, wParam, lParam);
+            }
+            return 0;
+          };
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInstance) || (hWndParent ? resolveResourceBundle(hWndParent) : undefined) || resolveResourceBundle(this.hInstance);
+          return CreateDialogParam(
+            hInstance,
+            templateId,
+            hWndParent === 0 ? null : hWndParent,
+            dlgProc,
+            dwInitParam,
+            bundle
+          );
+        },
         CreateDialogParam: (...args: any[]) => (win32Imports as any).CreateDialogParamA(...args),
         CreateDialogA: (...args: any[]) => (win32Imports as any).CreateDialogParamA(...args),
         CreateDialog: (...args: any[]) => (win32Imports as any).CreateDialogParamA(...args),
 
-        EndDialog: (_hDlg: number, _nResult: number) => 1,
+        EndDialog: (hDlg: number, _nResult: number) => {
+          if (hDlg) {
+            kernel.DestroyWindow(hDlg);
+          }
+          return 1;
+        },
 
         IsDialogMessageA: (_hDlg: number, _lpMsg: number) => 0,
         IsDialogMessage: (...args: any[]) => (win32Imports as any).IsDialogMessageA(...args),
 
         CheckRadioButton: (
-          _hDlg: number,
-          _nIDFirstButton: number,
-          _nIDLastButton: number,
-          _nIDCheckButton: number
-        ) => 1,
+          hDlg: number,
+          nIDFirstButton: number,
+          nIDLastButton: number,
+          nIDCheckButton: number
+        ) => (CheckRadioButton(hDlg, nIDFirstButton, nIDLastButton, nIDCheckButton) ? 1 : 0),
 
-        CheckDlgButton: (_hDlg: number, _nIDButton: number, _uCheck: number) => 1,
-        IsDlgButtonChecked: (_hDlg: number, _nIDButton: number) => 1,
+        CheckDlgButton: (hDlg: number, nIDButton: number, uCheck: number) =>
+          CheckDlgButton(hDlg, nIDButton, uCheck) ? 1 : 0,
+
+        IsDlgButtonChecked: (hDlg: number, nIDButton: number) =>
+          IsDlgButtonChecked(hDlg, nIDButton),
+
+        GetDlgCtrlID: (hwnd: number) => GetDlgCtrlID(hwnd),
 
         SetDlgItemInt: (
-          _hDlg: number,
-          _nIDDlgItem: number,
-          _uValue: number,
-          _bSigned: number
-        ) => 1,
+          hDlg: number,
+          nIDDlgItem: number,
+          uValue: number,
+          bSigned: number
+        ) => {
+          return SetDlgItemInt(hDlg, nIDDlgItem, uValue, bSigned !== 0) ? 1 : 0;
+        },
 
         GetDlgItemInt: (
-          _hDlg: number,
-          _nIDDlgItem: number,
-          _lpTranslated: number,
-          _bSigned: number
-        ) => 0,
+          hDlg: number,
+          nIDDlgItem: number,
+          lpTranslated: number,
+          bSigned: number
+        ) => {
+          const trans = { val: false };
+          const val = GetDlgItemInt(hDlg, nIDDlgItem, trans, bSigned !== 0);
+          if (lpTranslated && this.memory) {
+            new DataView(this.memory.buffer).setInt32(lpTranslated, trans.val ? 1 : 0, true);
+          }
+          return val;
+        },
 
-        SetDlgItemTextA: (_hDlg: number, _nIDDlgItem: number, _lpString: number) => 1,
+        SetDlgItemTextA: (hDlg: number, nIDDlgItem: number, lpString: number) => {
+          const str = lpString ? this.readCString(lpString) : "";
+          return SetDlgItemText(hDlg, nIDDlgItem, str) ? 1 : 0;
+        },
+        SetDlgItemTextW: (hDlg: number, nIDDlgItem: number, lpString: number) => {
+          const str = lpString && this.memory ? this.readWideString(lpString) : "";
+          return SetDlgItemText(hDlg, nIDDlgItem, str) ? 1 : 0;
+        },
         SetDlgItemText: (...args: any[]) => (win32Imports as any).SetDlgItemTextA(...args),
 
-        GetDlgItemTextA: (_hDlg: number, _nIDDlgItem: number, lpString: number, cchMax: number) =>
-          this.writeCString(lpString, "", cchMax),
+        GetDlgItemTextA: (hDlg: number, nIDDlgItem: number, lpString: number, cchMax: number) => {
+          const text = GetDlgItemText(hDlg, nIDDlgItem);
+          return this.writeCString(lpString, text, cchMax);
+        },
+        GetDlgItemTextW: (hDlg: number, nIDDlgItem: number, lpString: number, cchMax: number) => {
+          const text = GetDlgItemText(hDlg, nIDDlgItem);
+          return this.writeWideString(lpString, text, cchMax);
+        },
         GetDlgItemText: (...args: any[]) => (win32Imports as any).GetDlgItemTextA(...args),
 
         SendDlgItemMessageA: (
@@ -3822,6 +4086,257 @@ export class Win32WasmRuntime {
           _lParam: number
         ) => 0,
         SendDlgItemMessage: (...args: any[]) => (win32Imports as any).SendDlgItemMessageA(...args),
+
+        LoadAcceleratorsW: (_hInstance: number, _lpTableName: number) => 1,
+        TranslateAcceleratorW: (_hWnd: number, _hAccTable: number, _lpMsg: number) => 0,
+
+        MonitorFromRect: (_lprc: number, _dwFlags: number) => 1,
+        GetMonitorInfoW: (_hMonitor: number, lpmi: number) => {
+          if (this.memory && lpmi) {
+            const dv = new DataView(this.memory.buffer);
+            dv.setInt32(lpmi + 4, 0, true);
+            dv.setInt32(lpmi + 8, 0, true);
+            dv.setInt32(lpmi + 12, 1024, true);
+            dv.setInt32(lpmi + 16, 768, true);
+            dv.setInt32(lpmi + 20, 0, true);
+            dv.setInt32(lpmi + 24, 0, true);
+            dv.setInt32(lpmi + 28, 1024, true);
+            dv.setInt32(lpmi + 32, 740, true);
+            dv.setUint32(lpmi + 36, 1, true); // MONITORINFOF_PRIMARY
+          }
+          return 1;
+        },
+
+        RedrawWindow: (hWnd: number, lprcUpdate: number, _hrgnUpdate: number, flags: number) => {
+          (win32Imports as any).InvalidateRect(hWnd, lprcUpdate, (flags & 4) !== 0 ? 1 : 0);
+          if ((flags & 0x0100) !== 0) {
+            (win32Imports as any).UpdateWindow(hWnd);
+          }
+          return 1;
+        },
+
+        ExitProcess: (uExitCode: number) => {
+          (win32Imports as any).PostQuitMessage(uExitCode);
+        },
+
+        // --- Win32 Registry APIs (Advapi32) ---
+        RegOpenKeyW: (
+          hKey: number,
+          lpSubKeyPtr: number,
+          phkResultPtr: number
+        ) => {
+          const subKey = lpSubKeyPtr && this.memory ? this.readWideString(lpSubKeyPtr) : "";
+          const phk = { val: 0 };
+          const status = RegOpenKeyEx(hKey, subKey, 0, 0x20019, phk);
+          if (status === 0 && phkResultPtr && this.memory) {
+            new DataView(this.memory.buffer).setUint32(phkResultPtr, phk.val, true);
+          }
+          return status;
+        },
+        RegOpenKeyExW: (
+          hKey: number,
+          lpSubKeyPtr: number,
+          ulOptions: number,
+          samDesired: number,
+          phkResultPtr: number
+        ) => {
+          const subKey = lpSubKeyPtr && this.memory ? this.readWideString(lpSubKeyPtr) : "";
+          const phk = { val: 0 };
+          const status = RegOpenKeyEx(hKey, subKey, ulOptions, samDesired, phk);
+          if (status === 0 && phkResultPtr && this.memory) {
+            new DataView(this.memory.buffer).setUint32(phkResultPtr, phk.val, true);
+          }
+          return status;
+        },
+        RegOpenKeyExA: (
+          hKey: number,
+          lpSubKeyPtr: number,
+          ulOptions: number,
+          samDesired: number,
+          phkResultPtr: number
+        ) => {
+          const subKey = lpSubKeyPtr && this.memory ? this.readCString(lpSubKeyPtr) : "";
+          const phk = { val: 0 };
+          const status = RegOpenKeyEx(hKey, subKey, ulOptions, samDesired, phk);
+          if (status === 0 && phkResultPtr && this.memory) {
+            new DataView(this.memory.buffer).setUint32(phkResultPtr, phk.val, true);
+          }
+          return status;
+        },
+
+        RegCreateKeyExW: (
+          hKey: number,
+          lpSubKeyPtr: number,
+          Reserved: number,
+          _lpClassPtr: number,
+          dwOptions: number,
+          samDesired: number,
+          _lpSec: number,
+          phkResultPtr: number,
+          lpdwDispPtr: number
+        ) => {
+          const subKey = lpSubKeyPtr && this.memory ? this.readWideString(lpSubKeyPtr) : "";
+          const phk = { val: 0 };
+          const disp = { val: 0 };
+          const status = RegCreateKeyEx(hKey, subKey, Reserved, "", dwOptions, samDesired, null, phk, disp);
+          if (status === 0 && this.memory) {
+            const dv = new DataView(this.memory.buffer);
+            if (phkResultPtr) dv.setUint32(phkResultPtr, phk.val, true);
+            if (lpdwDispPtr) dv.setUint32(lpdwDispPtr, disp.val, true);
+          }
+          return status;
+        },
+        RegCreateKeyExA: (
+          hKey: number,
+          lpSubKeyPtr: number,
+          Reserved: number,
+          _lpClassPtr: number,
+          dwOptions: number,
+          samDesired: number,
+          _lpSec: number,
+          phkResultPtr: number,
+          lpdwDispPtr: number
+        ) => {
+          const subKey = lpSubKeyPtr && this.memory ? this.readCString(lpSubKeyPtr) : "";
+          const phk = { val: 0 };
+          const disp = { val: 0 };
+          const status = RegCreateKeyEx(hKey, subKey, Reserved, "", dwOptions, samDesired, null, phk, disp);
+          if (status === 0 && this.memory) {
+            const dv = new DataView(this.memory.buffer);
+            if (phkResultPtr) dv.setUint32(phkResultPtr, phk.val, true);
+            if (lpdwDispPtr) dv.setUint32(lpdwDispPtr, disp.val, true);
+          }
+          return status;
+        },
+
+        RegCloseKey: (hKey: number) => {
+          return RegCloseKey(hKey);
+        },
+
+        RegQueryValueExW: (
+          hKey: number,
+          lpValueNamePtr: number,
+          _lpReserved: number,
+          lpTypePtr: number,
+          lpDataPtr: number,
+          lpcbDataPtr: number
+        ) => {
+          const valName = lpValueNamePtr && this.memory ? this.readWideString(lpValueNamePtr) : "";
+          const typeOut = { val: 0 };
+          const dataOut = { val: undefined as any };
+          const cbDataOut = { val: 0 };
+          const status = RegQueryValueEx(hKey, valName, null, typeOut, dataOut, cbDataOut);
+          if (status === 0 && this.memory) {
+            const dv = new DataView(this.memory.buffer);
+            if (lpTypePtr) dv.setUint32(lpTypePtr, typeOut.val, true);
+            if (lpcbDataPtr) {
+              const maxLen = dv.getUint32(lpcbDataPtr, true);
+              if (lpDataPtr) {
+                if (typeof dataOut.val === "number") {
+                  dv.setUint32(lpDataPtr, dataOut.val, true);
+                  dv.setUint32(lpcbDataPtr, 4, true);
+                } else if (typeof dataOut.val === "string") {
+                  const written = this.writeWideString(lpDataPtr, dataOut.val, Math.floor(maxLen / 2));
+                  dv.setUint32(lpcbDataPtr, (written + 1) * 2, true);
+                } else if (dataOut.val instanceof Uint8Array) {
+                  const copyLen = Math.min(maxLen, dataOut.val.length);
+                  new Uint8Array(this.memory.buffer, lpDataPtr, copyLen).set(dataOut.val.subarray(0, copyLen));
+                  dv.setUint32(lpcbDataPtr, copyLen, true);
+                }
+              } else {
+                if (typeof dataOut.val === "number") dv.setUint32(lpcbDataPtr, 4, true);
+                else if (typeof dataOut.val === "string") dv.setUint32(lpcbDataPtr, (dataOut.val.length + 1) * 2, true);
+                else if (dataOut.val instanceof Uint8Array) dv.setUint32(lpcbDataPtr, dataOut.val.length, true);
+              }
+            }
+          }
+          return status;
+        },
+        RegQueryValueExA: (
+          hKey: number,
+          lpValueNamePtr: number,
+          _lpReserved: number,
+          lpTypePtr: number,
+          lpDataPtr: number,
+          lpcbDataPtr: number
+        ) => {
+          const valName = lpValueNamePtr && this.memory ? this.readCString(lpValueNamePtr) : "";
+          const typeOut = { val: 0 };
+          const dataOut = { val: undefined as any };
+          const cbDataOut = { val: 0 };
+          const status = RegQueryValueEx(hKey, valName, null, typeOut, dataOut, cbDataOut);
+          if (status === 0 && this.memory) {
+            const dv = new DataView(this.memory.buffer);
+            if (lpTypePtr) dv.setUint32(lpTypePtr, typeOut.val, true);
+            if (lpcbDataPtr) {
+              const maxLen = dv.getUint32(lpcbDataPtr, true);
+              if (lpDataPtr) {
+                if (typeof dataOut.val === "number") {
+                  dv.setUint32(lpDataPtr, dataOut.val, true);
+                  dv.setUint32(lpcbDataPtr, 4, true);
+                } else if (typeof dataOut.val === "string") {
+                  const written = this.writeCString(lpDataPtr, dataOut.val, maxLen);
+                  dv.setUint32(lpcbDataPtr, written + 1, true);
+                } else if (dataOut.val instanceof Uint8Array) {
+                  const copyLen = Math.min(maxLen, dataOut.val.length);
+                  new Uint8Array(this.memory.buffer, lpDataPtr, copyLen).set(dataOut.val.subarray(0, copyLen));
+                  dv.setUint32(lpcbDataPtr, copyLen, true);
+                }
+              } else {
+                if (typeof dataOut.val === "number") dv.setUint32(lpcbDataPtr, 4, true);
+                else if (typeof dataOut.val === "string") dv.setUint32(lpcbDataPtr, dataOut.val.length + 1, true);
+                else if (dataOut.val instanceof Uint8Array) dv.setUint32(lpcbDataPtr, dataOut.val.length, true);
+              }
+            }
+          }
+          return status;
+        },
+
+        RegSetValueExW: (
+          hKey: number,
+          lpValueNamePtr: number,
+          Reserved: number,
+          dwType: number,
+          lpDataPtr: number,
+          cbData: number
+        ) => {
+          const valName = lpValueNamePtr && this.memory ? this.readWideString(lpValueNamePtr) : "";
+          let valData: any = "";
+          if (lpDataPtr && this.memory) {
+            const dv = new DataView(this.memory.buffer);
+            if (dwType === 4 /* REG_DWORD */) {
+              valData = dv.getUint32(lpDataPtr, true);
+            } else if (dwType === 1 /* REG_SZ */ || dwType === 2 /* REG_EXPAND_SZ */) {
+              valData = this.readWideString(lpDataPtr);
+            } else {
+              valData = new Uint8Array(this.memory.buffer.slice(lpDataPtr, lpDataPtr + cbData));
+            }
+          }
+          return RegSetValueEx(hKey, valName, Reserved, dwType, valData, cbData);
+        },
+        RegSetValueExA: (
+          hKey: number,
+          lpValueNamePtr: number,
+          Reserved: number,
+          dwType: number,
+          lpDataPtr: number,
+          cbData: number
+        ) => {
+          const valName = lpValueNamePtr && this.memory ? this.readCString(lpValueNamePtr) : "";
+          let valData: any = "";
+          if (lpDataPtr && this.memory) {
+            const dv = new DataView(this.memory.buffer);
+            if (dwType === 4 /* REG_DWORD */) {
+              valData = dv.getUint32(lpDataPtr, true);
+            } else if (dwType === 1 /* REG_SZ */ || dwType === 2 /* REG_EXPAND_SZ */) {
+              valData = this.readCString(lpDataPtr);
+            } else {
+              valData = new Uint8Array(this.memory.buffer.slice(lpDataPtr, lpDataPtr + cbData));
+            }
+          }
+          return RegSetValueEx(hKey, valName, Reserved, dwType, valData, cbData);
+        },
+
 
         CreateFontIndirectA: (lplf: number) => {
           const handle = ++this.nextGdiHandle;
@@ -3906,12 +4421,59 @@ export class Win32WasmRuntime {
           return 1;
         },
 
-        GetWindowTextLengthA: (_hWnd: number) => 0,
+        GetWindowTextLengthA: (hWnd: number) => {
+          const text = GetWindowText(hWnd) ?? "";
+          return text.length;
+        },
+        GetWindowTextLengthW: (hWnd: number) => {
+          const text = GetWindowText(hWnd) ?? "";
+          return text.length;
+        },
         GetWindowTextLength: (...args: any[]) => (win32Imports as any).GetWindowTextLengthA(...args),
 
         RegisterWindowMessageA: (_lpString: number) => 0xc000,
+        RegisterWindowMessageW: (_lpString: number) => 0xc001,
         RegisterWindowMessage: (...args: any[]) =>
           (win32Imports as any).RegisterWindowMessageA(...args),
+
+        GetCommandLineW: () => {
+          if (!this._cmdLineWPtr && this.memory) {
+            this._cmdLineWPtr = this.allocateMemory(128);
+            this.writeWideString(this._cmdLineWPtr, "notepad.exe", 64);
+          }
+          return this._cmdLineWPtr ?? 0;
+        },
+
+        IsDialogMessageW: (_hDlg: number, _lpMsg: number) => 0,
+
+        GetWindowPlacement: (hWnd: number, lpwndpl: number) => {
+          if (!this.memory || !lpwndpl) return 0;
+          const win = kernel.getWindow(hWnd);
+          const view = new DataView(this.memory.buffer);
+          view.setUint32(lpwndpl + 8, win?.minimized ? 2 : (win?.maximized ? 3 : 1), true);
+          if (win) {
+            view.setInt32(lpwndpl + 28, win.x, true);
+            view.setInt32(lpwndpl + 32, win.y, true);
+            view.setInt32(lpwndpl + 36, win.x + win.width, true);
+            view.setInt32(lpwndpl + 40, win.y + win.height, true);
+          }
+          return 1;
+        },
+        SetWindowPlacement: (hWnd: number, lpwndpl: number) => {
+          if (!this.memory || !lpwndpl) return 0;
+          const win = kernel.getWindow(hWnd);
+          if (win) {
+            const view = new DataView(this.memory.buffer);
+            const left = view.getInt32(lpwndpl + 28, true);
+            const top = view.getInt32(lpwndpl + 32, true);
+            const right = view.getInt32(lpwndpl + 36, true);
+            const bottom = view.getInt32(lpwndpl + 40, true);
+            if (right > left && bottom > top) {
+              kernel.MoveWindow(hWnd, left, top, right - left, bottom - top, true);
+            }
+          }
+          return 1;
+        },
 
         Sleep: (_dwMilliseconds: number) => {},
 
@@ -3997,11 +4559,155 @@ export class Win32WasmRuntime {
         },
         GetSaveFileName: (...args: any[]) => (win32Imports as any).GetSaveFileNameA(...args),
 
+        GetOpenFileNameW: (lpofn: number) => {
+          if (this.memory && lpofn) {
+            const view = new DataView(this.memory.buffer);
+            const lpstrFile = view.getUint32(lpofn + 28, true);
+            const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
+            if (lpstrFile) {
+              this.writeWideString(lpstrFile, "README.txt", nMaxFile);
+            }
+            const lpstrFileTitle = view.getUint32(lpofn + 36, true);
+            const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            if (lpstrFileTitle) {
+              this.writeWideString(lpstrFileTitle, "README.txt", nMaxFileTitle);
+            }
+          }
+          return 1;
+        },
+
+        GetSaveFileNameW: (lpofn: number) => {
+          if (this.memory && lpofn) {
+            const view = new DataView(this.memory.buffer);
+            const lpstrFile = view.getUint32(lpofn + 28, true);
+            const nMaxFile = view.getUint32(lpofn + 32, true) || 260;
+            if (lpstrFile) {
+              this.writeWideString(lpstrFile, "README.txt", nMaxFile);
+            }
+            const lpstrFileTitle = view.getUint32(lpofn + 36, true);
+            const nMaxFileTitle = view.getUint32(lpofn + 40, true) || 260;
+            if (lpstrFileTitle) {
+              this.writeWideString(lpstrFileTitle, "README.txt", nMaxFileTitle);
+            }
+          }
+          return 1;
+        },
+
         FindTextA: (_lpfr: number) => ++this.nextGdiHandle,
+        FindTextW: (_lpfr: number) => ++this.nextGdiHandle,
         FindText: (...args: any[]) => (win32Imports as any).FindTextA(...args),
 
         ReplaceTextA: (_lpfr: number) => ++this.nextGdiHandle,
+        ReplaceTextW: (_lpfr: number) => ++this.nextGdiHandle,
         ReplaceText: (...args: any[]) => (win32Imports as any).ReplaceTextA(...args),
+
+        PrintDlgW: (lppd: number) => (win32Imports as any).PrintDlgA(lppd),
+        StartDocW: (_hdcHandle: number, _lpdi: number) => 1,
+
+        FormatMessageW: (
+          _dwFlags: number,
+          _lpSource: number,
+          _dwMessageId: number,
+          _dwLanguageId: number,
+          lpBuffer: number,
+          nSize: number,
+          _Arguments: number
+        ) => {
+          if (lpBuffer && this.memory && nSize > 0) {
+            this.writeWideString(lpBuffer, "Operation completed successfully.", nSize);
+            return 33;
+          }
+          return 0;
+        },
+
+        FindFirstFileW: (_lpFileName: number, _lpFindFileData: number) => -1,
+
+        WinHelpW: (_hWndMain: number, _lpszHelp: number, _uCommand: number, _dwData: number) => 1,
+
+        GetCPInfoExW: (_CodePage: number, _dwFlags: number, lpCPInfoEx: number) => {
+          if (this.memory && lpCPInfoEx) {
+            const view = new DataView(this.memory.buffer);
+            view.setUint32(lpCPInfoEx, 2, true);
+            view.setUint32(lpCPInfoEx + 20, 1252, true);
+            this.writeWideString(lpCPInfoEx + 24, "ANSI", 32);
+          }
+          return 1;
+        },
+
+        GetTextMetricsW: (hdcHandle: number, lpTm: number) =>
+          (win32Imports as any).GetTextMetricsA(hdcHandle, lpTm),
+
+        GetTextExtentExPointW: (
+          hdcHandle: number,
+          _lpString: number,
+          cchString: number,
+          maxExtent: number,
+          lpnFit: number,
+          _alpDx: number,
+          lpSize: number
+        ) => {
+          if (this.memory && lpSize) {
+            const hdc = this.hdcMap.get(hdcHandle);
+            const fontObj = (hdc as any)?.selectedFont;
+            const height = fontObj && Math.abs(fontObj.height) ? Math.abs(fontObj.height) : 16;
+            const charWidth = Math.round(height * 0.5) || 8;
+            const count = cchString > 0 ? cchString : 0;
+            const fit = maxExtent > 0 ? Math.min(count, Math.floor(maxExtent / charWidth)) : count;
+            const dv = new DataView(this.memory.buffer);
+            if (lpnFit) dv.setInt32(lpnFit, fit, true);
+            dv.setInt32(lpSize + 0, count * charWidth, true);
+            dv.setInt32(lpSize + 4, height, true);
+          }
+          return 1;
+        },
+
+        ExtTextOutW: (
+          hdcHandle: number,
+          x: number,
+          y: number,
+          _options: number,
+          _lprect: number,
+          lpString: number,
+          c: number,
+          _lpDx: number
+        ) => {
+          return (win32Imports as any).TextOutW(hdcHandle, x, y, lpString, c);
+        },
+
+        GetProfileStringA: (
+          _appPtr: number,
+          _keyPtr: number,
+          defPtr: number,
+          retBufPtr: number,
+          size: number
+        ) => {
+          const def = defPtr && this.memory ? this.readCString(defPtr) : "";
+          if (retBufPtr && this.memory && size > 0) {
+            this.writeCString(retBufPtr, def, size);
+            return Math.min(def.length, size - 1);
+          }
+          return 0;
+        },
+
+        WriteProfileStringA: (_appPtr: number, _keyPtr: number, _strPtr: number) => 1,
+
+        SetMenuItemInfoA: (
+          hMenu: number,
+          item: number,
+          _fByPosition: number,
+          lpmii: number
+        ) => {
+          if (this.memory && lpmii) {
+            const dv = new DataView(this.memory.buffer);
+            const fMask = dv.getUint32(lpmii + 4, true);
+            const fState = dv.getUint32(lpmii + 12, true);
+            if (fMask & 0x0001 /* MIIM_STATE */) {
+              const isChecked = (fState & 0x0008 /* MFS_CHECKED */) !== 0;
+              kernel.CheckMenuItem(hMenu, item, isChecked ? 8 : 0);
+            }
+          }
+          return 1;
+        },
 
         // --- Chapter 12: Clipboard & Global Memory ---
         GlobalAlloc: (uFlags: number, dwBytes: number) => {
@@ -4480,7 +5186,21 @@ export class Win32WasmRuntime {
         GetWindowDC: (hWnd: number) => (win32Imports as any).GetDC(hWnd),
         GetDCEx: (hWnd: number, _hrgnClip: number, _flags: number) => (win32Imports as any).GetDC(hWnd),
 
-        LoadBitmapA: (_hInstance: number, _lpBitmapName: number) => {
+        LoadBitmapA: (hInstance: number, lpBitmapName: number) => {
+          const resId = lpBitmapName > 0xffff && this.memory ? (this.readCString(lpBitmapName) || 0) : lpBitmapName;
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInstance) || resolveResourceBundle(this.hInstance);
+          const bmpRes = FindBitmapResource(resId, bundle);
+          if (bmpRes) {
+            const handle = ++this.nextGdiHandle;
+            this.gdiMap.set(handle, {
+              type: "bitmap",
+              width: bmpRes.width,
+              height: bmpRes.height,
+              canvas: bmpRes.canvas,
+              ctx: bmpRes.ctx,
+            });
+            return handle;
+          }
           const handle = ++this.nextGdiHandle;
           let canvas: any = null;
           let ctx: any = null;
@@ -4493,7 +5213,32 @@ export class Win32WasmRuntime {
           this.gdiMap.set(handle, { type: "bitmap", width: 32, height: 32, canvas, ctx });
           return handle;
         },
+        LoadBitmapW: (...args: any[]) => (win32Imports as any).LoadBitmapA(...args),
         LoadBitmap: (...args: any[]) => (win32Imports as any).LoadBitmapA(...args),
+
+        LoadImageA: (hInst: number, name: number, type: number, cx: number, cy: number, _fuLoad: number) => {
+          const resId = name > 0xffff && this.memory ? (this.readCString(name) || 0) : name;
+          const bundle = this.options.resourceBundle || resolveResourceBundle(hInst) || resolveResourceBundle(this.hInstance);
+          const res = (type === 1 /* IMAGE_ICON */)
+            ? FindIconResource(resId, bundle)
+            : FindBitmapResource(resId, bundle);
+          if (res) {
+            const handle = ++this.nextGdiHandle;
+            this.gdiMap.set(handle, {
+              type: type === 1 ? "icon" : "bitmap",
+              width: cx || res.width,
+              height: cy || res.height,
+              canvas: res.canvas,
+              ctx: res.ctx,
+            });
+            return handle;
+          }
+          const handle = ++this.nextGdiHandle;
+          return handle;
+        },
+        LoadImageW: (...args: any[]) => (win32Imports as any).LoadImageA(...args),
+        LoadImage: (...args: any[]) => (win32Imports as any).LoadImageA(...args),
+
 
         CreateHatchBrush: (_iHatch: number, color: number) => (win32Imports as any).CreateSolidBrush(color),
         CreatePatternBrush: (_hbm: number) => (win32Imports as any).CreateSolidBrush(0x008080),
@@ -6005,10 +6750,69 @@ export class Win32WasmRuntime {
           return 1;
         },
         SetWindowPos: (hWnd: number, hWndInsertAfter: number, X: number, Y: number, cx: number, cy: number, uFlags: number) => {
-          kernel.MoveWindow(hWnd, X, Y, cx, cy, true);
+          const win = kernel.getWindow(hWnd);
+          if (!win) return 0;
+          const SWP_NOSIZE = 0x0001;
+          const SWP_NOMOVE = 0x0002;
+          const newX = (uFlags & SWP_NOMOVE) ? win.x : X;
+          const newY = (uFlags & SWP_NOMOVE) ? win.y : Y;
+          const newW = (uFlags & SWP_NOSIZE) ? win.width : cx;
+          const newH = (uFlags & SWP_NOSIZE) ? win.height : cy;
+          kernel.MoveWindow(hWnd, newX, newY, newW, newH, true);
           return 1;
         },
-        AdjustWindowRect: (lpRect: number, dwStyle: number, bMenu: number) => 1,
+        AdjustWindowRect: (lpRect: number, dwStyle: number, bMenu: number) => {
+          if (!this.memory || !lpRect) return 0;
+          const view = new DataView(this.memory.buffer);
+          let left = view.getInt32(lpRect, true);
+          let top = view.getInt32(lpRect + 4, true);
+          let right = view.getInt32(lpRect + 8, true);
+          let bottom = view.getInt32(lpRect + 12, true);
+
+          const isChild = (dwStyle & 0x40000000 /* WS_CHILD */) !== 0;
+          if (!isChild) {
+            const borderWidth = 8;
+            const borderBottom = 8;
+            const topBar = bMenu ? 56 : 36;
+
+            left -= borderWidth;
+            right += borderWidth;
+            top -= topBar;
+            bottom += borderBottom;
+          }
+
+          view.setInt32(lpRect, left, true);
+          view.setInt32(lpRect + 4, top, true);
+          view.setInt32(lpRect + 8, right, true);
+          view.setInt32(lpRect + 12, bottom, true);
+          return 1;
+        },
+        AdjustWindowRectEx: (lpRect: number, dwStyle: number, bMenu: number, _dwExStyle: number = 0) => {
+          if (!this.memory || !lpRect) return 0;
+          const view = new DataView(this.memory.buffer);
+          let left = view.getInt32(lpRect, true);
+          let top = view.getInt32(lpRect + 4, true);
+          let right = view.getInt32(lpRect + 8, true);
+          let bottom = view.getInt32(lpRect + 12, true);
+
+          const isChild = (dwStyle & 0x40000000 /* WS_CHILD */) !== 0;
+          if (!isChild) {
+            const borderWidth = 8;
+            const borderBottom = 8;
+            const topBar = bMenu ? 56 : 36;
+
+            left -= borderWidth;
+            right += borderWidth;
+            top -= topBar;
+            bottom += borderBottom;
+          }
+
+          view.setInt32(lpRect, left, true);
+          view.setInt32(lpRect + 4, top, true);
+          view.setInt32(lpRect + 8, right, true);
+          view.setInt32(lpRect + 12, bottom, true);
+          return 1;
+        },
         GetFileAttributesA: (lpFileName: number) => 0x80 /* FILE_ATTRIBUTE_NORMAL */,
         SystemTimeToFileTime: (lpSystemTime: number, lpFileTime: number) => 1,
         InitCommonControlsEx: (picce: number) => 1,
@@ -6107,6 +6911,11 @@ export class Win32WasmRuntime {
   public runWinMain(hInstance = 0, lpCmdLine = ""): number {
     if (!this.instance) {
       throw new Error("Wasm instance not instantiated yet");
+    }
+
+    this.hInstance = hInstance;
+    if (this.options.resourceBundle && hInstance) {
+      RegisterResourceBundle(this.options.resourceBundle, hInstance);
     }
 
     const winMain = this.instance.exports.WinMain as Function;

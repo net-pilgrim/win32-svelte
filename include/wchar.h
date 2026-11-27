@@ -51,6 +51,19 @@ static inline int wasm_wcsicmp(const wchar_t *s1, const wchar_t *s2) {
     return (int)*s1 - (int)*s2;
 }
 
+static inline wchar_t *wasm_wcschr(const wchar_t *s, wchar_t c) {
+    if (!s) return NULL;
+    while (*s) {
+        if (*s == c) return (wchar_t *)s;
+        s++;
+    }
+    return (c == 0) ? (wchar_t *)s : NULL;
+}
+
+#ifndef wcschr
+#define wcschr wasm_wcschr
+#endif
+
 #ifndef wcslen
 #define wcslen wasm_wcslen
 #endif

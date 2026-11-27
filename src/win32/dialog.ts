@@ -35,7 +35,7 @@ import {
   SW_HIDE,
 } from "./constants.ts";
 
-import type { HWND, HMENU, UINT, WPARAM, LPARAM, LRESULT, WndProc, RECT } from "./types.ts";
+import type { HWND, HMENU, UINT, WPARAM, LPARAM, LRESULT, WndProc, RECT, WindowRecord } from "./types.ts";
 import type {
   ResourceBundle,
   DialogTemplate,
@@ -49,22 +49,56 @@ export { dluToPixelsX, dluToPixelsY, mapDialogRect };
 
 // Global registry for loaded resource bundles
 const registeredBundles: ResourceBundle[] = [];
+export const hInstanceBundleMap = new Map<number, ResourceBundle>();
 
-export function RegisterResourceBundle(bundle: ResourceBundle): void {
+export function RegisterResourceBundle(bundle: ResourceBundle, hInstance?: number): void {
   if (!registeredBundles.includes(bundle)) {
     registeredBundles.push(bundle);
   }
+  if (hInstance !== undefined) {
+    hInstanceBundleMap.set(hInstance, bundle);
+    kernel.registerModule(hInstance, bundle);
+  }
+}
+
+/**
+ * Resolves a ResourceBundle from a WindowRecord, HWND, hInstance, or bundle object.
+ * Enforces private ownership so windows and modules look up their own resources.
+ */
+export function resolveResourceBundle(
+  source?: HWND | number | WindowRecord | ResourceBundle
+): ResourceBundle | undefined {
+  if (!source) return undefined;
+  if (typeof source === "object") {
+    if ("resourceBundle" in source && (source as any).resourceBundle) {
+      return (source as any).resourceBundle;
+    }
+    if ("dialogs" in source || "menus" in source) {
+      return source as ResourceBundle;
+    }
+  }
+  if (typeof source === "number") {
+    // 1. Check if it's a window handle first!
+    const win = kernel.getWindow(source);
+    if (win) {
+      return kernel.getWindowResourceBundle(source);
+    }
+    // 2. Check if it's an hInstance / module handle
+    return kernel.getModuleBundle(source);
+  }
+  return undefined;
 }
 
 export function FindDialogTemplate(
   templateOrId: number | string | DialogTemplate,
-  bundle?: ResourceBundle
+  bundleOrWindow?: ResourceBundle | number | WindowRecord
 ): DialogTemplate | undefined {
   if (typeof templateOrId === "object" && "controls" in templateOrId) {
     return templateOrId;
   }
 
-  const bundlesToSearch = bundle ? [bundle, ...registeredBundles] : registeredBundles;
+  const resolvedBundle = resolveResourceBundle(bundleOrWindow);
+  const bundlesToSearch = resolvedBundle ? [resolvedBundle] : registeredBundles;
 
   const key = String(templateOrId);
   for (const b of bundlesToSearch) {
@@ -84,13 +118,14 @@ export function FindDialogTemplate(
 
 export function FindMenuTemplate(
   menuOrId: number | string | MenuTemplate,
-  bundle?: ResourceBundle
+  bundleOrWindow?: ResourceBundle | number | WindowRecord
 ): MenuTemplate | undefined {
   if (typeof menuOrId === "object" && "items" in menuOrId) {
     return menuOrId;
   }
 
-  const bundlesToSearch = bundle ? [bundle, ...registeredBundles] : registeredBundles;
+  const resolvedBundle = resolveResourceBundle(bundleOrWindow);
+  const bundlesToSearch = resolvedBundle ? [resolvedBundle] : registeredBundles;
 
   const key = String(menuOrId);
   for (const b of bundlesToSearch) {
@@ -104,6 +139,38 @@ export function FindMenuTemplate(
     }
   }
 
+  return undefined;
+}
+
+export function FindBitmapResource(
+  idOrName: number | string,
+  bundleOrWindow?: ResourceBundle | number | WindowRecord
+): any {
+  const resolvedBundle = resolveResourceBundle(bundleOrWindow);
+  const bundlesToSearch = resolvedBundle ? [resolvedBundle] : registeredBundles;
+  const key = String(idOrName);
+  for (const b of bundlesToSearch) {
+    if ((b as any).bitmaps?.[key]) {
+      const bmp = (b as any).bitmaps[key];
+      return typeof bmp === "function" ? bmp() : bmp;
+    }
+  }
+  return undefined;
+}
+
+export function FindIconResource(
+  idOrName: number | string,
+  bundleOrWindow?: ResourceBundle | number | WindowRecord
+): any {
+  const resolvedBundle = resolveResourceBundle(bundleOrWindow);
+  const bundlesToSearch = resolvedBundle ? [resolvedBundle] : registeredBundles;
+  const key = String(idOrName);
+  for (const b of bundlesToSearch) {
+    if ((b as any).icons?.[key]) {
+      const ico = (b as any).icons[key];
+      return typeof ico === "function" ? ico() : ico;
+    }
+  }
   return undefined;
 }
 
@@ -130,17 +197,22 @@ const activeModals = new Map<HWND, ModalDialogState>();
  * Creates a modeless dialog box from a dialog template.
  */
 export function CreateDialogParam(
-  _hInstance: any,
+  hInstance: any,
   lpTemplateName: number | string | DialogTemplate,
   hWndParent: HWND | null = null,
   lpDialogFunc?: WndProc,
   dwInitParam: any = 0,
   bundle?: ResourceBundle
 ): HWND {
-  if (bundle) {
-    RegisterResourceBundle(bundle);
+  const resolvedBundle =
+    bundle ||
+    resolveResourceBundle(hInstance) ||
+    (hWndParent ? resolveResourceBundle(hWndParent) : undefined);
+
+  if (resolvedBundle) {
+    RegisterResourceBundle(resolvedBundle);
   }
-  const template = FindDialogTemplate(lpTemplateName, bundle);
+  const template = FindDialogTemplate(lpTemplateName, resolvedBundle);
   if (!template) {
     console.error(`CreateDialogParam: Dialog template '${String(lpTemplateName)}' not found.`);
     return 0;
@@ -230,7 +302,7 @@ export function CreateDialogParam(
     windowHeight,
     hWndParent,
     null,
-    null,
+    resolvedBundle || hInstance,
     dwInitParam,
     dialogProc
   );
@@ -239,7 +311,7 @@ export function CreateDialogParam(
 
   // Attach menu if specified
   if (template.menu) {
-    const hMenu = LoadMenu(bundle, template.menu);
+    const hMenu = LoadMenu(hDlg, template.menu);
     if (hMenu) {
       SetMenu(hDlg, hMenu);
     }
@@ -374,6 +446,38 @@ export function SetDlgItemText(hDlg: HWND, nIDDlgItem: number, lpString: string)
 }
 
 /**
+ * Sets the text of a control in a dialog box to an integer string.
+ */
+export function SetDlgItemInt(
+  hDlg: HWND,
+  nIDDlgItem: number,
+  uValue: number,
+  bSigned = false
+): boolean {
+  return SetDlgItemText(hDlg, nIDDlgItem, String(bSigned ? (uValue | 0) : (uValue >>> 0)));
+}
+
+/**
+ * Retrieves the text of a control in a dialog box translated into an integer.
+ */
+export function GetDlgItemInt(
+  hDlg: HWND,
+  nIDDlgItem: number,
+  lpTranslated?: { val: boolean },
+  bSigned = false
+): number {
+  const text = GetDlgItemText(hDlg, nIDDlgItem).trim();
+  const val = parseInt(text, 10);
+  if (isNaN(val)) {
+    if (lpTranslated) lpTranslated.val = false;
+    return 0;
+  }
+  if (lpTranslated) lpTranslated.val = true;
+  return bSigned ? (val | 0) : (val >>> 0);
+}
+
+
+/**
  * Retrieves the title or text of a control in a dialog box.
  */
 export function GetDlgItemText(hDlg: HWND, nIDDlgItem: number): string {
@@ -395,6 +499,18 @@ export function SendDlgItemMessage(
   const hCtrl = GetDlgItem(hDlg, nIDDlgItem);
   if (!hCtrl) return 0;
   return SendMessage(hCtrl, uMsg, wParam, lParam);
+}
+
+export function CheckRadioButton(
+  hDlg: HWND,
+  nIDFirstButton: number,
+  nIDLastButton: number,
+  nIDCheckButton: number
+): boolean {
+  for (let id = nIDFirstButton; id <= nIDLastButton; id++) {
+    SendDlgItemMessage(hDlg, id, BM_SETCHECK, id === nIDCheckButton ? 1 : 0, 0);
+  }
+  return true;
 }
 
 /**
@@ -429,9 +545,7 @@ export function LoadMenu(
 ): HMENU | null {
   const menuTemplate = FindMenuTemplate(
     lpMenuNameOrId,
-    typeof bundleOrHInstance === "object" && bundleOrHInstance?.menus
-      ? bundleOrHInstance
-      : undefined
+    bundleOrHInstance
   );
   if (!menuTemplate) return null;
 
@@ -467,15 +581,18 @@ export function LoadString(
   uID: number,
   bundle?: ResourceBundle
 ): string {
-  if (bundle?.stringTable?.[uID] !== undefined) {
-    return bundle.stringTable[uID];
+  const resolved = bundle ?? resolveResourceBundle(bundleOrHInstance);
+  if (resolved?.stringTable?.[uID] !== undefined) {
+    return resolved.stringTable[uID];
   }
   if (typeof bundleOrHInstance === "object" && bundleOrHInstance?.stringTable?.[uID] !== undefined) {
     return bundleOrHInstance.stringTable[uID];
   }
-  for (const b of registeredBundles) {
-    if (b?.stringTable?.[uID] !== undefined) {
-      return b.stringTable[uID];
+  if (!resolved) {
+    for (const b of registeredBundles) {
+      if (b?.stringTable?.[uID] !== undefined) {
+        return b.stringTable[uID];
+      }
     }
   }
   return "";

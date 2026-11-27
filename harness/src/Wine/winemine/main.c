@@ -1053,3 +1053,9 @@ int WINAPI wWinMain( HINSTANCE hInst, HINSTANCE hPrevInst, LPWSTR cmdline, int c
     }
     return msg.wParam;
 }
+
+int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdline, int cmdshow )
+{
+    return wWinMain( hInst, hPrevInst, (LPWSTR)L"", cmdshow );
+}
+

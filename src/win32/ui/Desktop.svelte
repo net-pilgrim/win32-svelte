@@ -16,6 +16,7 @@
   import { StartMfcDemo } from "../../samples/mfc_demo";
   import { StartRcDemo } from "../../samples/rc_demo.ts";
   import { StartWasmApp } from "../../samples/wasm_app";
+  import { StartOdbcAdmin } from "../../samples/odbc_admin";
 
   let topWindows = $derived(kernel.windows.filter((w) => w.parentHwnd === null));
 
@@ -134,14 +135,6 @@
       action: () => launchLuaHost(220, 70),
     },
     {
-      id: "wine_clock",
-      title: "Wine Clock",
-      icon: "⏰",
-      x: 106,
-      y: 496,
-      action: () => StartWasmApp(160, 120, "/wasm-demo/clock.wasm"),
-    },
-    {
       id: "doom",
       title: "DOOM 95",
       icon: "💀",
@@ -156,6 +149,46 @@
       x: 196,
       y: 16,
       action: () => launchRegEdit(200, 80),
+    },
+    {
+      id: "wine_clock",
+      title: "Wine Clock",
+      icon: "⏰",
+      x: 196,
+      y: 96,
+      action: () => StartWasmApp(160, 120, "/wasm-demo/clock.wasm"),
+    },
+    {
+      id: "wine_winemine",
+      title: "WineMine",
+      icon: "💣",
+      x: 196,
+      y: 176,
+      action: () => StartWasmApp(140, 60, "/wasm-demo/winemine.wasm"),
+    },
+    {
+      id: "odbc",
+      title: "ODBC Admin",
+      icon: "🗄️",
+      x: 196,
+      y: 256,
+      action: () => StartOdbcAdmin(180, 80),
+    },
+    {
+      id: "wine_notepad",
+      title: "Wine Notepad",
+      icon: "📝",
+      x: 196,
+      y: 336,
+      action: () => StartWasmApp(150, 100, "/wasm-demo/notepad.wasm"),
+    },
+    {
+      id: "wine_calc",
+      title: "Wine Calculator",
+      icon: "🧮",
+      x: 196,
+      y: 416,
+      action: () => StartWasmApp(180, 120, "/wasm-demo/calc.wasm"),
     },
     {
       id: "recycle",
@@ -340,6 +373,18 @@
       </button>
       <button class="quick-btn" title="Wine Clock" onclick={() => StartWasmApp(160, 120, "/wasm-demo/clock.wasm")}>
         ⏰
+      </button>
+      <button class="quick-btn" title="WineMine" onclick={() => StartWasmApp(140, 60, "/wasm-demo/winemine.wasm")}>
+        💣
+      </button>
+      <button class="quick-btn" title="Wine Notepad" onclick={() => StartWasmApp(150, 100, "/wasm-demo/notepad.wasm")}>
+        📝
+      </button>
+      <button class="quick-btn" title="Wine Calculator" onclick={() => StartWasmApp(180, 120, "/wasm-demo/calc.wasm")}>
+        🧮
+      </button>
+      <button class="quick-btn" title="ODBC Administrator" onclick={() => StartOdbcAdmin(180, 80)}>
+        🗄️
       </button>
       <button class="quick-btn" title="Lua 5.3 Command Center" onclick={() => launchLuaHost(220, 70)}>
         🌙

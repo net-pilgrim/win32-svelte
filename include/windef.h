@@ -22,6 +22,10 @@ extern "C" {
 #define CALLBACK
 #endif
 
+#ifndef PASCAL
+#define PASCAL
+#endif
+
 #ifndef CDECL
 #define CDECL
 #endif
@@ -142,6 +146,7 @@ typedef HANDLE              HMODULE;
 typedef HANDLE              HGDIOBJ;
 typedef HANDLE              HACCEL;
 typedef HANDLE              HGLOBAL;
+typedef HANDLE              HLOCAL;
 typedef HANDLE              HRSRC;
 typedef HANDLE              HPALETTE;
 typedef HANDLE              HMETAFILE;
@@ -180,6 +185,11 @@ typedef struct tagSIZE {
 #define MAKELPARAM(l, h)    ((LPARAM)(DWORD)MAKELONG(l, h))
 #define MAKELRESULT(l, h)   ((LRESULT)(DWORD)MAKELONG(l, h))
 #define MAKELONG(a, b)      ((LONG)(((WORD)(((DWORD_PTR)(a)) & 0xffff)) | ((DWORD)((WORD)(((DWORD_PTR)(b)) & 0xffff))) << 16))
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
+
 
 #ifdef __cplusplus
 }

@@ -169,7 +169,7 @@ Headless audit (`npx tsx -r ./src/test_setup.cjs scripts/audit_wasm_apps.ts`):
 - 14 are flagged: Emf8, Emf9, Emf10, Emf11 and Emf12 fail with a divide-by-zero error, and AddSynth, Colors3, FormFeed, HexCalc, Record1, Record2, Record3, Scramble and TestMci create no window. The causes have not been analysed yet.
 - "Working" here means the program ran and drew something. The audit does not compare output with real Windows, and several passing programs log unimplemented calls while they run. It is a liveness check, not a conformance test.
 
-To rebuild the binaries you need Clang or Zig with the WebAssembly target, `wasm-ld`, GNU make and Python 3. Run `make all` in `harness/`, then `make copy-wasm-files` and `python3 scripts/generate_wasm_manifest.py`. The harness `README.md` and `Makefile` have the details. The C sources are third-party material with their own copyright notice (`harness/readme.txt`), see [Licence](#licence).
+To rebuild the binaries you need Clang or Zig with the WebAssembly target, `wasm-ld`, GNU make and Node.js. Run `make all` in `harness/`, then `make copy-wasm-files` (or `npm run manifest:wasm`). The harness `README.md` and `Makefile` have the details. The C sources are third-party material with their own copyright notice (`harness/readme.txt`), see [Licence](#licence).
 
 ## Known limitations
 
