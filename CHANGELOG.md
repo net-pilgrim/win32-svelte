@@ -4,6 +4,10 @@ All notable changes to the `win32-svelte` project will be documented in this fil
 
 ## [Unreleased] - 2026-11-15
 
+### Fixed
+- **Status Bar Docking**: `STATUSCLASSNAME` windows now dock to the bottom of their parent on `WM_SIZE` (matching authentic Win32 behavior), fixing Wine Notepad rendering its "Ready" status bar at the top of the window underneath the edit control.
+- Added `src/win32/__tests__/statusbar_dock.test.ts` regression test (kernel-level docking + Wine Notepad layout) to the `npm test` chain.
+
 ### Added
 - **Flat Start Menu Presentation**: De-beveled start menu entries in `StartMenu.svelte` to match authentic Windows 95/Windows 98 behavior, eliminating 3D button bevels (`box-shadow: none`) on menu buttons and submenu items.
 - **`flat` Prop on `StartMenu`**: Added optional `flat` boolean prop (default `true`) allowing applications to choose between authentic flat menu entries and legacy beveled buttons.

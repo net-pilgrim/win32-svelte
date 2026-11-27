@@ -516,7 +516,17 @@ export class Win32Kernel {
           return (win.controlState.statusParts[0]?.text ?? win.title) as any;
         }
         case WM_SIZE: {
-          win.height = 20;
+          const STATUSBAR_HEIGHT = 20;
+          const parent =
+            win.parentHwnd !== null && win.parentHwnd !== undefined
+              ? this.getWindow(win.parentHwnd)
+              : null;
+          if (parent) {
+            win.x = 0;
+            win.y = Math.max(0, parent.height - STATUSBAR_HEIGHT);
+            win.width = parent.width;
+          }
+          win.height = STATUSBAR_HEIGHT;
           return 0;
         }
       }
